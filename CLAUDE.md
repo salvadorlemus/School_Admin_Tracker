@@ -38,6 +38,7 @@ student's payments at one school counts at, or is visible to, another.
 Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for patterns:
 
 - Vite + React + TypeScript (strict) + `@supabase/supabase-js`. Node / npm.
+- `pdfjs-dist` (approved) for the in-app terms reader, which must know when the last page is reached.
 - Supabase: Postgres with RLS, Auth (a login per person), Storage (a private bucket for payment
   screenshots, card photos and terms PDFs, each school in its own folder), Edge Functions for anything that needs the service key
   (invites, emails, deleting a school's files).
@@ -57,6 +58,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 - `student_card`: per student per school: photo, name, birth date (the age is calculated, never
   stored), known physical conditions, and the "everything I wrote is true" declaration (who and
   when). With `emergency_contact` (name, phone) and, for minors, `authorized_pickup` (name, photo).
+  Every change is kept in `student_card_log` (what changed, who, when).
 - `terms`: each school's terms and conditions PDF (in Storage), with a version; a new upload is a new
   version, never a replacement.
 - `room`: name, optional capacity (classes at once, students in total), archived.
@@ -170,13 +172,18 @@ sent is logged.
    student, or to the guardian for a minor. When registering a student, the director picks their
    payment day from a list: the 15th or the 30th (in February, its last day). Their monthly plans at
    that school are due that day, and reminded automatically 5 days before, 1 day before and on the
-   day, unless already paid.
+   day, unless already paid. Per-visit payers (TotalPass, cash) get no reminders: they come when
+   they choose, so there's nothing to be due.
 12. **Terms and conditions**: each school's director uploads its terms PDF (only directors can). Every
    student's invite (or the email saying they were added to a new school) carries that school's PDF.
    The student (the guardian, for a minor) reads it in a PDF reader inside the app; the "Accept"
    button only turns on once they reach the last page, and pressing it completes the registration.
    When the director uploads new terms, every current student is notified and must accept the new
    version the same way. Each acceptance records the school, the terms' version, who and when.
+   Until a student has accepted their school's latest terms, they can't use the app for that school
+   or attend its classes: the database refuses their attendance (check-in or by hand) until then.
+   The terms ask for express consent to keep the card's health data (sensitive data under Mexico's
+   LFPDPPP), and the acceptance is the record of it.
 13. **Inscription fee**: a new student owes it. A student who goes the school's set number of months
    without paying owes it again, and is notified. It never blocks attendance: it stays marked as
    owed until the director checks it as done. "Months without paying" means months with no checked
@@ -192,7 +199,9 @@ sent is logged.
    emergency contacts (name and phone), and known physical conditions. A minor's card also lists the
    authorized people who can pick them up (name and photo). The page ends with a required "I declare
    that everything I wrote here is true" box, recorded with who and when. Photos are compressed on
-   the phone and kept in the private bucket.
+   the phone and kept in the private bucket. The student (or guardian) can edit the card at any
+   time; each change is logged and the school's directors are notified. A card is never copied
+   from one school to another: a student in two schools fills in each.
 18. **Who sees a card**: the student (or guardian), the school's directors, and the teachers of the
    classes the student is enrolled in or attends (a substitute, for the sessions they give). On the
    card, each emergency contact's phone is a link that calls it (`tel:`). Cards hold health data,
@@ -240,12 +249,4 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **PDF reader**: knowing the reader reached the last page needs a PDF library (`pdfjs-dist`), a new
-  dependency to approve. The browser's own viewer can't tell the app where the reader is.
-- **New terms not yet accepted**: does the student keep using the app (asked again at every sign-in),
-  or is everything else locked until they accept?
-- **Card changes**: can the student edit their card later (a new phone, a new condition), and should
-  teachers see when it changed? Is a student in two schools offered their other card to copy from?
-- **Per-visit payers**: are TotalPass and cash payers reminded of anything?
-- **Sensitive data**: physical conditions are health data; under Mexico's LFPDPPP they need express
-  consent, which each school's terms should ask for.
+None right now.
