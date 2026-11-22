@@ -46,7 +46,10 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   number of months without paying after which a student owes the inscription fee again.
 - `person`: name and contact. Has a login, except a minor student, whose guardian signs in for them.
 - `membership`: a person's role in a school (director, teacher, student, guardian) and status. One
-  person can hold several, in several schools (a director who teaches is director and teacher).
+  person can hold several, in several schools (a director who teaches is director and teacher; a
+  student can take classes in two schools).
+- `terms`: each school's terms and conditions PDF (in Storage), with a version; a new upload is a new
+  version, never a replacement.
 - `room`: name, optional capacity (classes at once, students in total), archived.
 - `class`: its teacher and kind (weekly, or free hours with a number of attendants).
 - `schedule`: a weekly class's weekday, start and end time, first and last date, and room.
@@ -55,7 +58,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   QR is made from. Generated from the schedule for weekly classes; set one by one by the director for
   free hours. A moved session points at the one it replaces.
 - `enrollment`: a student in a class, from one date to another, paying per visit or monthly (with
-  the sessions a month the plan covers).
+  the sessions a month the plan covers and the day of the month it's due).
 - `price`: what it prices (the inscription fee, a monthly plan, free hours by number of attendants),
   the amount, and from when. The director adds a new row to change a price, never edits one: the app
   reads the latest, and past bookings keep the price they had.
@@ -67,8 +70,11 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   payers, one month of one enrollment for monthly ones, or the inscription fee), checked by whom and
   when.
 - `terms_acceptance`: who accepted which version of the terms, for which student, and when.
+- `inscription`: a fee a student owes a school (on joining, or again after months without paying),
+  owed until the director marks it as done (who and when).
 - `notification`: an in-app notice for a person (what it's about, read or not). Payment notices are
-  also emailed.
+  also emailed. Reminders are created by a scheduled job in the database (`pg_cron`) and emailed by
+  an Edge Function.
 
 ## Roles
 
@@ -87,10 +93,15 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 - **Student**: an adult student has their own login, created from an email invite. Sees the classes
   they're linked to, checks in by scanning the teacher's QR, uploads their payment screenshots, and
   gets their notifications. A minor student has no login.
-- **Guardian**: registered with a minor student; signs in and does everything above for them, and
-  receives their notifications and emails.
+- **Guardian**: registered with a minor student; is obliged to do every step for them (accepting
+  the terms, checking in with their own phone, uploading screenshots), and receives their
+  notifications and emails.
 
-A person in several schools picks the school after signing in. Every login starts from an
+A director can register a student who already studies at another school: the same person gets a
+membership in the new school, with no second login (they're told by email they were added, and
+the director learns nothing about the other school). Students and guardians see the classes,
+payments and notices of all their schools together, without choosing one; directors and teachers
+in several schools switch between them. Every login starts from an
 **invitation email sent through Resend** (directors by the admin; teachers, students and guardians by
 a director): a one-time link to choose a password, also shown to whoever invited, to send by hand if
 the email doesn't arrive. The link works once and expires, a new one cancels the old one, and each one
@@ -145,13 +156,16 @@ sent is logged.
    in-app notice that the payment was saved. These files count toward the school's storage in the
    admin panel.
 11. **Payment notices**: every notice about a student's payments (cash saved, going over the monthly
-   plan, inscription fee owed) is shown in the app and also emailed to the student, or to the
-   guardian for a minor.
-12. **Terms and conditions**: every new student's invite email carries the terms as a PDF, and the
-   student (the guardian, for a minor) accepts them (a button) before the registration is complete.
-   The acceptance records the terms' version, who and when.
-13. **Inscription fee**: a new student pays it. A student who goes the school's set number of months
-   without paying owes it again, and is notified.
+   plan, inscription fee owed, payment reminders) is shown in the app and also emailed to the
+   student, or to the guardian for a minor. A monthly plan's payment is reminded automatically 5
+   days before its due day, 1 day before and on the day, unless it's already been paid.
+12. **Terms and conditions**: each school uploads its own terms PDF. Every student's invite (or the
+   email saying they were added to a new school) carries that school's PDF, and the student (the
+   guardian, for a minor) accepts them (a button) before the registration is complete. The
+   acceptance records the school, the terms' version, who and when.
+13. **Inscription fee**: a new student owes it. A student who goes the school's set number of months
+   without paying owes it again, and is notified. It never blocks attendance: it stays marked as
+   owed until the director checks it as done.
 14. **Guest teachers**: a teacher attending another teacher's class is recorded as a guest teacher,
    owes no payment and is counted apart from students.
 15. **Moving a session**: a session that can't be given (a holiday, a cancellation) is moved by the
@@ -201,9 +215,7 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Inscription fee owed again**: does it only notify, or does it stop check-in until paid? What
-  counts as "a month without paying": a month with no checked payment screenshot?
-- **Terms**: each school's own PDF (uploaded by the director) or one for the whole platform? When the
-  terms change, must existing students accept the new version?
-- **Minors' check-in**: the guardian scans with their own phone, so they must be in the room. Is that
-  right, or can the teacher record a minor's attendance instead?
+- **Months without paying**: does that mean months with no checked payment screenshot at that school?
+- **Terms changes**: when a school uploads new terms, must its current students accept the new version?
+- **Due day**: is a monthly plan due on a day the director sets per student, per class, or one day for
+  the whole school? Are per-visit payers (TotalPass, cash) reminded of anything?
