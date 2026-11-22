@@ -30,21 +30,27 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 
 ## Roles
 
-- **Admin** (platform): the owner's account. Creates **schools** and their **directors**. Sees no
-  school's students or attendance unless decided otherwise.
+- **Admin** (platform): the owner's account. Runs the **admin panel** (below). Sees schools, their
+  directors and usage, never a school's students, teachers' classes or attendance.
 - **Director** (school admin): runs one school. Defines classes and their schedules, invites teachers,
   registers and unregisters students, assigns and unassigns students to a teacher's class, and is the
   only one who can remove or correct an attendance record.
 - **Teacher**: sees the attendance of their own classes, and records a student's attendance after the
   check-in window (a student who came but didn't check in, or checked in late).
-- **Student**: has their own login. Sees the classes they're linked to and checks in to a session.
+- **Student**: has their own login, created from an email invite. Sees the classes they're linked to
+  and checks in to a session.
+
+Every login starts from an **invitation email sent through Resend** (directors by the admin; teachers
+and students by a director): a one-time link to choose a password, also shown to whoever invited, to
+send by hand if the email doesn't arrive.
 
 ## Rules
 
 1. **Several schools**: every table carries `school_id`, and RLS keeps each school to its own rows.
 2. Students and teachers are registered and unregistered, never deleted: their history stays.
 3. A class is defined by a director: either a weekly occurrence (e.g. Tuesdays 4–6 pm, September to
-   December) or free hours in the school's schedule assigned to a teacher.
+   December) or free hours in the school's schedule assigned to a teacher. Only the director sets
+   the free hours and their exact times; teachers don't book them.
 4. A student can be linked to several classes and several teachers.
 5. A teacher can't have the same student twice in the same (overlapping) time frame.
 6. A student checks in to a session themselves, from the session's start up to 30 minutes after it.
@@ -55,6 +61,25 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 
 Enforce these where the data lives (database constraints, RLS, triggers that stamp who and when),
 not only in the screens, so a tampered client can't skip them.
+
+## Admin panel (platform admin only)
+
+Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
+
+- **Schools**: register a school, assign and change its director (invite by email), edit its details
+  (contact, tax details for invoices, notes).
+- **Enable / disable a school**: disabled, nobody from it can sign in or read anything (the database
+  enforces it); its data stays and it can be enabled again. Delete only a disabled school, after typing
+  its name.
+- **Payments**: a monthly fee per school, a billing day and an optional trial end date; payments
+  recorded by hand (amount, date, month paid, method, who paid), never edited, corrected with a
+  negative entry. Shows who is up to date, due soon or overdue.
+- **Usage per school**: storage in MB against the plan's limit, number of students, teachers and
+  classes, check-ins in the last 30 days, last activity. Counts only, no records.
+- **Calendar**: payments due and received, trial ends, disables, and the admin's own reminders, beside
+  an upcoming and overdue list.
+- **Log**: every admin action with who and when, kept even after a school is deleted.
+- Each school's director can download the school's own data (export), since the admin can't see it.
 
 ## Copy
 
@@ -74,10 +99,5 @@ not only in the screens, so a tampered client can't skip them.
 
 ## Open questions
 
-- **Check-in window**: does it also open a few minutes before the start, or only at the start?
-- **Who registers a student's login**: the director creates it and the student gets an email invite,
-  or students sign up themselves and a director approves them?
-- **Free hours**: does the director set each session's exact time when assigning the hours, or does
-  the teacher book them within the assigned hours?
-- **Does the admin see attendance** (counts per school, say), or only schools, directors and usage?
-- Billing per school, as in VetClinicTracker's platform pages, or not for now?
+- **Early check-in**: can a student check in a few minutes before the session starts (e.g. from
+  10 minutes before), or only from the start time? Either way it closes 30 minutes after the start.
