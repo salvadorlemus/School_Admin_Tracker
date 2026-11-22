@@ -1,5 +1,10 @@
+node_modules
+dist
+*.local
+.DS_Store
+*.tsbuildinfo
+
+# personal / tool state
 .idea/
-node_modules/
-dist/
-.env*.local
 .remember/
+.claude/

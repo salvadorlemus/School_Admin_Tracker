@@ -1,0 +1,64 @@
+/* Design tokens from the mockups (docs/design/claude-design-brief.md). Colours that carry a meaning
+   (substitute, cancelled, payment states, terms pending, over the plan, warning) are named for it,
+   so every screen uses the same one. */
+
+:root {
+    --color-bg: #F6F4EF;
+    --color-surface: #FFFFFF;
+    --color-text: #1D1B20;
+    --color-muted: #5E5A63;
+    --color-line: #E4E0D8;
+    --color-accent: #0E5E66;
+    --color-accent-soft: #DCEFF0;
+
+    --color-substitute: #5B3FB0;
+    --color-substitute-soft: #EEE9FB;
+    --color-cancelled: #6B6770;
+    --color-cancelled-soft: #ECEAEE;
+    --color-confirmed: #1B6E3F;
+    --color-confirmed-soft: #E3F3E8;
+    --color-uploaded: #1F4FB5;
+    --color-uploaded-soft: #E5ECFB;
+    --color-rejected: #A3231A;
+    --color-rejected-soft: #FBE6E4;
+    --color-terms-pending: #6E3C00;
+    --color-terms-pending-soft: #FFF0D9;
+    --color-over-plan: #8A1A50;
+    --color-over-plan-soft: #FBE5EF;
+    --color-warning: #4D3600;
+    --color-warning-soft: #FFF4CC;
+
+    --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+    --font-body: Inter, system-ui, sans-serif;
+
+    /* Safe areas (notch, home indicator); zero on screens without them. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --gutter: 16px;
+
+    color-scheme: light;
+}
+
+body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+}
+
+h1, h2, h3 {
+    font-family: var(--font-display);
+}
+
+#root {
+    min-height: 100vh;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+}
+
+/* Keyboard focus is always visible. */
+:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+}
