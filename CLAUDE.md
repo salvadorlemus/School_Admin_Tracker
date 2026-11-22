@@ -24,8 +24,14 @@ The owner's words, and what they mean in this project. Code uses the English col
 | inscription fee | the fee to join the school, owed again after a set number of months without paying | `inscription` |
 | guest teacher | a teacher attending another teacher's class: not a paying student, counted apart | `attendance.kind: guest_teacher` |
 | substitute | a teacher giving a session in place of the class's teacher, without moving it | `session.substitute_id` |
+| student card | a student's file at a school: photo, name, age, emergency contacts, physical conditions | `student_card` |
+| physical affections | known health conditions a teacher should know of (allergies, injuries, illnesses) | `student_card.health_notes` |
+| authorized person | an adult allowed to pick a minor up from school (name and photo) | `authorized_pickup` |
+| payment day | the day a student's monthly plans are due: the 15th or the 30th | `membership.payment_day` |
 
 The school's fee to the platform (admin panel) is `billing_payment`; never mix it with `payment_proof`.
+Each school's finances (payment screenshots, inscriptions, prices) are its own: nothing about a
+student's payments at one school counts at, or is visible to, another.
 
 ## Stack
 
@@ -33,7 +39,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 
 - Vite + React + TypeScript (strict) + `@supabase/supabase-js`. Node / npm.
 - Supabase: Postgres with RLS, Auth (a login per person), Storage (a private bucket for payment
-  screenshots, each school in its own folder), Edge Functions for anything that needs the service key
+  screenshots, card photos and terms PDFs, each school in its own folder), Edge Functions for anything that needs the service key
   (invites, emails, deleting a school's files).
 - Email (invites with the terms PDF, payment emails, password links) through Resend, from the
   verified `mail.kokoasoft.com`; Supabase Auth's own emails go through Resend's SMTP too.
@@ -47,7 +53,10 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 - `person`: name and contact. Has a login, except a minor student, whose guardian signs in for them.
 - `membership`: a person's role in a school (director, teacher, student, guardian) and status. One
   person can hold several, in several schools (a director who teaches is director and teacher; a
-  student can take classes in two schools).
+  student can take classes in two schools). A student's membership holds their payment day.
+- `student_card`: per student per school: photo, name, birth date (the age is calculated, never
+  stored), known physical conditions, and the "everything I wrote is true" declaration (who and
+  when). With `emergency_contact` (name, phone) and, for minors, `authorized_pickup` (name, photo).
 - `terms`: each school's terms and conditions PDF (in Storage), with a version; a new upload is a new
   version, never a replacement.
 - `room`: name, optional capacity (classes at once, students in total), archived.
@@ -58,7 +67,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   QR is made from. Generated from the schedule for weekly classes; set one by one by the director for
   free hours. A moved session points at the one it replaces.
 - `enrollment`: a student in a class, from one date to another, paying per visit or monthly (with
-  the sessions a month the plan covers and the day of the month it's due).
+  the sessions a month the plan covers).
 - `price`: what it prices (the inscription fee, a monthly plan, free hours by number of attendants),
   the amount, and from when. The director adds a new row to change a price, never edits one: the app
   reads the latest, and past bookings keep the price they had.
@@ -86,15 +95,16 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   substitute, invites teachers, registers and unregisters students and their guardians, assigns and
   unassigns students to a class (with how they pay), checks payment screenshots, and is the only one
   who can remove or correct an attendance record.
-- **Teacher**: sees the attendance and payment screenshots of their own classes (a substitute, of the
-  sessions they give), shows the session's check-in QR on their phone, and records a student's
+- **Teacher**: sees the attendance, payment screenshots and student cards of their own classes (a
+  substitute, of the sessions they give), shows the session's check-in QR on their phone, and records a student's
   attendance up to 1 hour after the session ends (a student who came but didn't check in). Can attend
   another teacher's class as a guest teacher.
 - **Student**: an adult student has their own login, created from an email invite. Sees the classes
   they're linked to, checks in by scanning the teacher's QR, uploads their payment screenshots, and
   gets their notifications. A minor student has no login.
-- **Guardian**: registered with a minor student; is obliged to do every step for them (accepting
-  the terms, checking in with their own phone, uploading screenshots), and receives their
+- **Guardian**: registered with a minor student; is obliged to do every step for them (filling in
+  the student card, accepting the terms, checking in with their own phone, uploading screenshots),
+  and receives their
   notifications and emails.
 
 A director can register a student who already studies at another school: the same person gets a
@@ -157,21 +167,36 @@ sent is logged.
    admin panel.
 11. **Payment notices**: every notice about a student's payments (cash saved, going over the monthly
    plan, inscription fee owed, payment reminders) is shown in the app and also emailed to the
-   student, or to the guardian for a minor. A monthly plan's payment is reminded automatically 5
-   days before its due day, 1 day before and on the day, unless it's already been paid.
-12. **Terms and conditions**: each school uploads its own terms PDF. Every student's invite (or the
-   email saying they were added to a new school) carries that school's PDF, and the student (the
-   guardian, for a minor) accepts them (a button) before the registration is complete. The
-   acceptance records the school, the terms' version, who and when.
+   student, or to the guardian for a minor. When registering a student, the director picks their
+   payment day from a list: the 15th or the 30th (in February, its last day). Their monthly plans at
+   that school are due that day, and reminded automatically 5 days before, 1 day before and on the
+   day, unless already paid.
+12. **Terms and conditions**: each school's director uploads its terms PDF (only directors can). Every
+   student's invite (or the email saying they were added to a new school) carries that school's PDF.
+   The student (the guardian, for a minor) reads it in a PDF reader inside the app; the "Accept"
+   button only turns on once they reach the last page, and pressing it completes the registration.
+   When the director uploads new terms, every current student is notified and must accept the new
+   version the same way. Each acceptance records the school, the terms' version, who and when.
 13. **Inscription fee**: a new student owes it. A student who goes the school's set number of months
    without paying owes it again, and is notified. It never blocks attendance: it stays marked as
-   owed until the director checks it as done.
+   owed until the director checks it as done. "Months without paying" means months with no checked
+   payment screenshot at that school.
 14. **Guest teachers**: a teacher attending another teacher's class is recorded as a guest teacher,
    owes no payment and is counted apart from students.
 15. **Moving a session**: a session that can't be given (a holiday, a cancellation) is moved by the
    director to another time frame; the original stays, marked as moved.
 16. **Substitutes**: a director can give a session to another teacher without moving it. It's logged,
    and the dashboard shows it in a different colour from a normal class.
+17. **Student card**: a new student fills in their card on a registration page reached from the
+   invite (the guardian, for a minor): photo, name, birth date (the card shows the age, calculated),
+   emergency contacts (name and phone), and known physical conditions. A minor's card also lists the
+   authorized people who can pick them up (name and photo). The page ends with a required "I declare
+   that everything I wrote here is true" box, recorded with who and when. Photos are compressed on
+   the phone and kept in the private bucket.
+18. **Who sees a card**: the student (or guardian), the school's directors, and the teachers of the
+   classes the student is enrolled in or attends (a substitute, for the sessions they give). On the
+   card, each emergency contact's phone is a link that calls it (`tel:`). Cards hold health data,
+   so the admin never sees them and they never cross to another school.
 
 Enforce these where the data lives (database constraints, RLS, triggers that stamp who and when),
 not only in the screens, so a tampered client can't skip them.
@@ -215,7 +240,12 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Months without paying**: does that mean months with no checked payment screenshot at that school?
-- **Terms changes**: when a school uploads new terms, must its current students accept the new version?
-- **Due day**: is a monthly plan due on a day the director sets per student, per class, or one day for
-  the whole school? Are per-visit payers (TotalPass, cash) reminded of anything?
+- **PDF reader**: knowing the reader reached the last page needs a PDF library (`pdfjs-dist`), a new
+  dependency to approve. The browser's own viewer can't tell the app where the reader is.
+- **New terms not yet accepted**: does the student keep using the app (asked again at every sign-in),
+  or is everything else locked until they accept?
+- **Card changes**: can the student edit their card later (a new phone, a new condition), and should
+  teachers see when it changed? Is a student in two schools offered their other card to copy from?
+- **Per-visit payers**: are TotalPass and cash payers reminded of anything?
+- **Sensitive data**: physical conditions are health data; under Mexico's LFPDPPP they need express
+  consent, which each school's terms should ask for.
