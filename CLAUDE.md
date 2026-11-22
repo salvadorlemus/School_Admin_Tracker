@@ -292,6 +292,57 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 Enforce these where the data lives (database constraints, RLS, triggers that stamp who and when),
 not only in the screens, so a tampered client can't skip them.
 
+## Screens
+
+What each person sees after the one sign-in screen. A screen only shows what the database lets that
+role read; hiding a menu never protects anything. The mockup brief for these is
+`docs/design/claude-design-brief.md`.
+
+**Before the app opens** (everyone, in this order when they apply):
+- **Registration** (invited students and guardians): the card form, then the terms reader, then done.
+- **New terms**: the terms reader, until the latest version is accepted.
+- **School disabled**: a message, nothing else.
+
+**Student** (and guardian, for their minors). All their schools together, each item labelled with
+its school; no school menu.
+- **Home**: today's and upcoming sessions (class, teacher, room, time), substitutes and
+  cancellations marked; a big **Check in** button.
+- **Check in**: the camera, to scan the teacher's QR; a guardian first picks which minors are there.
+  Then a clear result: checked in, or why not (too early, too late, not enrolled, terms pending).
+- **Payments**: per class or package, what's due and when; sessions used against the plan (this
+  month, or this week for a package); each screenshot and its state (uploaded, confirmed, rejected);
+  registration fee owed; **Upload screenshot**.
+- **My card**: photo, age, emergency contacts, health conditions, pickup people (minors); editable.
+- **Notices**: the notices board and personal notices, with an unread count.
+- **Account**: password, language, accepted terms, **Request my data deletion**.
+
+**Teacher**. One school at a time; a menu switches when they teach in several.
+- **My schedule**: their sessions by day and week; sessions given as a substitute in another colour.
+- **Session**: **Show QR** (full screen, changing every 30 seconds); who's expected and who has
+  checked in; **Add attendance** until 1 hour after the end; "terms pending" flags.
+- **My students**: cards of their classes' current students, health conditions first, emergency
+  phones as call links.
+- **Payments**: their classes' screenshots, view only.
+- **Notices**: the board and personal notices (a student over their plan, a change to their classes).
+
+**Director**. One school at a time, with a school menu; plus the teacher screens if they teach.
+- **Dashboard**: today's sessions in every room; to-dos: screenshots to check, registration fees
+  owed, students over their plan, card changes, minors turning 18.
+- **Calendar**: every session by room and teacher; move, cancel (with or without a replacement),
+  substitute, change a class's teacher; room capacity warnings.
+- **Classes**: weekly classes and their schedules, free hours (maximum attendants), package classes.
+- **Rooms**: names, capacity, archive.
+- **Students**: register (minor or adult, guardian, payment day), enroll, give a package, book free
+  hours, deactivate, delete; each student's card and its change history.
+- **Teachers**: invite, deactivate, reassign future sessions.
+- **Payments**: screenshots to confirm or reject, registration fees, who's due or overdue.
+- **Attendance**: by session; add, remove or correct, with the change history.
+- **Prices**: registration fee, monthly plans, packages, free hours; each change is a new price.
+- **Terms**: upload a new version; who has and hasn't accepted.
+- **Notices** and **Export**.
+
+**Admin**: the admin panel only (below).
+
 ## Storage
 
 - One private bucket. Paths use ids, never names, with a prefix per kind:
