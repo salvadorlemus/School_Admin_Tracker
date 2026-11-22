@@ -17,7 +17,7 @@ The owner's words, and what they mean in this project. Code uses the English col
 | registered / unregistered | enrolled and active in the school, or not (kept, never deleted) | `status: active / inactive` |
 | school admin | a director (see Roles) | `director` |
 | salon / space | a room where classes are given, named by the school's director | `room` |
-| payment screenshot | a student's proof of paying for a class (a screenshot of the receipt or token) | `payment_proof` |
+| payment screenshot | a student's proof of paying for a class (a screenshot of the receipt or token, e.g. TotalPass) | `payment_proof` |
 
 ## Stack
 
@@ -35,7 +35,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 
 - **Admin** (platform): the owner's account. Runs the **admin panel** (below). Sees schools, their
   directors and usage, never a school's students, teachers' classes or attendance.
-- **Director** (school admin): runs one school. Names the school's rooms, defines classes and their
+- **Director** (school admin): runs one school. Names the school's rooms (and their capacity), defines classes and their
   schedules (with a room), invites teachers,
   registers and unregisters students, assigns and unassigns students to a teacher's class, and is the
   only one who can remove or correct an attendance record.
@@ -64,9 +64,14 @@ send by hand if the email doesn't arrive.
 8. Only the admin creates schools and directors; only directors invite teachers and register students.
 9. **Rooms**: each school's director names its rooms (salons, spaces) and can archive them (never
    delete: past classes point at them). Every class schedule says its room: "Teacher A, Tuesdays
-   7–9 am, Salón 1". Two classes can't use the same room at overlapping times.
-10. **Payment screenshots**: some students pay for a class with a predefined method. For those, the
-   student uploads a screenshot of the payment for that class (an image, compressed on the phone,
+   7–9 am, Salón 1". Rooms are wide spaces, so several classes can share one at overlapping times.
+   Each room has an optional capacity: how many classes it holds at once, and how many students in
+   total. When a schedule would go over either number, the director sees a warning and can still
+   save it (a warning, never a refusal).
+10. **Payment screenshots**: some students pay for a class through a pass, today TotalPass (a
+   monthly plan where the student picks the classes they attend). For each session of a class paid
+   that way, the student uploads a screenshot of that visit's payment, tied to their attendance at
+   that session (an image, compressed on the phone,
    kept in the private bucket). Only the student, their class's teacher and the school's director can
    see it. Uploads are kept, never replaced: a new screenshot is added beside the old one. These files
    count toward the school's storage in the admin panel.
@@ -111,8 +116,6 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Payment screenshots**: one per class per month, per session, or whenever the student pays? Does a
-  director (or the teacher) mark it as checked, so the school knows it's been seen? Which payment
-  methods should the app list (transfer, card, cash, other)?
-- **Rooms**: should two classes in the same room at overlapping times be refused (assumed above), or
-  only warned about (e.g. a big salon shared by two groups)? Does a room have a capacity to warn about?
+- **Payment screenshots**: does a director (or the teacher)
+  mark it as checked, so the school knows it's been seen? Besides TotalPass, which methods should the
+  app list (other passes, transfer, cash)?
