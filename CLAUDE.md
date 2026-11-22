@@ -16,14 +16,17 @@ The owner's words, and what they mean in this project. Code uses the English col
 | time frame | when a teacher gives a class to a student: dates, and each session's start and end | `schedule`, `session` |
 | registered / unregistered | enrolled and active in the school, or not (kept, never deleted) | `status: active / inactive` |
 | school admin | a director (see Roles) | `director` |
+| salon / space | a room where classes are given, named by the school's director | `room` |
+| payment screenshot | a student's proof of paying for a class (a screenshot of the receipt or token) | `payment_proof` |
 
 ## Stack
 
 Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for patterns:
 
 - Vite + React + TypeScript (strict) + `@supabase/supabase-js`. Node / npm.
-- Supabase: Postgres with RLS, Auth (a login per person), Storage if photos are needed, Edge Functions
-  for anything that needs the service key (invites).
+- Supabase: Postgres with RLS, Auth (a login per person), Storage (a private bucket for payment
+  screenshots, each school in its own folder), Edge Functions for anything that needs the service key
+  (invites).
 - Email (invites, password links) through Resend, from the verified `mail.kokoasoft.com`.
 - Hosted on Render as a static site, on a subdomain of `kokoasoft.com`, behind Cloudflare.
 - Never put the secret / service_role key in the app.
@@ -32,13 +35,14 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 
 - **Admin** (platform): the owner's account. Runs the **admin panel** (below). Sees schools, their
   directors and usage, never a school's students, teachers' classes or attendance.
-- **Director** (school admin): runs one school. Defines classes and their schedules, invites teachers,
+- **Director** (school admin): runs one school. Names the school's rooms, defines classes and their
+  schedules (with a room), invites teachers,
   registers and unregisters students, assigns and unassigns students to a teacher's class, and is the
   only one who can remove or correct an attendance record.
 - **Teacher**: sees the attendance of their own classes, and records a student's attendance after the
   check-in window (a student who came but didn't check in, or checked in late).
-- **Student**: has their own login, created from an email invite. Sees the classes they're linked to
-  and checks in to a session.
+- **Student**: has their own login, created from an email invite. Sees the classes they're linked to,
+  checks in to a session, and uploads a payment screenshot for a class they pay that way.
 
 Every login starts from an **invitation email sent through Resend** (directors by the admin; teachers
 and students by a director): a one-time link to choose a password, also shown to whoever invited, to
@@ -53,11 +57,19 @@ send by hand if the email doesn't arrive.
    the free hours and their exact times; teachers don't book them.
 4. A student can be linked to several classes and several teachers.
 5. A teacher can't have the same student twice in the same (overlapping) time frame.
-6. A student checks in to a session themselves, from the session's start up to 30 minutes after it.
-   After that only the teacher can record it.
+6. A student checks in to a session themselves, from 10 minutes before its start up to 30 minutes
+   after it. After that only the teacher can record it.
 7. A teacher can **add** attendance, never remove it. Removing or correcting one is for a director.
    Every record says who recorded it and when (the student, or the teacher on their behalf).
 8. Only the admin creates schools and directors; only directors invite teachers and register students.
+9. **Rooms**: each school's director names its rooms (salons, spaces) and can archive them (never
+   delete: past classes point at them). Every class schedule says its room: "Teacher A, Tuesdays
+   7–9 am, Salón 1". Two classes can't use the same room at overlapping times.
+10. **Payment screenshots**: some students pay for a class with a predefined method. For those, the
+   student uploads a screenshot of the payment for that class (an image, compressed on the phone,
+   kept in the private bucket). Only the student, their class's teacher and the school's director can
+   see it. Uploads are kept, never replaced: a new screenshot is added beside the old one. These files
+   count toward the school's storage in the admin panel.
 
 Enforce these where the data lives (database constraints, RLS, triggers that stamp who and when),
 not only in the screens, so a tampered client can't skip them.
@@ -99,5 +111,8 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Early check-in**: can a student check in a few minutes before the session starts (e.g. from
-  10 minutes before), or only from the start time? Either way it closes 30 minutes after the start.
+- **Payment screenshots**: one per class per month, per session, or whenever the student pays? Does a
+  director (or the teacher) mark it as checked, so the school knows it's been seen? Which payment
+  methods should the app list (transfer, card, cash, other)?
+- **Rooms**: should two classes in the same room at overlapping times be refused (assumed above), or
+  only warned about (e.g. a big salon shared by two groups)? Does a room have a capacity to warn about?
