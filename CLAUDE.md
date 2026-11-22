@@ -208,7 +208,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 12. **Payment day**: when registering a student, the director picks their payment day from a list:
    the 15th or the 30th (in February, its last day). Each calendar month's monthly plans at that
    school are due that day, and reminded automatically 5 days before, 1 day before and on the day,
-   unless a screenshot for that month has been uploaded. The reminder job uses each school's own
+   unless a screenshot for that month has been uploaded. A student who joins mid-month pays that
+   month in full, due on the first payment day after joining. The reminder job uses each school's own
    date (its time zone) and skips disabled schools and inactive memberships. Per-visit payers
    (TotalPass, cash) get no reminders: they come when they choose, so there's nothing to be due.
 13. **Terms and conditions**: each school's director uploads its terms PDF (only directors can).
@@ -255,6 +256,15 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    the app emails them a link, which opens a confirmation panel saying what will be deleted, and
    confirming does the same as a director's delete. A person left with no school has their login
    deleted too.
+21. **Keeping an unregistered student's data**: when a student becomes inactive, their card and
+   files are kept for 3 months. Once a month during those 3 months, they (or their guardian) get an
+   email saying that they'll lose access to the school and its benefits, with the link to ask for
+   their data to be deleted right away (rule 20). The day after the 3 months end, their data at that
+   school is deleted as in rule 20, and an email tells them it has been deleted and that they'd need
+   to enroll again. Registering them again before then stops the countdown.
+22. **Turning 18**: on a minor student's 18th birthday (from the card's birth date), the school's
+   directors get a notice inviting them to register the student again as an adult (with their own
+   login) and to delete the old registration, which ends the guardian's access.
 
 Enforce these where the data lives (database constraints, RLS, triggers that stamp who and when),
 not only in the screens, so a tampered client can't skip them.
@@ -309,11 +319,5 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Turning 18**: when the director unmarks a minor, does the student get their own login invite,
-  and does the guardian keep access?
-- **Joining mid-month**: a monthly plan that starts after the payment day: is the first month due
-  in full, or does it start the next month?
 - **Cancelling**: can a director cancel a session without moving it (the status exists), and are its
   students notified?
-- **Keeping cards**: after a student is unregistered but not deleted, how long are their card and
-  photos kept?
