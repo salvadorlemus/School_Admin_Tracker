@@ -22,6 +22,8 @@ use the words in brackets, not the owner's.
 | salon / space | a room where classes are given, named by the school's director | `room` |
 | payment screenshot | a student's proof of paying: a screenshot of the receipt or TotalPass token, or a photo of a cash receipt | `payment_proof` |
 | monthly plan | paying a class once a calendar month (card, transfer or cash) for up to a set number of sessions | `enrollment.payment: monthly` |
+| package | paying once a calendar month for up to X sessions a week, at whichever of a set of classes the student chooses | `package` |
+| notices board | the screen in the app where schedule changes are posted ["Notices"] | `announcement` |
 | inscription fee | the fee to join the school, owed again after a set number of months without paying ["registration fee"] | `registration_fee` |
 | guest teacher | a teacher attending another teacher's class: not a paying student, counted apart | `attendance.kind: guest_teacher` |
 | substitute | a teacher giving a session in place of the class's teacher, without moving it | `session.substitute_id` |
@@ -84,6 +86,9 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
   (with the sessions a month the plan covers), and the price it was created with.
 - `booking`: a student's place in a free-hours session, booked by the director, with the price it
   was booked at.
+- `package`: a student's monthly package at a school: the classes it covers, the sessions a week it
+  allows, from one date to another, and the price it was created with. The student isn't enrolled in
+  any one of those classes; they come to whichever they choose.
 - `price`: what it prices (the registration fee, a monthly plan, free hours per student by number of
   attendants), the amount, and from when. The director adds a new row to change a price, never edits
   one: new enrollments and bookings take the latest, and old ones keep theirs.
@@ -93,12 +98,15 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 - `attendance_log`: every removal or correction by a director, with the old and new values, who
   and when.
 - `payment_proof`: a student, the method, the file, what it covers (one attendance for per-visit
-  payers, one calendar month of one enrollment for monthly ones, or the registration fee), and its
+  payers, one calendar month of one enrollment or package, or the registration fee), and its
   state: uploaded, confirmed or rejected by a director (who and when).
 - `registration_fee`: a fee a student owes a school (on joining, or again after months without
   paying), owed until the director marks it as done (who and when).
-- `notification`: an in-app notice for a person (what it's about, read or not). Payment notices are
-  also emailed. Reminders are created by a `pg_cron` job and emailed by an Edge Function; each
+- `announcement`: a post on a school's notices board, created by the database when a session is
+  cancelled, moved or given by a substitute, or a class changes teacher: the class, the date, what
+  changed, and when.
+- `notification`: a personal in-app notice for a person (what it's about, read or not). Payment
+  notices are also emailed. Reminders are created by a `pg_cron` job and emailed by an Edge Function; each
   reminder is sent once.
 
 ## Roles
@@ -164,7 +172,9 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    place; the price is per student, by the number of attendants (from `price`). Teachers don't book.
 4. A student can be linked to several classes and several teachers. Each enrollment says how the
    student pays: per visit (TotalPass or cash) or a monthly plan (card, transfer or cash) for up to a
-   number of sessions per calendar month that the director sets. Going over the plan never stops a
+   number of sessions per calendar month that the director sets. Instead of enrollments, a student
+   can have a **package**: paid monthly (card, transfer or cash), up to a number of sessions a week,
+   at whichever of the package's classes they choose. Going over a plan or a package never stops a
    student from attending: the director, the teacher and the student are notified.
 5. Within one school, a student can't be in two sessions that overlap: a trigger refuses it when an
    enrollment or booking is saved, or a session moved. Other schools are never looked at.
@@ -174,8 +184,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    the school's directors). Each student scans it with their own phone, signed in; a guardian picks
    which of their minors are there (siblings can check in together). From 10 minutes before the
    session's start up to 30 minutes after it, a database function checks the code against the
-   server's clock (accepting the previous code too), the time window, that the student is enrolled
-   or booked, and that they've accepted the school's latest terms, then records the attendance for
+   server's clock (accepting the previous code too), the time window, that the student is enrolled,
+   booked, or has a package covering the class, and that they've accepted the school's latest terms, then records the attendance for
    the student, recorded by whoever scanned. An active teacher of the same school scanning is
    recorded as a guest teacher. Nobody can write attendance any other way.
 7. **Attendance by hand**: a teacher can **add** attendance, up to 1 hour after the session ends,
@@ -194,7 +204,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    can still save it. This is the one rule that only warns, by design.
 10. **Payment screenshots**: per-visit payers upload one for each session they attend (the TotalPass
    token, or a photo of the cash receipt). Monthly payers upload one per calendar month for each
-   class, covering up to the plan's sessions; the app shows how many they've used. The image is
+   class (package holders, one per month for the package), covering up to the plan's sessions; the
+   app shows how many they've used. The image is
    compressed on the phone and kept in the private bucket. Only the student, their guardian, their
    class's teacher and the school's directors can see it. Uploads are kept, never replaced or
    deleted: a new screenshot is added beside the old one. A director confirms (payment received) or
@@ -206,8 +217,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    also emailed to the student, or to the guardian for a minor. Emails never include card or health
    content. Notices to directors and teachers are in the app only.
 12. **Payment day**: when registering a student, the director picks their payment day from a list:
-   the 15th or the 30th (in February, its last day). Each calendar month's monthly plans at that
-   school are due that day, and reminded automatically 5 days before, 1 day before and on the day,
+   the 15th or the 30th (in February, its last day). Each calendar month's monthly plans and package at
+   that school are due that day, and reminded automatically 5 days before, 1 day before and on the day,
    unless a screenshot for that month has been uploaded. A student who joins mid-month pays that
    month in full, due on the first payment day after joining. The reminder job uses each school's own
    date (its time zone) and skips disabled schools and inactive memberships. Per-visit payers
@@ -226,14 +237,15 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    has filled in the card and accepted the terms.
 15. **Registration fee**: a new student owes it. A student who goes the school's set number of
    calendar months with no payment screenshot covering them (uploaded and not rejected) owes it
-   again, and is notified; months without any enrollment don't count. It never blocks attendance:
+   again, and is notified; months without any enrollment or package don't count. It never blocks attendance:
    it stays marked as owed until the director checks it as done.
 16. **Guest teachers**: a teacher attending another teacher's class is recorded as a guest teacher,
    owes no payment and is counted apart from students.
-17. **Moving, cancelling, substitutes**: a session that can't be given (a holiday) is moved by the
-   director to another time frame; the original stays, marked as moved. A director can also give a
-   session to another teacher without moving it. Each change is kept in `session_log`, and the
-   teacher's and director's calendar shows a substituted session in a different colour.
+17. **Moving, cancelling, substitutes**: a director can move a session to another time frame (the
+   original stays, marked as moved), cancel it without a replacement, give it to a substitute
+   without moving it, or change a class's teacher from a date on. Each change is kept in
+   `session_log`, posted on the notices board (rule 23), and the teacher's and director's calendar
+   shows a substituted session in a different colour.
 18. **Student card**: a new student fills in their card on the registration page reached from the
    invite (the guardian, for a minor): photo, name, birth date (the card shows the age, calculated),
    emergency contacts (name and phone), and known health conditions. A minor's card also lists the
@@ -244,7 +256,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    each change is logged and the school's directors are notified. A card is never copied from one
    school to another: a student in two schools fills in each.
 19. **Who sees a card**: the student (or guardian), the school's directors, and the teachers of the
-   classes the student is currently enrolled in (a substitute, on the day of the session they give).
+   classes the student is currently enrolled in or that their current package covers (a substitute,
+   on the day of the session they give).
    Access ends when the enrollment ends, or the teacher or student becomes inactive. On the card,
    each emergency contact's phone is a link that calls it (`tel:`). Cards hold health data, so the
    admin never sees them and they never cross to another school.
@@ -265,6 +278,12 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 22. **Turning 18**: on a minor student's 18th birthday (from the card's birth date), the school's
    directors get a notice inviting them to register the student again as an adult (with their own
    login) and to delete the old registration, which ends the guardian's access.
+23. **Notices board**: each school has a board in the app where every schedule change is posted
+   automatically ("Nov 26, Drawing 12 pm: given by a substitute"; "Nov 28, Ceramics 4 pm:
+   cancelled"). Students and guardians see the boards of their schools together, newest first, with
+   an unread count. Students the change touches directly (enrolled in the class, booked in the
+   session, or with a package covering it) also get a personal in-app notice. Schedule changes are
+   never emailed; email stays for payments and the account (invites, terms, data deletion).
 
 Enforce these where the data lives (database constraints, RLS, triggers that stamp who and when),
 not only in the screens, so a tampered client can't skip them.
@@ -319,5 +338,5 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Cancelling**: can a director cancel a session without moving it (the status exists), and are its
-  students notified?
+- **Packages**: does a package cover a set of classes the director picks, or every class of the
+  school? Does "a week" run Monday to Sunday?
