@@ -86,8 +86,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
   (with the sessions a month the plan covers), and the price it was created with.
 - `booking`: a student's place in a free-hours session, booked by the director, with the price it
   was booked at.
-- `package`: a student's monthly package at a school: the classes it covers, the sessions a week it
-  allows, from one date to another, and the price it was created with. The student isn't enrolled in
+- `package`: a student's monthly package at a school: the classes it covers (picked by the
+  director), the sessions a week it allows (Monday to Sunday), from one date to another, and the price it was created with. The student isn't enrolled in
   any one of those classes; they come to whichever they choose.
 - `price`: what it prices (the registration fee, a monthly plan, free hours per student by number of
   attendants), the amount, and from when. The director adds a new row to change a price, never edits
@@ -174,7 +174,10 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    student pays: per visit (TotalPass or cash) or a monthly plan (card, transfer or cash) for up to a
    number of sessions per calendar month that the director sets. Instead of enrollments, a student
    can have a **package**: paid monthly (card, transfer or cash), up to a number of sessions a week,
-   at whichever of the package's classes they choose. Going over a plan or a package never stops a
+   at whichever of the package's classes they choose. The director picks which classes packages
+   cover; the school's other classes are outside any package, with their own price, and a package
+   holder who wants one enrolls in it separately (a student can have a package and enrollments). A
+   package's week runs Monday to Sunday (in the school's time zone). Going over a plan or a package never stops a
    student from attending: the director, the teacher and the student are notified.
 5. Within one school, a student can't be in two sessions that overlap: a trigger refuses it when an
    enrollment or booking is saved, or a session moved. Other schools are never looked at.
@@ -242,7 +245,8 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 16. **Guest teachers**: a teacher attending another teacher's class is recorded as a guest teacher,
    owes no payment and is counted apart from students.
 17. **Moving, cancelling, substitutes**: a director can move a session to another time frame (the
-   original stays, marked as moved), cancel it without a replacement, give it to a substitute
+   original stays, marked as moved), cancel it and choose whether to offer a replacement session (a
+   new session, linked to the cancelled one), give it to a substitute
    without moving it, or change a class's teacher from a date on. Each change is kept in
    `session_log`, posted on the notices board (rule 23), and the teacher's and director's calendar
    shows a substituted session in a different colour.
@@ -338,5 +342,4 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 
 ## Open questions
 
-- **Packages**: does a package cover a set of classes the director picks, or every class of the
-  school? Does "a week" run Monday to Sunday?
+None right now.
