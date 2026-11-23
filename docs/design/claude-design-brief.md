@@ -106,8 +106,10 @@ Fernanda Gil.
 | Class | Teacher | When | Room | How it's paid |
 |---|---|---|---|---|
 | Dibujo de figura humana | Mariana Ruiz | Tue & Thu 10:00–12:00 | Salón 1 | in packages |
-| Acuarela | Lucía Ortega | Mon & Wed 17:00–19:00 | Salón 2 | in packages |
-| Óleo | Ana Torres | Sat 10:00–13:00 | Salón 1 | in packages |
+| Acuarela | Lucía Ortega | Mon & Wed 17:00–19:00 | Salón 2 | in packages, or monthly plan, 4 sessions, $1,400 |
+| Óleo | Ana Torres | Sat 10:00–13:00 | Salón 1 | in the 3/week package, or per visit |
+| Retrato | Lucía Ortega | Sat 13:00–15:00 | Salón 1 | monthly plan, 4 sessions, $1,400; 18 students |
+| Grabado juvenil (draft, not saved) | Fernanda Gil | Sat 13:30–15:30 | Salón 1 | 14 students; the capacity warning example |
 | Cerámica en torno | Diego Herrera | Thu 12:00–14:00 | Sala de Cerámica | monthly plan, 4 sessions, $1,600 |
 | Dibujo infantil | Mariana Ruiz | Thu 16:00–17:30 | Salón 2 | monthly plan, 4 sessions, $1,200 |
 | Taller libre de grabado (free hours) | Fernanda Gil | Fri 27 Nov 18:00–20:00 | Salón 1 | per student: 1 person $450, 2–3 $350, 4 $300; max 4 |
@@ -116,7 +118,7 @@ Fernanda Gil.
 
 - Registration fee ("Inscripción"): $800.
 - Package "3 clases por semana" (Dibujo de figura, Acuarela, Óleo): $2,400 a month.
-- Package "2 clases por semana": $1,800 a month.
+- Package "2 clases por semana" (Dibujo de figura, Acuarela): $1,800 a month.
 - Per visit: TotalPass, or cash $250.
 
 ### Sessions around today
@@ -128,7 +130,8 @@ Fernanda Gil.
 | Thu 26 Nov 16:00 | Dibujo infantil · Salón 2 · Mariana Ruiz | normal |
 | Fri 27 Nov 18:00 | Taller libre de grabado · Salón 1 · Fernanda Gil | 3 of 4 places booked |
 | Sat 28 Nov 10:00 | Óleo · Salón 1 · Ana Torres | **cancelled**, replaced by Wed 2 Dec 10:00, Salón 1 |
-| Sat 28 Nov 10:00 | (capacity example) Óleo + Retrato adding up to 32 students in Salón 1 | **warning**: over 30 |
+| Sat 28 Nov 13:00 | (capacity example) Retrato (Lucía Ortega, 13:00–15:00, 18) + Grabado juvenil draft (Fernanda Gil, 13:30–15:30, 14) = 32 students in Salón 1 between 13:30 and 15:00 | **warning**: over 30 |
+| Wed 2 Dec 10:00 | Óleo make-up · Salón 1 · Ana Torres | 16 can come: 3 with the 3/week package (Sofía, Paula Domínguez, Jimena Ríos), 13 per visit. Shown at 10:05: 9 checked in; not yet: Lorena Vázquez (TotalPass, **terms pending**), Jimena Ríos, and 5 per-visit students |
 
 ### Students
 
@@ -140,7 +143,7 @@ Fernanda Gil.
 | **Andrés Molina** | 34 | Colibrí | per visit, TotalPass | **Terms pending** (version 3 uploaded on 20 Nov, not accepted yet); in today's Dibujo de figura list |
 | **Regina Flores** | 45 | Colibrí | Cerámica, monthly, card, payment day 30 | **Over the plan**: 5 of 4 sessions in November. Screenshot (card, $1,600) **uploaded** |
 | **Héctor Navarro** | 52 | Colibrí | Cerámica, monthly | Came back after 3 months without paying: **registration fee owed** ($800) |
-| **Camila Ortiz** | 19 | Colibrí | Acuarela via package 2/week, payment day 30 | November screenshot **rejected**: "La imagen está borrosa, sube otra por favor". Reminder sent 25 Nov: "Tu pago vence el 30 nov" |
+| **Camila Ortiz** | 19 | Colibrí | Acuarela, monthly plan, payment day 30 | November screenshot **rejected**: "La imagen está borrosa, sube otra por favor". Reminder sent 25 Nov: "Tu pago vence el 30 nov" |
 | **Emilio Sánchez** | 17 (minor, turns 18 on 29 Nov) | Colibrí | package 2/week | Guardian: Patricia Sánchez. Director to-do: "Emilio cumple 18 el 29 nov: regístralo como adulto" |
 
 Guest teacher example: **Diego Herrera** checked in to Lucía's Acuarela on Wed 25 Nov as
