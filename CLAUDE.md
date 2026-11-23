@@ -89,8 +89,9 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 - `package`: a student's monthly package at a school: the classes it covers (picked by the
   director), the sessions a week it allows (Monday to Sunday), from one date to another, and the price it was created with. The student isn't enrolled in
   any one of those classes; they come to whichever they choose.
-- `price`: what it prices (the registration fee, a monthly plan, free hours per student by number of
-  attendants), the amount, and from when. The director adds a new row to change a price, never edits
+- `price`: what it prices (the registration fee, a class's monthly plan, a package, a per-visit cash
+  payment, free hours per student by number of attendants), the class or package it's for when it
+  has one, the amount, and from when. The director adds a new row to change a price, never edits
   one: new enrollments and bookings take the latest, and old ones keep theirs.
 - `attendance`: a session, the person who attended (the child, for a minor), its kind (student,
   guest teacher), how it was recorded (QR check-in, teacher, director), whether the student's terms
@@ -337,7 +338,8 @@ its school; no school menu.
 - **Teachers**: invite, deactivate, reassign future sessions.
 - **Payments**: screenshots to confirm or reject, registration fees, who's due or overdue.
 - **Attendance**: by session; add, remove or correct, with the change history.
-- **Prices**: registration fee, monthly plans, packages, free hours; each change is a new price.
+- **Prices**: registration fee (and the months without paying after which it's owed again), monthly
+  plans per class, packages, per-visit cash, free hours; each change is a new price.
 - **Terms**: upload a new version; who has and hasn't accepted.
 - **Notices** and **Export**.
 
@@ -388,9 +390,14 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 - No new dependencies without asking first.
 - A new migration changes production: the owner approves each push. Never edit a migration that has run.
 - New tables and functions need explicit grants (start from no privileges, as VetClinicTracker does).
-- Interactive elements are real buttons and inputs (keyboard and focus), and the layout works on phones.
+- Interactive elements are real buttons and inputs (keyboard and focus).
+- **Phones first, for every role**: directors too mostly use the app on their phone. Design every
+  screen at 390px wide first; wider screens only give it more room.
 - IDE: JetBrains Rider; keep the project openable as a plain folder, and don't commit editor files.
 
 ## Open questions
 
-None right now.
+- **Invite link vs. "the same answer"**: the link to send by hand is shown only for a brand-new
+  person, but the director must see the same answer whether the person was new or already studies
+  elsewhere. Showing the link (or not) tells the director which it was. Options: never show the link
+  for students (only resend), or always show a "resend" step instead of the link.
