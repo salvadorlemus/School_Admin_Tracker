@@ -1,0 +1,283 @@
+import {useRef, useState} from 'react';
+import {t} from '../../lib/texts';
+import {dayMonth, money, personName} from '../../lib/format';
+import {useRouter} from '../../lib/router';
+import {PERSONAL, STAFF_ME, TEACHERS, teacherSchools, TODAY} from '../../mock/data';
+import {paymentsFor, paymentState, payRule, type PayRule, type PayScheme, periodsOf, recordTeacherPayment, saveRule, teacherPay} from '../../mock/pay';
+import {Screen} from '../../ui/Screen';
+import {Avatar, DateField, ListRow, MenuText, MoneyField, NumberField, SelectField, TextArea, TextField} from '../../ui/Fields';
+import {Icon} from '../../ui/Icon';
+import {useConfirm, useToast} from '../../ui/Layers';
+import {PayView, schemeLine} from '../shared/PayView';
+
+const digits = (value: string) => Number(value.replace(/\D/g, '')) || 0;
+
+/**
+ * How the school pays its teachers: the pay days and one of three schemes (a fixed amount per
+ * session, a share of what the students paid, or an amount by how many students came). Below, what
+ * each teacher would get this period with the rule as it's being edited, to compare before saving.
+ */
+export function PaySettings() {
+    const router = useRouter();
+    const toast = useToast();
+    const confirm = useConfirm();
+    const [rule, setRule] = useState<PayRule>(() => {
+        const saved = payRule('colibri');
+        return {...saved, perSession: {...saved.perSession}, tiers: saved.tiers.map(tier => ({...tier}))};
+    });
+    const set = (change: Partial<PayRule>) => setRule(current => ({...current, ...change}));
+    const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes('colibri'));
+    const period = periodsOf(rule)[0];
+    const last = rule.tiers.length - 1;
+    const tiersOk = rule.tiers.every((tier, i) => tier.amount > 0 && (i === last || (tier.to !== undefined && tier.to >= tier.from)));
+    const ready = rule.scheme === 'perSession' ? rule.defaultPerSession > 0
+        : rule.scheme === 'percent' ? rule.percent > 0 && rule.percent <= 100 && rule.totalpassValue > 0 : tiersOk;
+    // Changing where a range ends moves where the next one starts.
+    const setTier = (i: number, change: { to?: number; amount?: number }) => set({
+        tiers: rule.tiers.map((tier, j) => j === i ? {...tier, ...change} : j === i + 1 && change.to !== undefined ? {
+            ...tier,
+            from: change.to + 1
+        } : tier),
+    });
+    const addTier = () => {
+        const end = rule.tiers[last];
+        set({
+            tiers: [...rule.tiers.slice(0, last), {
+                from: end.from,
+                to: end.from + 2,
+                amount: end.amount
+            }, {from: end.from + 3, amount: end.amount}]
+        });
+    };
+    const removeTier = (i: number) => {
+        const tiers = rule.tiers.filter((_, j) => j !== i);
+        set({
+            tiers: tiers.map((tier, j) => j === 0 ? {...tier, from: 1} : {
+                ...tier,
+                from: (tiers[j - 1].to ?? 0) + 1
+            })
+        });
+    };
+
+    return (
+        <Screen title={t('tpaySet.title')} back="/d/more" nav={false}
+                note={ready ? t('tpaySet.note', {
+                    from: dayMonth(period.from),
+                    to: dayMonth(period.to)
+                }) : t('tpaySet.missing')}
+                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
+                    if (await confirm({
+                        title: t('tpaySet.confirmTitle'),
+                        body: t('tpaySet.confirmBody', {from: dayMonth(period.from), to: dayMonth(period.to)}),
+                        confirm: t('form.saveChanges'),
+                    })) {
+                        saveRule('colibri', rule);
+                        PERSONAL.t.unshift({
+                            id: `pay-rule-${Date.now()}`,
+                            school: 'colibri',
+                            date: TODAY,
+                            unread: true,
+                            text: 'personal.payRule',
+                            vars: {line: schemeLine(rule)}
+                        });
+                        toast(t('tpaySet.saved'));
+                        router.back('/d/more');
+                    }
+                }}>{t('form.saveChanges')}</button>}>
+            <SelectField id="tp-days" label={t('tpaySet.days')} value={rule.days}
+                         onChange={value => set({days: value === 'month' ? 'month' : 'half'})}
+                         options={[{
+                             value: 'half',
+                             label: t('tpaySet.half'),
+                             hint: t('tpaySet.halfHint')
+                         }, {value: 'month', label: t('tpaySet.month'), hint: t('tpaySet.monthHint')}]}/>
+            <SelectField id="tp-scheme" label={t('tpaySet.scheme')} value={rule.scheme}
+                         onChange={value => set({scheme: value as PayScheme})}
+                         options={[
+                             {value: 'perSession', label: t('tpaySet.perSession'), hint: t('tpaySet.perSessionHint')},
+                             {value: 'percent', label: t('tpaySet.percent'), hint: t('tpaySet.percentHint')},
+                             {value: 'tiers', label: t('tpaySet.tiers'), hint: t('tpaySet.tiersHint')},
+                         ]}/>
+            {rule.scheme === 'perSession' && (
+                <>
+                    <MoneyField id="tp-default" label={t('tpaySet.default')}
+                                value={rule.defaultPerSession ? String(rule.defaultPerSession) : ''}
+                                onChange={event => set({defaultPerSession: digits(event.target.value)})}
+                                hint={t('tpaySet.defaultHint')}/>
+                    <h2 className="section-title">{t('tpaySet.perTeacher')}</h2>
+                    {teachers.map(teacher => (
+                        <MoneyField key={teacher.id} id={`tp-${teacher.id}`} label={teacher.name}
+                                    value={rule.perSession[teacher.id] ? String(rule.perSession[teacher.id]) : ''}
+                                    placeholder={t('tpaySet.usesDefault', {amount: money(rule.defaultPerSession)})}
+                                    onChange={event => {
+                                        const amount = digits(event.target.value);
+                                        const perSession = {...rule.perSession};
+                                        if (amount) perSession[teacher.id] = amount;
+                                        else delete perSession[teacher.id];
+                                        set({perSession});
+                                    }}/>
+                    ))}
+                </>
+            )}
+            {rule.scheme === 'percent' && (
+                <>
+                    <NumberField id="tp-percent" label={t('tpaySet.share')}
+                                 value={rule.percent ? String(rule.percent) : ''}
+                                 onChange={event => set({percent: Math.min(100, digits(event.target.value))})}
+                                 hint={t('tpaySet.shareHint', {school: 100 - rule.percent})}/>
+                    <MoneyField id="tp-totalpass" label={t('tpaySet.totalpass')}
+                                value={rule.totalpassValue ? String(rule.totalpassValue) : ''}
+                                onChange={event => set({totalpassValue: digits(event.target.value)})}
+                                hint={t('tpaySet.totalpassHint')}/>
+                    <p className="hint">{t('tpaySet.percentHow')}</p>
+                </>
+            )}
+            {rule.scheme === 'tiers' && (
+                <>
+                    {rule.tiers.map((tier, i) => (
+                        <div key={i} className="card">
+                            <div className="row">
+                                <span
+                                    className="strong">{i === last ? t('pay.orMore', {n: tier.from}) : t('tpaySet.tierRange', {
+                                    from: tier.from,
+                                    to: tier.to ?? tier.from
+                                })}</span>
+                                {rule.tiers.length > 2 && (
+                                    <button type="button" className="icon-btn" aria-label={t('form.remove')}
+                                            onClick={() => removeTier(i)}><Icon name="trash" size={18}/></button>
+                                )}
+                            </div>
+                            <div className="two">
+                                {i === last ? <TextField id={`tp-from-${i}`} label={t('tpaySet.from')} value={String(tier.from)} disabled/> : (
+                                    <NumberField id={`tp-to-${i}`} label={t('tpaySet.upTo')}
+                                                 value={tier.to ? String(tier.to) : ''}
+                                                 onChange={event => setTier(i, {to: digits(event.target.value)})}/>
+                                )}
+                                <MoneyField id={`tp-amount-${i}`} label={t('tpaySet.perSessionPay')}
+                                            value={tier.amount ? String(tier.amount) : ''}
+                                            onChange={event => setTier(i, {amount: digits(event.target.value)})}/>
+                            </div>
+                        </div>
+                    ))}
+                    <button type="button" className="btn btn-secondary" onClick={addTier}><Icon
+                        name="plus"/>{t('tpaySet.addTier')}</button>
+                    <MoneyField id="tp-empty" label={t('tpaySet.empty')} value={rule.emptyPay ? String(rule.emptyPay) : ''}
+                                placeholder={t('tpaySet.emptyNone')} onChange={event => set({emptyPay: digits(event.target.value)})} hint={t('tpaySet.emptyHint')}/>
+                </>
+            )}
+            <p className="hint">{t('pay.rules')}</p>
+            <h2 className="section-title">{t('tpaySet.preview', {
+                from: Number(period.from.slice(8)),
+                to: dayMonth(period.to)
+            })}</h2>
+            <ul className="list">
+                {teachers.map(teacher => {
+                    const pay = teacherPay(teacher.id, 'colibri', period, rule);
+                    return (
+                        <ListRow key={teacher.id} left={<Avatar name={teacher.name}/>} title={personName(teacher.name)}
+                                 sub={t('tpaySet.previewSub', {n: pay.counted, sessions: pay.sessions})}
+                                 right={<span className="big num">{money(pay.amount)}</span>}/>
+                    );
+                })}
+            </ul>
+            <p className="hint">{t('tpaySet.previewHint')}</p>
+        </Screen>
+    );
+}
+
+/** A teacher's pay, from their file (the same view the teacher has). */
+export function TeacherPayScreen({id}: { id: string }) {
+    const teacher = TEACHERS.find(item => item.id === id) ?? TEACHERS[0];
+    return (
+        <Screen title={t('tpaySet.theirPay')} subtitle={personName(teacher.name)} back={`/d/teachers/${id}`} nav={false}>
+            <PayView teacher={teacher.id} school="colibri" viewer="director"/>
+        </Screen>
+    );
+}
+
+const stateChip = (state: ReturnType<typeof paymentState>) => ({
+    unpaid: <span className="chip chip-warning">{t('tpayRec.stateUnpaid')}</span>,
+    paid: <span className="chip chip-uploaded">{t('tpayRec.statePaid')}</span>,
+    confirmed: <span className="chip chip-confirmed">{t('tpayRec.stateConfirmed')}</span>,
+    flagged: <span className="chip chip-rejected">{t('tpayRec.stateFlagged')}</span>,
+}[state]);
+
+/** Más › Pagar a maestros: a closed period's pay for each teacher and where its payment stands. */
+export function TeacherPayouts() {
+    const router = useRouter();
+    const closed = periodsOf(payRule('colibri')).filter(period => !period.current);
+    const picked = closed.find(period => period.from === router.query.get('period')) ?? closed[0];
+    const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes('colibri'))
+        .map(teacher => ({teacher, due: teacherPay(teacher.id, 'colibri', picked).amount, state: paymentState(teacher.id, 'colibri', picked.from)}))
+        .filter(row => row.due > 0)
+        .sort((a, b) => ['flagged', 'unpaid', 'paid', 'confirmed'].indexOf(a.state) - ['flagged', 'unpaid', 'paid', 'confirmed'].indexOf(b.state));
+    return (
+        <Screen title={t('tpayRec.title')} back="/d/more">
+            <div className="heading-pick">{t('pay.periodPick')}
+                <MenuText id="tpr-period" label={t('pay.period')} value={picked.from}
+                          onChange={value => router.replace(router.withQuery('period', value === closed[0].from ? null : value))}
+                          options={closed.map(period => ({value: period.from, label: t('pay.periodPaid', {from: Number(period.from.slice(8)), to: dayMonth(period.to), payday: dayMonth(period.payday)})}))}/>
+            </div>
+            <ul className="list">
+                {teachers.map(({teacher, due, state}) => (
+                    <ListRow key={teacher.id} left={<Avatar name={teacher.name}/>} title={personName(teacher.name)} sub={t('tpayRec.calculated', {amount: money(due)})}
+                             right={stateChip(state)} onClick={() => router.navigate(`/d/teachers/${teacher.id}/pay?period=${picked.from}`)}/>
+                ))}
+            </ul>
+            <p className="hint">{t('tpayRec.listHint')}</p>
+        </Screen>
+    );
+}
+
+/** Recording a payment to a teacher for a closed period: never edited afterwards (a correction is another entry). */
+export function TeacherPaymentForm({id}: { id: string }) {
+    const router = useRouter();
+    const toast = useToast();
+    const confirm = useConfirm();
+    const teacher = TEACHERS.find(item => item.id === id) ?? TEACHERS[0];
+    const periods = periodsOf(payRule('colibri'));
+    const period = periods.find(item => item.from === router.query.get('period')) ?? periods[1];
+    const due = teacherPay(id, 'colibri', period).amount;
+    const already = paymentsFor(id, 'colibri', period.from).reduce((sum, item) => sum + item.amount, 0);
+    const left = due - already;
+    const [amount, setAmount] = useState(String(Math.max(left, 0)));
+    const [date, setDate] = useState(TODAY);
+    const [method, setMethod] = useState('transfer');
+    const [note, setNote] = useState('');
+    const [receipt, setReceipt] = useState<string | null>(null);
+    const photo = useRef<HTMLInputElement>(null);
+    const differs = Number(amount) !== left;
+    const ready = Number(amount) > 0 && Boolean(date) && (!differs || note.trim().length >= 3);
+    const back = `/d/teachers/${id}/pay?period=${period.from}`;
+    return (
+        <Screen title={t('tpayRec.record')} subtitle={personName(teacher.name)} back={back} nav={false}
+                note={ready ? t('tpayRec.formNote') : differs && Number(amount) > 0 ? t('tpayRec.needNote') : t('tpayRec.needAmount')}
+                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
+                    if (await confirm({title: t('tpayRec.confirmTitle', {amount: money(Number(amount)), name: teacher.name}), body: t('tpayRec.confirmBody'), confirm: t('tpayRec.record')})) {
+                        recordTeacherPayment({teacher: id, school: 'colibri', period: period.from, amount: Number(amount), method: method === 'cash' ? 'cash' : 'transfer', date, note: note.trim() || undefined, receipt: Boolean(receipt), receiptUrl: receipt ?? undefined});
+                        if (id === STAFF_ME.t) PERSONAL.t.unshift({id: `paid-${Date.now()}`, school: 'colibri', date: TODAY, unread: true, text: 'personal.teacherPaid', vars: {amount: money(Number(amount))}});
+                        toast(t('tpayRec.recordedToast'));
+                        router.back(back);
+                    }
+                }}>{t('tpayRec.record')}</button>}>
+            <div className="card">
+                <span className="small muted">{t('pay.periodPaid', {from: Number(period.from.slice(8)), to: dayMonth(period.to), payday: dayMonth(period.payday)})}</span>
+                <span className="big num">{money(due)}</span>
+                <span className="small">{already ? t('tpayRec.alreadyPaid', {amount: money(already), left: money(left)}) : schemeLine(payRule('colibri'), id)}</span>
+            </div>
+            <MoneyField id="tpr-amount" label={t('tpayRec.amount')} value={amount} onChange={event => setAmount(event.target.value.replace(/\D/g, ''))}/>
+            <DateField id="tpr-date" label={t('tpayRec.date')} value={date} onChange={setDate} max={TODAY}/>
+            <SelectField id="tpr-method" label={t('tpayRec.method')} value={method} onChange={setMethod}
+                         options={[{value: 'transfer', label: t('method.transfer')}, {value: 'cash', label: t('method.cash')}]}/>
+            <TextArea id="tpr-note" label={t(differs ? 'tpayRec.noteNeeded' : 'tpayRec.noteOptional')} value={note} onChange={setNote}/>
+            <input ref={photo} type="file" accept="image/*" hidden onChange={event => {
+                const file = event.target.files?.[0];
+                if (file) setReceipt(URL.createObjectURL(file));
+            }}/>
+            {receipt && <img className="receipt-thumb" src={receipt} alt={t('tpayRec.receiptAlt')}/>}
+            <button type="button" className="btn btn-secondary" onClick={() => photo.current?.click()}>
+                <Icon name="camera" size={18}/>{t(receipt ? 'tpayRec.changeReceipt' : 'tpayRec.addReceipt')}
+            </button>
+        </Screen>
+    );
+}

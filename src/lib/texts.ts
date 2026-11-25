@@ -14,10 +14,16 @@ const STORAGE_KEY = 'asm-language';
 /**
  * The language the app opens in, before the person picks one. Their earlier choice is in
  * localStorage under STORAGE_KEY (it can be missing, or throw in a private window); the browser's
- * own languages are in navigator.languages (e.g. ["en-US", "es-MX"]). Spanish is the default.
+ * own languages aren't used: Spanish is the default until the person picks.
  */
 function pickInitialLanguage(): Language {
-    // TODO(owner): decide the order: a saved choice first? then the browser's language? then 'es'?
+    // The person's own choice on this phone wins; with none saved (or storage blocked), Spanish.
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved === 'es' || saved === 'en') return saved;
+    } catch {
+        // Private window or blocked storage: no saved choice.
+    }
     return 'es';
 }
 

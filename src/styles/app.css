@@ -1,64 +1,1407 @@
-/* Design tokens from the mockups (docs/design/claude-design-brief.md). Colours that carry a meaning
-   (substitute, cancelled, payment states, terms pending, over the plan, warning) are named for it,
-   so every screen uses the same one. */
+/* The one stylesheet: design tokens first, then the shared pieces every screen is built from.
+   Screens use these classes and never set their own colours. Colours that carry a meaning
+   (substitute, cancelled, payment states, terms pending, over the plan, warning, important) are
+   named for it, so every screen uses the same one. */
 
 :root {
+    --color-desk: #E7E3DA;
     --color-bg: #F6F4EF;
     --color-surface: #FFFFFF;
+    --color-surface-2: #FAF8F4;
     --color-text: #1D1B20;
     --color-muted: #5E5A63;
+    --color-faint: #8C8792;
     --color-line: #E4E0D8;
+    --color-line-strong: #8C8792;
+    --color-neutral: #ECE8E0;
+    --color-neutral-text: #3A363E;
+    --color-ink: #1D1B20;
+    --color-on-ink: #FFFFFF;
     --color-accent: #0E5E66;
+    --color-accent-strong: #09434A;
     --color-accent-soft: #DCEFF0;
+    --color-on-accent: #FFFFFF;
+    --color-on-danger: #FFFFFF;
+    --color-overlay: rgba(29, 27, 32, 0.45);
+    --color-shadow: rgba(29, 27, 32, 0.18);
 
     --color-substitute: #5B3FB0;
+    --color-substitute-text: #3E2A80;
     --color-substitute-soft: #EEE9FB;
     --color-cancelled: #6B6770;
+    --color-cancelled-text: #4A4650;
     --color-cancelled-soft: #ECEAEE;
     --color-confirmed: #1B6E3F;
+    --color-confirmed-text: #124A2B;
     --color-confirmed-soft: #E3F3E8;
     --color-uploaded: #1F4FB5;
+    --color-uploaded-text: #183E8F;
     --color-uploaded-soft: #E5ECFB;
     --color-rejected: #A3231A;
+    --color-rejected-text: #7A1A13;
     --color-rejected-soft: #FBE6E4;
-    --color-terms-pending: #6E3C00;
-    --color-terms-pending-soft: #FFF0D9;
+    --color-terms-pending: #B35C00;
+    --color-terms-pending-text: #7A3300;
+    --color-terms-pending-soft: #FFE4CC;
     --color-over-plan: #8A1A50;
+    --color-over-plan-text: #8A1A50;
     --color-over-plan-soft: #FBE5EF;
-    --color-warning: #4D3600;
+    --color-warning: #B08000;
+    --color-warning-text: #4D3600;
     --color-warning-soft: #FFF4CC;
+    /* Important board posts (price changes): the accent, filled. */
+    --color-important: #0E5E66;
+    --color-important-soft: #DCEFF0;
+    /* The check-in QR stays dark on light in every theme, so phones can scan it. */
+    --qr-bg: #FFFFFF;
+    --qr-ink: #1D1B20;
+    --qr-muted: #5E5A63;
+    --qr-track: #E4E0D8;
+    --qr-ring: #0E5E66;
 
     --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
     --font-body: Inter, system-ui, sans-serif;
+    --fs-xs: 12px;
+    --fs-sm: 13px;
+    --fs-md: 15px;
+    --fs-input: 16px; /* 16px or more keeps iOS from zooming into a field */
+    --fs-lg: 18px;
+    --fs-xl: 22px;
+    --fs-2xl: 28px;
 
-    /* Safe areas (notch, home indicator); zero on screens without them. */
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+    --radius-pill: 999px;
+    --tap: 44px;
+    --gutter: 16px;
+
+    /* Safe areas (notch, home indicator); zero on screens without them. The phone frame on wide
+       screens sets its own values so the notch can be judged on a laptop too. */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --gutter: 16px;
 
     color-scheme: light;
 }
 
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-desk: #0E0D10;
+        --color-bg: #17161A;
+        --color-surface: #222026;
+        --color-surface-2: #2A282F;
+        --color-text: #F2EFF5;
+        --color-muted: #B4AEBB;
+        --color-faint: #8C8792;
+        --color-line: #36333B;
+        --color-line-strong: #6E6875;
+        --color-neutral: #322F37;
+        --color-neutral-text: #DCD7E1;
+        --color-ink: #F2EFF5;
+        --color-on-ink: #17161A;
+        --color-accent: #5FC2CB;
+        --color-accent-strong: #8AD6DD;
+        --color-accent-soft: #12393D;
+        --color-on-accent: #0B2023;
+    --color-on-danger: #2A0E0B;
+        --color-overlay: rgba(0, 0, 0, 0.6);
+        --color-shadow: rgba(0, 0, 0, 0.5);
+        --color-substitute: #A893F0;
+        --color-substitute-text: #D5CAFA;
+        --color-substitute-soft: #2D2547;
+        --color-cancelled: #9C97A3;
+        --color-cancelled-text: #C9C4CF;
+        --color-cancelled-soft: #2E2C33;
+        --color-confirmed: #6CCB91;
+        --color-confirmed-text: #A9E5BF;
+        --color-confirmed-soft: #173525;
+        --color-uploaded: #84A7F2;
+        --color-uploaded-text: #BCD0FA;
+        --color-uploaded-soft: #1C2A4A;
+        --color-rejected: #F08C83;
+        --color-rejected-text: #F7BDB7;
+        --color-rejected-soft: #45201D;
+        --color-terms-pending: #F2A65A;
+        --color-terms-pending-text: #FFD2A6;
+        --color-terms-pending-soft: #43290F;
+        --color-over-plan: #EE8DBA;
+        --color-over-plan-text: #F7C1DA;
+        --color-over-plan-soft: #431F31;
+        --color-warning: #E0B43A;
+        --color-warning-text: #F6DF9C;
+        --color-warning-soft: #3D3210;
+        --color-important: #5FC2CB;
+        --color-important-soft: #12393D;
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --color-desk: #0E0D10;
+    --color-bg: #17161A;
+    --color-surface: #222026;
+    --color-surface-2: #2A282F;
+    --color-text: #F2EFF5;
+    --color-muted: #B4AEBB;
+    --color-faint: #8C8792;
+    --color-line: #36333B;
+    --color-line-strong: #6E6875;
+    --color-neutral: #322F37;
+    --color-neutral-text: #DCD7E1;
+    --color-ink: #F2EFF5;
+    --color-on-ink: #17161A;
+    --color-accent: #5FC2CB;
+    --color-accent-strong: #8AD6DD;
+    --color-accent-soft: #12393D;
+    --color-on-accent: #0B2023;
+    --color-on-danger: #2A0E0B;
+    --color-overlay: rgba(0, 0, 0, 0.6);
+    --color-shadow: rgba(0, 0, 0, 0.5);
+    --color-substitute: #A893F0;
+    --color-substitute-text: #D5CAFA;
+    --color-substitute-soft: #2D2547;
+    --color-cancelled: #9C97A3;
+    --color-cancelled-text: #C9C4CF;
+    --color-cancelled-soft: #2E2C33;
+    --color-confirmed: #6CCB91;
+    --color-confirmed-text: #A9E5BF;
+    --color-confirmed-soft: #173525;
+    --color-uploaded: #84A7F2;
+    --color-uploaded-text: #BCD0FA;
+    --color-uploaded-soft: #1C2A4A;
+    --color-rejected: #F08C83;
+    --color-rejected-text: #F7BDB7;
+    --color-rejected-soft: #45201D;
+    --color-terms-pending: #F2A65A;
+    --color-terms-pending-text: #FFD2A6;
+    --color-terms-pending-soft: #43290F;
+    --color-over-plan: #EE8DBA;
+    --color-over-plan-text: #F7C1DA;
+    --color-over-plan-soft: #431F31;
+    --color-warning: #E0B43A;
+    --color-warning-text: #F6DF9C;
+    --color-warning-soft: #3D3210;
+    --color-important: #5FC2CB;
+    --color-important-soft: #12393D;
+    color-scheme: dark;
+}
+
+/* ---------- Page and phone frame ---------- */
+
+html, body, #root {
+    height: 100%;
+}
+
 body {
     margin: 0;
-    background: var(--color-bg);
+    background: var(--color-desk);
     color: var(--color-text);
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: var(--fs-md);
+    line-height: 1.45;
+    -webkit-text-size-adjust: 100%;
 }
 
 h1, h2, h3 {
     font-family: var(--font-display);
+    margin: 0;
+    text-wrap: balance;
 }
 
-#root {
-    min-height: 100vh;
-    padding-top: var(--safe-top);
-    padding-bottom: var(--safe-bottom);
+button, input, select, textarea {
+    font: inherit;
+    color: inherit;
 }
 
-/* Keyboard focus is always visible. */
+/* Long names and notes wrap instead of pushing the screen wider. */
+p, h1, h2, h3, li, dd, .grow, .card {
+    overflow-wrap: anywhere;
+}
+
 :focus-visible {
     outline: 3px solid var(--color-accent);
     outline-offset: 2px;
 }
+
+.device {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    overflow: hidden;
+}
+
+/* On a laptop the app shows inside a phone outline with a notch, at 390 x 844. */
+@media (min-width: 600px) and (min-height: 760px) {
+    body {
+        display: grid;
+        place-items: center;
+    }
+
+    #root {
+        height: auto;
+    }
+
+    .device {
+        --safe-top: 47px;
+        --safe-bottom: 34px;
+        width: 390px;
+        height: 844px;
+        /* A laptop window shorter than the phone would scroll the page past the bottom bar. */
+        max-height: calc(100vh - 32px);
+        border-radius: 52px;
+        box-shadow: 0 0 0 10px #1D1B20, 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .device::before {
+        content: '';
+        position: absolute;
+        top: 11px;
+        left: 50%;
+        width: 124px;
+        height: 35px;
+        margin-left: -62px;
+        border-radius: 20px;
+        background: #000;
+        z-index: 50;
+        pointer-events: none;
+    }
+
+    .device::after {
+        content: '';
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        width: 134px;
+        height: 5px;
+        margin-left: -67px;
+        border-radius: 3px;
+        background: var(--color-text);
+        opacity: 0.5;
+        z-index: 50;
+        pointer-events: none;
+    }
+}
+
+/* ---------- Screen: top bar, one scroll area, bottom bar ---------- */
+
+.screen {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 56px;
+    padding: calc(var(--safe-top) + 6px) var(--gutter) 6px;
+    background: var(--color-bg);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+}
+
+.topbar[data-scrolled="true"] {
+    border-bottom-color: var(--color-line);
+}
+
+.topbar-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar-title h1 {
+    font-size: var(--fs-xl);
+    line-height: 1.15;
+}
+
+.topbar-title span {
+    font-size: var(--fs-sm);
+    color: var(--color-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.topbar-actions {
+    display: flex;
+    gap: 6px;
+    flex: none;
+}
+
+.scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px var(--gutter) 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.screen-no-bottom .scroll {
+    padding-bottom: calc(var(--safe-bottom) + 24px);
+}
+
+/* A main action kept in view above the bottom bar (Continue, Save, Check in). */
+.footer {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px var(--gutter);
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-line);
+}
+
+.screen-no-bottom .footer {
+    padding-bottom: calc(var(--safe-bottom) + 10px);
+}
+
+.nav {
+    flex: none;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-line);
+    padding: 4px 4px calc(var(--safe-bottom) + 4px);
+}
+
+.nav button {
+    position: relative;
+    min-height: 52px;
+    border: 0;
+    background: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+.nav button[aria-current="page"] {
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
+/* ---------- Text ---------- */
+
+.section-title {
+    margin: 6px 0 -4px;
+    font-family: var(--font-body);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.muted { color: var(--color-muted); }
+.small { font-size: var(--fs-sm); }
+.strong { font-weight: 600; }
+.big { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; line-height: 1.25; }
+.huge { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700; line-height: 1.1; }
+.strike { text-decoration: line-through; color: var(--color-cancelled); }
+.num { font-variant-numeric: tabular-nums; }
+.center { text-align: center; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.stack-sm { display: flex; flex-direction: column; gap: 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.row-start { display: flex; align-items: flex-start; gap: 10px; }
+.grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wrap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+p { margin: 0; }
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+    min-height: 48px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-weight: 600;
+    font-size: var(--fs-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn:hover { background: var(--color-accent-strong); }
+.btn-secondary { background: var(--color-surface); color: var(--color-text); border-color: var(--color-line-strong); }
+.btn-secondary:hover { background: var(--color-surface-2); }
+.btn-ink { background: var(--color-ink); color: var(--color-on-ink); }
+.btn-ink:hover { background: var(--color-ink); opacity: 0.9; }
+.btn-danger { background: var(--color-rejected); color: var(--color-on-danger); }
+.btn-danger:hover { background: var(--color-rejected); opacity: 0.9; }
+.btn-ghost { background: transparent; color: var(--color-accent); border-color: transparent; }
+.btn-ghost:hover { background: var(--color-accent-soft); }
+.btn-sm { min-height: var(--tap); padding: 0 12px; font-size: 14px; border-radius: var(--radius-sm); }
+.btn-lg { min-height: 60px; font-size: var(--fs-lg); border-radius: var(--radius-lg); }
+.btn-block { width: 100%; }
+.btn:disabled, .btn[aria-disabled="true"] { background: var(--color-neutral); color: var(--color-faint); border-color: transparent; cursor: not-allowed; opacity: 1; }
+.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.icon-btn {
+    position: relative;
+    width: var(--tap);
+    height: var(--tap);
+    flex: none;
+    border-radius: 50%;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    color: var(--color-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+}
+
+.icon-btn:hover { background: var(--color-surface-2); }
+
+.badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    box-sizing: border-box;
+    border-radius: 9px;
+    background: var(--color-ink);
+    color: var(--color-on-ink);
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav .badge { top: 2px; right: auto; left: calc(50% + 4px); }
+
+/* ---------- Cards, lists, chips ---------- */
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+button.card, a.card { text-align: left; color: inherit; text-decoration: none; cursor: pointer; font: inherit; }
+button.card:hover, a.card:hover { background: var(--color-surface-2); }
+.card-accent { border: 2px solid var(--color-accent); }
+.card-substitute { background: var(--color-substitute-soft); border: 2px solid var(--color-substitute); color: var(--color-substitute-text); }
+.card-cancelled { background: var(--color-cancelled-soft); border-color: var(--color-cancelled-soft); }
+.card-important { background: var(--color-important-soft); border: 2px solid var(--color-important); }
+.card-flat { background: transparent; border-style: dashed; border-color: var(--color-line-strong); }
+
+/* Horizontal cards that scroll sideways, so a section stays one card tall. */
+.carousel {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 0 calc(var(--gutter) * -1);
+    padding: 2px 0 6px;
+    scrollbar-width: none;
+}
+
+/* Cards are almost as wide as the cards around them (12px in from each side) and snap to the
+   middle; the spacers at both ends let the first and last card reach the middle too, with their
+   neighbours peeking on the sides. */
+.carousel > * { flex: 0 0 calc(100% - 2 * var(--gutter) - 24px); }
+.carousel::before, .carousel::after { content: ""; flex: 0 0 calc(var(--gutter) + 12px - 10px); }
+
+.carousel::-webkit-scrollbar { display: none; }
+.carousel > * { scroll-snap-align: center; }
+.carousel-dots { display: flex; justify-content: center; gap: 6px; margin-top: -6px; }
+.carousel-dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--color-line-strong); opacity: 0.4; }
+.carousel-dots span[data-on="true"] { opacity: 1; width: 16px; }
+
+.clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.list > li + li { border-top: 1px solid var(--color-line); }
+
+.list-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    min-height: 52px;
+    box-sizing: border-box;
+    background: none;
+    border: 0;
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    font: inherit;
+}
+
+button.list-row { cursor: pointer; }
+button.list-row:hover { background: var(--color-surface-2); }
+.list-row .chev { color: var(--color-faint); flex: none; }
+.list-row-title { font-weight: 600; }
+.list-row-sub { font-size: var(--fs-sm); color: var(--color-muted); }
+
+.chip {
+    flex: none;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--color-neutral);
+    color: var(--color-neutral-text);
+    white-space: nowrap;
+}
+
+.chip-substitute { background: var(--color-substitute-soft); color: var(--color-substitute-text); }
+.chip-cancelled { background: var(--color-cancelled-soft); color: var(--color-cancelled-text); }
+.chip-confirmed { background: var(--color-confirmed-soft); color: var(--color-confirmed-text); }
+.chip-uploaded { background: var(--color-uploaded-soft); color: var(--color-uploaded-text); }
+.chip-rejected { background: var(--color-rejected-soft); color: var(--color-rejected-text); }
+.chip-terms { background: var(--color-terms-pending-soft); color: var(--color-terms-pending-text); }
+.chip-over { background: var(--color-over-plan-soft); color: var(--color-over-plan-text); }
+.chip-warning { background: var(--color-warning-soft); color: var(--color-warning-text); }
+.chip-important { background: var(--color-important); color: var(--color-on-accent); }
+.chip-outline { background: transparent; border: 1px solid var(--color-line-strong); }
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--color-neutral);
+    color: var(--color-neutral-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-lg { width: 88px; height: 88px; font-size: 28px; }
+
+/* A photo with a camera badge on it: tapping the photo adds or changes it. */
+.photo-picker {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+}
+
+.photo-picker .avatar { width: 96px; height: 96px; font-size: 30px; }
+.photo-picker-sm, .photo-picker-sm .avatar { width: 56px; height: 56px; font-size: 18px; }
+
+.photo-picker .photo-badge {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    border: 3px solid var(--color-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-picker-sm .photo-badge { width: 26px; height: 26px; border-width: 2px; }
+
+.dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 14px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.dl dt { color: var(--color-muted); }
+.dl dd { margin: 0; font-weight: 500; min-width: 0; }
+
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.stat {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+    min-width: 0;
+}
+
+.stat strong { font-family: var(--font-display); font-size: var(--fs-xl); color: var(--color-text); font-variant-numeric: tabular-nums; }
+
+.progress { height: 8px; border-radius: 4px; background: var(--color-neutral); overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--color-accent); border-radius: 4px; transition: width 0.2s; }
+.progress-over > span { background: var(--color-over-plan); }
+
+.empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--color-muted);
+    border: 1px dashed var(--color-line-strong);
+    border-radius: var(--radius-lg);
+}
+
+/* ---------- Banners ---------- */
+
+.banner {
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--color-surface);
+    border: 1px dashed var(--color-line-strong);
+    color: var(--color-neutral-text);
+}
+
+.banner-error { background: var(--color-rejected-soft); color: var(--color-rejected-text); border: 0; }
+.banner-warning { background: var(--color-warning-soft); color: var(--color-warning-text); border: 2px solid var(--color-warning); }
+.banner-terms { background: var(--color-terms-pending-soft); color: var(--color-terms-pending-text); border: 0; }
+.banner-ok { background: var(--color-confirmed-soft); color: var(--color-confirmed-text); border: 0; }
+.banner-substitute { background: var(--color-substitute-soft); color: var(--color-substitute-text); border: 0; }
+
+/* ---------- Forms ---------- */
+
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label { font-size: 14px; font-weight: 600; }
+.hint { font-size: var(--fs-sm); color: var(--color-muted); }
+.field-error { font-size: var(--fs-sm); color: var(--color-rejected); font-weight: 600; }
+
+.input {
+    min-height: 50px;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-sm);
+    padding: 0 14px;
+    font-size: var(--fs-input);
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+textarea.input { min-height: 96px; padding: 12px 14px; resize: vertical; line-height: 1.45; }
+select.input { appearance: auto; }
+.input[aria-invalid="true"] { border-color: var(--color-rejected); border-width: 2px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+.check {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    min-height: var(--tap);
+    padding: 4px 0;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.check input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--color-accent); }
+
+/* A radio or checkbox drawn as a card. */
+.option {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    cursor: pointer;
+}
+
+.option:has(input:checked) { border: 2px solid var(--color-accent); padding: 11px 13px; }
+.option input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--color-accent); }
+
+/* Segmented switch: Mes / Planear, ES / EN, adult / minor. */
+.seg { display: flex; background: var(--color-neutral); border-radius: var(--radius-pill); padding: 3px; }
+.seg button { flex: 1; min-height: var(--tap); border: 0; border-radius: var(--radius-pill); background: transparent; font-weight: 600; font-size: 14px; color: var(--color-neutral-text); cursor: pointer; }
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--color-ink); color: var(--color-on-ink); }
+
+/* Day chips that scroll sideways. */
+.day-strip { display: flex; gap: 6px; overflow-x: auto; margin: 0 calc(var(--gutter) * -1); padding: 2px var(--gutter); scrollbar-width: none; }
+.day-strip::-webkit-scrollbar { display: none; }
+.day-strip button {
+    flex: none;
+    min-width: 52px;
+    min-height: 60px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--fs-xs);
+    color: var(--color-muted);
+    cursor: pointer;
+}
+
+.day-strip button strong { font-size: 17px; color: var(--color-text); }
+.day-strip button[aria-pressed="true"] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-on-ink); }
+.day-strip button[aria-pressed="true"] strong { color: var(--color-on-ink); }
+
+/* Month grid (director calendar). */
+.month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.month-head { font-size: var(--fs-xs); color: var(--color-muted); text-align: center; font-weight: 600; padding: 2px 0; }
+.month button {
+    aspect-ratio: 1 / 1.05;
+    max-width: 100%;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.month button[data-out="true"] { background: transparent; border-color: transparent; color: var(--color-faint); }
+.month button[data-today="true"] { border: 2px solid var(--color-accent); font-weight: 700; }
+.month button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-on-ink); border-color: var(--color-ink); }
+.month .dots { display: flex; gap: 2px; height: 6px; }
+.month .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-faint); }
+.month .dots i[data-kind="substitute"] { background: var(--color-substitute); }
+.month .dots i[data-kind="cancelled"] { background: transparent; border: 1px solid var(--color-cancelled); box-sizing: border-box; }
+.month button[aria-pressed="true"] .dots i { background: var(--color-on-ink); }
+
+/* A time slot in a day list. */
+.slot { display: flex; gap: 12px; align-items: flex-start; }
+.slot-time { width: 52px; flex: none; font-weight: 600; font-variant-numeric: tabular-nums; padding-top: 14px; font-size: 14px; }
+.slot > .card, .slot > button.card { flex: 1; }
+
+/* ---------- Layers: sheets, dialogs, toasts ---------- */
+
+.layer {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    background: var(--color-overlay);
+    animation: fade 0.15s ease-out;
+}
+
+.layer-center { justify-content: center; padding: 0 20px; }
+
+.sheet {
+    max-height: calc(100% - var(--safe-top) - 24px);
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -10px 30px var(--color-shadow);
+    animation: rise 0.2s ease-out;
+}
+
+.sheet-tall { height: calc(100% - var(--safe-top) - 24px); }
+
+.sheet-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px var(--gutter) 6px;
+}
+
+.sheet-head h2 { flex: 1; font-size: var(--fs-xl); }
+.sheet-grip { width: 40px; height: 5px; border-radius: 3px; background: var(--color-line-strong); opacity: 0.5; margin: 8px auto 0; flex: none; }
+
+.sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px var(--gutter) calc(var(--safe-bottom) + 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.dialog {
+    background: var(--color-surface);
+    border-radius: 22px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 20px 50px var(--color-shadow);
+    animation: rise 0.18s ease-out;
+}
+
+.dialog h2 { font-size: var(--fs-xl); }
+
+.toast {
+    position: absolute;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: calc(var(--safe-bottom) + 76px);
+    z-index: 60;
+    background: var(--color-ink);
+    color: var(--color-on-ink);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px var(--color-shadow);
+    animation: rise 0.2s ease-out;
+}
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- Pieces used by one kind of screen ---------- */
+
+.qr-full {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    position: relative;
+    background: var(--qr-bg);
+    color: var(--qr-ink);
+    padding: calc(var(--safe-top) + 16px) 24px calc(var(--safe-bottom) + 16px);
+    text-align: center;
+}
+
+.camera {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    max-width: 100%;
+    border-radius: var(--radius-lg);
+    background: #1D1B20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.camera-frame { width: 62%; aspect-ratio: 1; border: 4px solid #FFFFFF; border-radius: 22px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35); }
+.camera p { position: absolute; bottom: 14px; left: 0; right: 0; color: #FFFFFF; text-align: center; font-size: 14px; }
+
+.pdf {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-neutral);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pdf-page {
+    background: #FFFFFF;
+    color: #1D1B20;
+    border-radius: 6px;
+    padding: 22px 20px;
+    min-height: 420px;
+    box-shadow: 0 2px 8px var(--color-shadow);
+    font-size: 13px;
+    line-height: 1.55;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pdf-page h3 { font-size: 15px; }
+.pdf-page .pdf-foot { margin-top: auto; color: #8C8792; font-size: 11px; text-align: right; }
+
+.proof-image {
+    aspect-ratio: 3 / 4;
+    max-width: 100%;
+    border-radius: var(--radius-md);
+    background: repeating-linear-gradient(45deg, var(--color-neutral), var(--color-neutral) 10px, var(--color-surface-2) 10px, var(--color-surface-2) 20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-muted);
+    font-size: var(--fs-sm);
+    overflow: hidden;
+}
+
+.proof-image img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Scroll areas are flex columns: their children keep their own height instead of shrinking to fit. */
+.scroll > *, .sheet-body > * {
+    flex-shrink: 0;
+}
+
+/* ---------- Round 10 ---------- */
+
+/* Bottom texts sit in the footer, always visible; keep them compact. */
+.footer .hint { margin: 0; }
+
+/* A child that fills the free height of the scroll area (the screenshot picker). */
+.fill { flex: 1 0 180px; display: flex; flex-direction: column; min-height: 180px; }
+/* A section pushed to the bottom of the scroll area when there's room above it. */
+.push-end { margin-top: auto; }
+
+/* Carousel cards are buttons: tapping one selects it. */
+.carousel-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.carousel-card[aria-pressed="true"] { border: 2px solid var(--color-accent); padding: 13px 15px; box-shadow: 0 4px 14px var(--color-shadow); }
+.carousel-card > .card { border: 0; padding: 0; background: transparent; }
+
+/* Staff in two schools: the school they're working in, next to the notices. */
+.school-switch {
+    min-height: var(--tap);
+    padding: 0 10px 0 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 600;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.school-switch svg { transform: rotate(90deg); }
+
+/* Day toggles (activity form): a picked day is filled and outlined in the accent, with a tick. */
+.day-toggle {
+    min-width: 0;
+    min-height: var(--tap);
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 600;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.day-toggle[aria-pressed="true"] { background: var(--color-accent-soft); border: 2px solid var(--color-accent); color: var(--color-accent-strong); }
+
+/* Rows that keep one height whatever they hold (the teacher's students). */
+.list-row-fixed { height: 76px; min-height: 76px; overflow: hidden; }
+.list-row-fixed .list-row-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-row-fixed .wrap { flex-wrap: nowrap; overflow: hidden; }
+
+/* A saved person (emergency contact, pickup): a small card with its edit and delete buttons. */
+.person-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-md); }
+
+/* Finished-step screens: icon and message centred, confetti over them. */
+.done { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; position: relative; }
+.confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+
+details.collapse { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-lg); }
+details.collapse > summary { min-height: var(--tap); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; cursor: pointer; list-style: none; }
+details.collapse > summary::-webkit-details-marker { display: none; }
+details.collapse > summary svg { transform: rotate(90deg); transition: transform 0.15s; }
+details.collapse[open] > summary svg { transform: rotate(-90deg); }
+details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.month button:disabled { cursor: default; color: var(--color-faint); }
+.month .dots i[data-kind="class"] { background: var(--color-accent); }
+.list-row-fixed .list-row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Round 11 ---------- */
+
+/* A popup's main action, pinned under its scroll like a screen footer. */
+.sheet-foot {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px var(--gutter) calc(var(--safe-bottom) + 10px);
+    border-top: 1px solid var(--color-line);
+    background: var(--color-bg);
+}
+.sheet-foot .hint { margin: 0; }
+.sheet-has-foot .sheet-body { padding-bottom: 16px; }
+
+/* Actions that remove or switch something off: at the end of the page, never pinned. */
+.danger-zone { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--color-line); }
+.btn-danger-outline { background: transparent; color: var(--color-rejected); border: 1px solid var(--color-rejected); }
+
+/* Icon buttons that are off look off. */
+.icon-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Status pieces screens used to colour by hand. */
+.banner-important { border-color: var(--color-important); }
+.banner-over { background: var(--color-over-plan-soft); color: var(--color-over-plan-text); border: 0; }
+.avatar-ok { background: var(--color-confirmed-soft); color: var(--color-confirmed); }
+.avatar-error { background: var(--color-rejected-soft); color: var(--color-rejected); }
+.text-rejected { color: var(--color-rejected-text); }
+.text-confirmed { color: var(--color-confirmed); }
+
+/* The screenshot picker on Upload: a dashed area that takes the free room. */
+.proof-pick { border: 2px dashed var(--color-line-strong); cursor: pointer; flex-direction: column; gap: 8px; aspect-ratio: auto; font: inherit; color: var(--color-muted); }
+
+/* The activity form's days: seven equal buttons in one row, the full width of the phone. */
+.day-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day-row .day-toggle { padding: 0; }
+.day-toggle[aria-pressed="true"] { background: var(--color-accent); border: 1px solid var(--color-accent); color: var(--color-on-accent); }
+
+/* ---------- Round 14 ---------- */
+
+/* A popup's title with a line under it (the board's school). */
+.sheet-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sheet-title span { font-size: var(--fs-sm); color: var(--color-muted); }
+
+/* A popup that leaves the bottom bar in view: the dimming stops above the bar, and so does the popup. */
+.layer-keep-nav {
+    padding-bottom: var(--nav-h);
+    background: linear-gradient(var(--color-overlay), var(--color-overlay)) top / 100% calc(100% - var(--nav-h)) no-repeat;
+}
+.layer-keep-nav .sheet { border-bottom: 1px solid var(--color-line); }
+.layer-keep-nav .sheet-foot { padding-bottom: 10px; }
+.layer-keep-nav .sheet-body { padding-bottom: 16px; }
+
+/* The topbar's second subtitle line (the dashboard's date). */
+.topbar-title span + span { margin-top: 1px; }
+
+/* ---------- Round 15 ---------- */
+
+/* A long list inside a page: five rows in view, its own scroll. */
+.list-max-5 { max-height: calc(5 * 65px); overflow-y: auto; overscroll-behavior: contain; }
+.list-max-5 .list-row { min-height: 64px; }
+
+/* Keep the phone frame on the page: no page scroll around it. */
+@media (min-width: 600px) and (min-height: 760px) {
+    body { overflow: hidden; }
+}
+
+/* Round 17: the QR screen and the check-in button take their look from here, not inline styles. */
+.qr-close { position: absolute; top: calc(var(--safe-top) + 10px); right: 16px; }
+.qr-title { font-size: 18px; font-weight: 600; }
+.qr-code { max-width: 100%; }
+.qr-code rect, .qr-timer text { fill: var(--qr-ink); }
+.qr-track { stroke: var(--qr-track); }
+.qr-ring { stroke: var(--qr-ring); }
+.qr-timer { justify-content: center; }
+.qr-muted { color: var(--qr-muted); }
+.btn-checkin { justify-content: flex-start; text-align: left; padding: 10px 18px; }
+.btn-checkin .stack-sm { align-items: flex-start; }
+.btn-checkin .small { font-weight: 400; }
+/* An on/off filter, e.g. the calendar's "Mis clases": 44px tall to tap, filled when on. */
+.chip-toggle { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--color-line-strong); background: transparent; color: var(--color-text); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.chip-toggle[aria-pressed="true"] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-on-ink); }
+
+/* Round 18. The selected carousel card's "tap again to open" line, pinned to its bottom right; the
+   other cards keep its room, so selecting a card never changes the carousel's height. */
+.carousel-open { display: inline-flex; align-items: center; gap: 2px; align-self: flex-end; margin-top: auto; padding-top: 2px; font-size: var(--fs-sm); font-weight: 600; color: var(--color-accent); }
+.carousel-open[data-on="false"] { visibility: hidden; }
+/* Button colours: accent = go ahead; red = it deletes or ends something; neutral outline = reversible
+   (deactivate, archive, sign out). A plain red text button for a destructive request that isn't the
+   screen's main action. */
+.btn-ghost-danger { background: transparent; color: var(--color-rejected); border-color: transparent; }
+.btn-ghost-danger:hover { background: var(--color-rejected-soft); }
+/* What a screenshot pays for, shown instead of picking it again. */
+.pay-what { gap: 4px; }
+.pay-what .huge { margin-top: 6px; }
+/* A list row's action word on the right (e.g. "Corregir"), when tapping the row does it. */
+.row-action { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--color-accent); }
+/* Round 19. Carousel cards keep one size: each line stays on one line (long names end in …), and
+   the cards of a carousel share the tallest one's height. */
+.carousel-card > span, .carousel-card > p, .carousel-card .big, .carousel-card .small:not(.carousel-open), .carousel-card .grow > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.carousel-card .row > .small { flex: 0 1 auto; min-width: 0; }
+/* A screen with a fixed list: the fields stay, the list box scrolls and ends above the bottom bar. */
+.scroll-fixed { overflow: hidden; padding-bottom: 12px; }
+.list-fill { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; display: flex; flex-direction: column; gap: 10px; border-radius: var(--radius-lg); }
+.list-fill > .list { flex: none; }
+/* In a carousel card the time keeps its full length; the chips go to the next line when there's no room. */
+.carousel-card .row { flex-wrap: wrap; row-gap: 6px; }
+.carousel-card .row > .small { flex: none; }
+.carousel-card .row > .wrap { flex-wrap: nowrap; }
+/* A section title with a link beside it: both on one line, centred. */
+.section-head .section-title { margin: 0; }
+/* A long title (a class name beside a back arrow and three buttons) takes two lines at most. */
+.topbar-title h1 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; }
+/* The director calendar month name between previous and next. */
+.month-nav { display: flex; align-items: center; gap: 2px; }
+/* The calendar legend, with the month's dots. */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); }
+.legend i[data-kind="substitute"] { background: var(--color-substitute); }
+.legend i[data-kind="cancelled"] { background: transparent; border: 1px solid var(--color-cancelled); box-sizing: border-box; }
+.month-nav .big { white-space: nowrap; font-size: var(--fs-md); font-weight: 700; }
+.chip-toggle { white-space: nowrap; padding: 0 12px; flex: none; }
+/* On the review screen the picture comes after the facts and stays at most half the screen tall. */
+.proof-image-review { aspect-ratio: auto; height: 45vh; min-height: 220px; }
+/* Round 21 (long texts). A chip never grows past its line: a long one ends in …; a card's title
+   takes two lines at most. */
+.chip { box-sizing: border-box; max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 1.35; }
+.chip > svg { vertical-align: -2px; margin-right: 4px; }
+.card .big { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; }
+/* A card shorter than its carousel keeps its last line (the amount and state) at the bottom. */
+.carousel-card > .row:last-child { margin-top: auto; }
+/* A long school name in the switch ends in …, so the title beside it keeps its room. */
+.school-switch { max-width: 140px; min-width: 0; flex-shrink: 1; }
+.school-switch > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.school-switch > svg { flex: none; }
+.topbar-title { min-width: 88px; }
+/* Many carousel cards: a count instead of dots. */
+.carousel-count { margin: -6px 0 0; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* An off button still says what it would do: neutral stays an outline, a delete stays red, only faded. */
+.btn-secondary:disabled, .btn-secondary[aria-disabled="true"] { background: transparent; color: var(--color-faint); border-color: var(--color-line); }
+.btn-danger:disabled, .btn-danger[aria-disabled="true"] { background: var(--color-rejected-soft); color: var(--color-rejected-text); opacity: 0.7; }
+.text-danger { color: var(--color-rejected); }
+
+/* Resumen: each number in the colour of what it means for the school (good, worth watching, bad). */
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.metric {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; min-width: 0;
+    padding: 12px 14px; border-radius: var(--radius-lg); border: 1px solid var(--color-line); border-left: 5px solid var(--tone, var(--color-line));
+    background: var(--color-surface); color: var(--color-text); font: inherit; cursor: pointer;
+}
+.metric > .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.metric-wide { cursor: default; }
+.metric-value { font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--tone-text, var(--color-text)); }
+.metric-tone { font-size: 12px; font-weight: 600; color: var(--tone-text, var(--color-muted)); }
+[data-tone="good"] { --tone: var(--color-confirmed); --tone-text: var(--color-confirmed-text); --tone-soft: var(--color-confirmed-soft); }
+[data-tone="watch"] { --tone: var(--color-warning); --tone-text: var(--color-warning-text); --tone-soft: var(--color-warning-soft); }
+[data-tone="bad"] { --tone: var(--color-rejected); --tone-text: var(--color-rejected-text); --tone-soft: var(--color-rejected-soft); }
+.trend { font-size: 12px; color: var(--tone-text); }
+.tone-chip { background: var(--tone-soft); color: var(--tone-text); white-space: nowrap; }
+.slot-grid { display: grid; grid-template-columns: 44px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.slot-row { display: contents; }
+.slot-cell { display: block; text-align: center; padding: 8px 0; border-radius: var(--radius-sm); background: var(--tone-soft); color: var(--tone-text); font-weight: 600; font-size: 14px; }
+.bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; height: 120px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
+.bar { width: 100%; max-width: 36px; border-radius: 6px 6px 0 0; background: var(--tone); }
+
+/* Date and time fields: the app writes the value; the phone's picker sits transparent on top. */
+.picker { position: relative; }
+.picker-text { display: flex; align-items: center; padding-right: 40px; }
+.picker-text[data-empty] { color: var(--color-faint); }
+.picker-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--color-muted); pointer-events: none; }
+.picker-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.picker:focus-within .picker-text { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.picker[data-disabled] .picker-text { background: var(--color-neutral); color: var(--color-faint); }
+.picker[data-disabled] .picker-native { cursor: not-allowed; }
+
+/* ---------- Phones: the app is the whole screen ---------- */
+
+/* On a phone the page itself never scrolls: only each screen's scroll area does, so the top and
+   bottom bars stay put (iOS Safari would otherwise move the whole page, bottom bar included, when
+   the address bar collapses or the page bounces). */
+@media (max-width: 599px), (max-height: 759px) {
+    html, body { overflow: hidden; overscroll-behavior: none; }
+    .device { position: fixed; inset: 0; height: auto; }
+}
+
+/* A slimmer bottom bar: smaller icons and labels, the same tap width. */
+.nav { padding: 2px 4px max(var(--safe-bottom), 2px); }
+.nav button { min-height: 46px; gap: 1px; font-size: 11px; }
+.nav button svg { width: 21px; height: 21px; }
+
+/* Tighter rhythm on phones: a screen that would scroll for one line fits instead. */
+.scroll { gap: 12px; padding-bottom: 12px; }
+.screen-no-bottom .scroll { padding-bottom: calc(var(--safe-bottom) + 12px); }
+.footer { padding-top: 8px; padding-bottom: 8px; gap: 6px; }
+.screen-no-bottom .footer { padding-bottom: calc(var(--safe-bottom) + 8px); }
+.empty { padding: 16px; }
+.scroll { padding-bottom: 8px; }
+.screen-no-bottom .scroll { padding-bottom: calc(var(--safe-bottom) + 8px); }
+/* Above a pinned footer, its border already separates: no extra space under the last line. */
+.screen:has(> .footer) .scroll { padding-bottom: 0; }
+.screen:not(.screen-no-bottom) .scroll { padding-bottom: 2px; }
+.screen:not(.screen-no-bottom):has(> .footer) .scroll { padding-bottom: 0; }
+
+/* Main buttons: one size smaller than before, so a pinned action doesn't push the screen into scrolling. */
+.btn-lg { min-height: 48px; font-size: var(--fs-md); border-radius: var(--radius-md); }
+.btn-checkin { padding: 6px 16px; min-height: 52px; }
+.btn-checkin .stack-sm { min-width: 0; gap: 0; }
+.btn-checkin .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* A breakdown's headline explains its colours in full: it wraps instead of ending in "…". */
+.metric-wide > .small { white-space: normal; overflow: visible; }
+
+/* The school switch keeps one width whichever school is picked, so the title doesn't jump. */
+.school-switch { width: 112px; max-width: 112px; justify-content: space-between; }
+
+/* Filtering the classes to join keeps the filters where they are: the list's area never gets
+   shorter than the screen, so the scroll doesn't jump up when fewer classes match. */
+.join-area { display: flex; flex-direction: column; gap: 12px; min-height: calc(100% + 16px); }
+
+/* Popups leave the way they came: the dimmed layer fades out and the sheet or dialog sinks. */
+.layer[data-leaving] { animation: fade-out 0.18s ease-in forwards; pointer-events: none; }
+.layer[data-leaving] .sheet, .layer[data-leaving] .dialog { animation: sink 0.18s ease-in forwards; }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes sink { to { transform: translateY(24px); opacity: 0; } }
+
+.search-row { display: flex; align-items: center; gap: 8px; }
+.search-row > .grow { min-width: 0; }
+.search-row > .grow > .field { margin: 0; }
+.search-open { display: flex; align-items: center; gap: 8px; }
+.search-open > .input { flex: 1; min-width: 0; }
+
+/* A class's name and times stay at the top of its list while it scrolls. */
+.sticky-head { position: sticky; top: 0; z-index: 1; background: var(--color-bg); display: flex; flex-direction: column; gap: 2px; padding: 4px 0 6px; }
+
+/* Scrollbars: phones only show them while scrolling; the laptop preview hides them too, so every scroll area looks the same. */
+.scroll, .list-fill, .sheet-body, .carousel { scrollbar-width: none; }
+.scroll::-webkit-scrollbar, .list-fill::-webkit-scrollbar, .sheet-body::-webkit-scrollbar, .carousel::-webkit-scrollbar { display: none; }
+
+/* The students' calendar: their sessions as dots, classes they could join as rings. */
+.month .dots i[data-kind="join"] { background: transparent; border: 1.5px solid var(--color-accent); box-sizing: border-box; }
+.legend i[data-kind="join"] { background: transparent; border: 1.5px solid var(--color-accent); box-sizing: border-box; }
+.month button[aria-pressed="true"] { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+
+/* The school under the title, for staff in several schools: tapping it lists their schools. */
+.title-school {
+    display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-height: 28px;
+    padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+    color: var(--color-accent); font-size: var(--fs-sm); font-weight: 600;
+}
+.title-school > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.title-school > svg { flex: none; transform: rotate(90deg); }
+.topbar-title .title-school > span { color: inherit; font-size: inherit; }
+
+/* Text with ▾: a choice that changes what the screen shows. */
+.menu-text { position: relative; display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--color-accent); font-weight: 600; vertical-align: bottom; }
+.menu-text-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.menu-text > svg { flex: none; transform: rotate(90deg); }
+.menu-text-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; border: 0; }
+.menu-text:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 4px; }
+.sheet-title .menu-text, .sheet-title .menu-text-value { color: var(--color-accent); font-size: var(--fs-sm); }
+/* A heading that holds a choice: "Tablero de Colibrí ▾" on one line. */
+.heading-pick { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.heading-pick > .menu-text { flex: 1; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); }
+
+/* Carousel cards change border the moment they're selected. */
+.carousel-card { transition: none; }
+
+/* Skeletons: the shape of what's loading, shimmering. */
+.skeleton { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.skeleton-bar { display: block; height: 14px; border-radius: 7px; background: linear-gradient(90deg, var(--color-neutral) 25%, var(--color-surface-2, var(--color-line)) 50%, var(--color-neutral) 75%); background-size: 200% 100%; animation: shimmer 1.1s linear infinite; }
+.skeleton-bar:first-child { height: 18px; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.section-title.one-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heading-pick:not(.section-title) { font-size: var(--fs-md); color: var(--color-muted); }
+.heading-pick:not(.section-title) > .menu-text { font-size: var(--fs-md); }
+.title-school .menu-text, .title-school .menu-text-value { color: var(--color-accent); font-size: var(--fs-sm); font-weight: 600; }
+.title-school { display: flex; min-height: 26px; align-items: center; }
+
+/* Room between the last line and the footer, and inside the footer around its text and buttons. */
+.footer { padding-top: 12px; padding-bottom: 12px; gap: 10px; }
+.screen-no-bottom .footer { padding-bottom: calc(var(--safe-bottom) + 12px); }
+.screen:has(> .footer) .scroll, .screen:not(.screen-no-bottom):has(> .footer) .scroll { padding-bottom: 14px; }
+.screen:not(.screen-no-bottom) .scroll { padding-bottom: 14px; }
+.sheet-foot { gap: 10px; padding-top: 12px; }
+.footer .hint, .sheet-foot .hint { margin: 0 0 2px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--color-accent); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.receipt-thumb { width: 100%; max-height: 180px; object-fit: contain; border-radius: var(--radius-md); background: var(--color-surface); }
+.receipt-full { width: 100%; border-radius: var(--radius-md); }
+
+/* A school's logo, or its initials until one is uploaded: always the same small square. */
+.school-logo { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 6px; background: var(--color-accent-soft); color: var(--color-accent-strong); font-weight: 700; object-fit: cover; letter-spacing: 0; text-transform: none; }
+.school-logo-sm { width: 20px; height: 20px; font-size: 10px; }
+.school-logo-md { width: 36px; height: 36px; font-size: 14px; border-radius: 9px; }
+.title-school { gap: 6px; }
+.heading-pick .school-logo { margin-right: 2px; }
