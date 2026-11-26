@@ -353,14 +353,14 @@ begin
         (helios, null, 'note', 'Para registrar su clase, traigan la app de Wellhub o TotalPass abierta con el código del día.', today + 30, null, now() - interval '6 days');
 
     -- The test accounts, when they exist: the director and the teacher get a class each to see.
-    update session set teacher_id = (select p.id from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.maestra@example.com')
+    update session set teacher_id = (select p.id from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.maestra@kokoasoft.com')
     where class_id = (select id from seed_class where key = 'mariana') and starts_at > now()
       and exists (select 1 from person p join auth.users u on u.id = p.user_id join membership m on m.person_id = p.id and m.school_id = helios and m.role = 'teacher'
-                  where u.email = 'prueba.maestra@example.com');
-    update class set teacher_id = (select p.id from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.maestra@example.com')
+                  where u.email = 'prueba.maestra@kokoasoft.com');
+    update class set teacher_id = (select p.id from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.maestra@kokoasoft.com')
     where id = (select id from seed_class where key = 'mariana')
       and exists (select 1 from person p join auth.users u on u.id = p.user_id join membership m on m.person_id = p.id and m.school_id = helios and m.role = 'teacher'
-                  where u.email = 'prueba.maestra@example.com');
+                  where u.email = 'prueba.maestra@kokoasoft.com');
 
     alter table enrollment enable trigger enrollment_saved;
     alter table student_package enable trigger package_saved;

@@ -9,7 +9,8 @@
 -- Stays: the school, its room, classes, weekly schedule and sessions from today on, prices, package
 -- offers, the teacher pay rule, the terms, and the teachers (placeholders without a login: invite
 -- each real teacher from Teachers, then give them their classes with "change the teacher").
--- The test accounts (prueba.*) stay as people with logins; their history at Helios goes too.
+-- The test accounts (prueba.*) stay as people with logins, and so does the test guardian's child;
+-- their history at Helios goes too.
 --
 -- Runs as the database owner, so it can remove history the app itself never deletes.
 
@@ -29,7 +30,10 @@ begin
     select coalesce(array_agg(distinct p.id), '{}') into invented
     from person p join membership m on m.person_id = p.id
     where m.school_id = helios and m.role in ('student', 'guardian') and p.user_id is null
-      and not exists (select 1 from membership o where o.person_id = p.id and o.school_id <> helios);
+      and not exists (select 1 from membership o where o.person_id = p.id and o.school_id <> helios)
+      -- A test guardian's child (no login of its own) belongs to the test accounts: it stays.
+      and not exists (select 1 from guardian_link g join person gp on gp.id = g.guardian_id
+                      where g.school_id = helios and g.student_id = p.id and gp.user_id is not null);
 
     -- Their files and the screenshots' files go through the deletion queue (the worker removes them from the bucket).
     insert into file_deletion (path)

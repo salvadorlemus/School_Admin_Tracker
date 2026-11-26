@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayMonth, dayShort, money, personName, time} from '../../lib/format';
 import {useRouter} from '../../lib/router';
@@ -290,38 +290,126 @@ export function LiveGuardianHome() {
     );
 }
 
-// ---- Check in: the code under the teacher's QR (or the link their QR opens) ----
+// ---- Check in: scanning the teacher's QR in the app, the link it opens, or the code under it ----
 
 type Outcome = { status: string; results?: { person_id: string; result: string }[]; session_id?: string };
+
+/** The browser's own QR reader (BarcodeDetector: Chrome on Android; Safari doesn't have it). */
+interface QrReader {
+    detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]>;
+}
+
+const QrReaderApi = (globalThis as unknown as { BarcodeDetector?: new (options: { formats: string[] }) => QrReader }).BarcodeDetector;
+
+/** The code in what a QR holds: Lyra's check-in link (`…#/checkin?code=…`), or the code alone. */
+export function codeFromQr(text: string): string {
+    const linked = /[?&]code=([0-9a-fA-F]{6,12})\b/.exec(text);
+    if (linked) return linked[1];
+    return /^[0-9a-fA-F]{6,12}$/.test(text.trim()) ? text.trim() : '';
+}
+
+/** The back camera, read a few times a second until it sees a check-in QR; `onUnavailable` when it can't. */
+function QrCamera({onCode, onUnavailable}: { onCode: (code: string) => void; onUnavailable: () => void }) {
+    const video = useRef<HTMLVideoElement>(null);
+    useEffect(() => {
+        if (!QrReaderApi || !navigator.mediaDevices?.getUserMedia) {
+            onUnavailable();
+            return;
+        }
+        const reader = new QrReaderApi({formats: ['qr_code']});
+        let stream: MediaStream | null = null;
+        let timer = 0;
+        let stopped = false;
+        const look = async () => {
+            const view = video.current;
+            if (stopped || !view) return;
+            try {
+                if (view.readyState >= 2) {
+                    const found = (await reader.detect(view)).map(item => codeFromQr(item.rawValue)).find(Boolean);
+                    if (found) {
+                        onCode(found);
+                        return;
+                    }
+                }
+            } catch {
+                // A frame it couldn't read: the next one is tried.
+            }
+            timer = window.setTimeout(() => void look(), 250);
+        };
+        navigator.mediaDevices.getUserMedia({video: {facingMode: 'environment'}, audio: false}).then(media => {
+            if (stopped) return media.getTracks().forEach(track => track.stop());
+            stream = media;
+            if (video.current) {
+                video.current.srcObject = media;
+                void video.current.play();
+            }
+            void look();
+        }).catch(() => onUnavailable());
+        return () => {
+            stopped = true;
+            window.clearTimeout(timer);
+            stream?.getTracks().forEach(track => track.stop());
+        };
+    }, []);
+    return (
+        <div className="camera fill" aria-label={t('checkin.camera')} role="img">
+            <video ref={video} className="camera-video" muted playsInline/>
+            <div className="camera-frame"/>
+            <p>{t('checkin.aim')}</p>
+        </div>
+    );
+}
 
 export function LiveCheckIn() {
     const router = useRouter();
     const base = router.path.startsWith('/g') ? '/g' : '/s';
     const kids = router.query.get('kids');
-    const [code, setCode] = useState(router.query.get('code') ?? '');
+    // Opened from the QR's link (the phone's own camera app): the code is already there.
+    const linked = codeFromQr(`?code=${router.query.get('code') ?? ''}`);
+    const [code, setCode] = useState('');
+    const [typing, setTyping] = useState(false);
+    const [noCamera, setNoCamera] = useState(false);
     const [busy, setBusy] = useState(false);
-    const send = async () => {
+    const send = async (value: string, fromLink: boolean) => {
         setBusy(true);
         const {data, error} = await supabase.rpc('check_in', {
-            code: code.trim().toUpperCase(),
+            code: value.trim().toUpperCase(),
             students: kids ? kids.split(',') : []
         });
         setBusy(false);
         const outcome = (error ? {status: 'error'} : data) as Outcome;
         await loadLive().catch(() => undefined);
-        router.navigate(`${base}/checkin/result?o=${encodeURIComponent(JSON.stringify(outcome))}`);
+        const result = `${base}/checkin/result?o=${encodeURIComponent(JSON.stringify(outcome))}`;
+        // From the link, the result takes its place, so back never sends the same code again; from the camera, back scans again.
+        if (fromLink) router.replace(result);
+        else router.navigate(result);
     };
+    useEffect(() => {
+        if (linked) void send(linked, true);
+    }, []);
+    const camera = !typing && !noCamera;
     return (
         <Screen title={t('checkin.title')} back={`${base}/home`} nav={false}
-                footer={<button type="button" className="btn btn-lg" disabled={busy || code.trim().length < 6}
-                                onClick={() => void send()}>
-                    <Icon name="check"/>{t('checkin.send')}</button>}>
-            <p>{t('checkin.codeBody')}</p>
-            <TextField id="checkin-code" label={t('checkin.codeLabel')} value={code} autoComplete="off"
-                       autoCapitalize="characters" spellCheck={false}
-                       inputMode="text" maxLength={12}
-                       onChange={event => setCode(event.target.value.replace(/[^0-9a-fA-F]/g, ''))}
-                       hint={t('checkin.codeHint')}/>
+                footer={busy || linked ? undefined : camera
+                    ? <button type="button" className="btn btn-secondary btn-lg" onClick={() => setTyping(true)}>
+                        <Icon name="edit"/>{t('checkin.typeCode')}</button>
+                    : <>
+                        <button type="button" className="btn btn-lg" disabled={code.trim().length < 6}
+                                onClick={() => void send(code, false)}>
+                            <Icon name="check"/>{t('checkin.send')}</button>
+                        {!noCamera && <button type="button" className="btn btn-ghost"
+                                              onClick={() => setTyping(false)}>{t('checkin.useCamera')}</button>}
+                    </>}>
+            {busy || linked ? <p className="big center">{t('checkin.sending')}</p>
+                : camera ? <QrCamera onCode={found => void send(found, false)} onUnavailable={() => setNoCamera(true)}/>
+                    : <>
+                        <p>{t(noCamera ? 'checkin.noCamera' : 'checkin.codeBody')}</p>
+                        <TextField id="checkin-code" label={t('checkin.codeLabel')} value={code} autoComplete="off"
+                                   autoCapitalize="characters" spellCheck={false}
+                                   inputMode="text" maxLength={12}
+                                   onChange={event => setCode(event.target.value.replace(/[^0-9a-fA-F]/g, ''))}
+                                   hint={t('checkin.codeHint')}/>
+                    </>}
         </Screen>
     );
 }

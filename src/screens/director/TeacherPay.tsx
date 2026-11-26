@@ -196,7 +196,7 @@ export function TeacherPayScreen({id}: { id: string }) {
     const teacher = TEACHERS.find(item => item.id === id) ?? TEACHERS[0];
     return (
         <Screen title={t('tpaySet.theirPay')} subtitle={personName(teacher.name)} back={`/d/teachers/${id}`} nav={false}>
-            <PayView teacher={teacher.id} school="colibri" viewer="director"/>
+            <PayView teacher={teacher.id} school={currentSchool()} viewer="director"/>
         </Screen>
     );
 }

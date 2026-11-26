@@ -34,4 +34,5 @@ Create the mailbox (or an alias forwarding to the owner) only when a product sta
 - English local parts only (`privacy`, not `privacidad`), whatever language the app is in.
 - No new address per product (`lyra-support@…`): the product goes in the email's subject or display name.
 - Apps never use a personal address (no `@outlook.com` or `@gmail.com` in code, docs or settings).
-- Test logins use `@example.com` (it never receives mail), never these addresses: see `docs/test-accounts.md`.
+- Test logins are `prueba.…@kokoasoft.com` (`prueba.admin@`, `prueba.maestra@`…), never one of the addresses above, and
+  have no mailbox: see `docs/test-accounts.md`. The `prueba.` prefix is reserved for them.
