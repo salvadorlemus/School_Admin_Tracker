@@ -62,6 +62,8 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   app's never shows the panel; unset (locally) both share one address. Invitations always open the app.
 - The version (`package.json`) shows at the end of the sign-in screen; each release bumps it and is
   tagged (`V1.3.0`).
+- Kokoasoft's email addresses (the admin sign-in, privacy, the no-reply sender…) are listed once in
+  `docs/kokoasoft-emails.md`: reuse them, in English, and add a row there before using a new one.
 - Never put the secret / service_role key in the app.
 
 ## Data model (draft)
