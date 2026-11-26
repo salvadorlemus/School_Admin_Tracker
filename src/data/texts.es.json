@@ -1450,6 +1450,8 @@
   "app.version": "Lyra · versión {version}",
   "signIn.notAdmin": "Esta cuenta no administra la plataforma. Entra desde la app de tu escuela.",
   "signIn.noSchool": "Esta cuenta aún no pertenece a ninguna escuela.",
+  "upload.passAmount": "Lo cubre {pass}",
+  "signIn.unavailable": "Lyra no está disponible en este momento. Intenta más tarde.",
   "students.classGroup": "{name} · {n}",
   "payments.paidNote": "Este mes ya está pagado: la dirección confirmó tu comprobante.",
   "payments.sentNote": "Ya enviaste el comprobante de este mes; la dirección lo está revisando."

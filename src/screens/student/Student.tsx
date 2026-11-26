@@ -288,13 +288,13 @@ interface Plan {
     proofs: (proof: Proof) => boolean;
 }
 
-/** How each kind of payment can be made (rule 4): per visit is TotalPass or cash. */
+/** How each kind of payment can be made (rule 4): per visit is TotalPass, Wellhub or cash. */
 const METHODS: Record<PayKind, Proof['method'][]> = {
     monthly: ['transfer', 'card', 'cash'],
     package: ['transfer', 'card', 'cash'],
     fee: ['transfer', 'card', 'cash'],
-    trial: ['totalpass', 'cash'],
-    visit: ['totalpass', 'cash'],
+    trial: ['totalpass', 'wellhub', 'cash'],
+    visit: ['totalpass', 'wellhub', 'cash'],
 };
 
 /**
@@ -456,7 +456,7 @@ export function Payments() {
 
 /**
  * Upload a screenshot. The amount comes from the plan (the school's price), so it's shown, not
- * typed. The methods follow what's paid: per visit (a trial, a session) is TotalPass or cash; a
+ * typed. The methods follow what's paid: per visit (a trial, a session) is TotalPass, Wellhub or cash; a
  * month, a package or the registration fee is transfer, card or cash. The picture area takes the
  * room left on the screen.
  */
@@ -486,7 +486,7 @@ export function Upload() {
                     <span className="small muted">{t('upload.paying')}</span>
                     <span className="big">{plan.title}</span>
                     <span className="row-start small"><Icon name="school" size={16}/>{SCHOOLS[plan.school].name}</span>
-                    <span className="huge num">{method === 'totalpass' ? t('upload.totalpassAmount') : money(plan.amount)}</span>
+                    <span className="huge num">{method === 'totalpass' || method === 'wellhub' ? t('upload.passAmount', {pass: t(`method.${method}`)}) : money(plan.amount)}</span>
                     {plan.due && <span className="small muted">{plan.due}</span>}
                 </section>
             ) : (
@@ -504,7 +504,7 @@ export function Upload() {
             <div className="row">
                 <span className="muted">{t('upload.amount')}</span>
                 <span
-                    className="big num">{method === 'totalpass' ? t('upload.totalpassAmount') : money(plan.amount)}</span>
+                    className="big num">{method === 'totalpass' || method === 'wellhub' ? t('upload.passAmount', {pass: t(`method.${method}`)}) : money(plan.amount)}</span>
             </div>
             </>
             )}

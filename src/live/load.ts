@@ -45,6 +45,12 @@ import type {TextKey} from '../lib/texts';
 
 const local = localParts;
 
+/** A note's first sentence as its title, cut at a word under 80 characters. */
+const shortTitle = (body: string) => {
+    const first = body.split(/(?<=[.:!?])\s/)[0];
+    return first.length <= 80 ? first : `${first.slice(0, 80).replace(/\s+\S*$/, '')}…`;
+};
+
 const replace = <T, >(list: T[], items: T[]) => list.splice(0, list.length, ...items);
 
 export async function loadLive(): Promise<void> {
@@ -372,7 +378,7 @@ export async function loadLive(): Promise<void> {
             kind: kindMap[str(a.kind)] ?? 'note',
             classId: a.class_id ? str(a.class_id) : undefined,
             priceId: a.kind === 'price' ? (vars.offer_id ? str(vars.offer_id) : undefined) : undefined,
-            title: a.class_id ? classNameOf.get(str(a.class_id)) ?? '' : body.split(/(?<=[.:!?])\s/)[0].slice(0, 80),
+            title: a.class_id ? classNameOf.get(str(a.class_id)) ?? '' : shortTitle(body),
             at: startAt ? `${startAt.date} ${startAt.time}` : undefined,
             keep: !a.visible_until,
             text: textOf[str(a.kind)],

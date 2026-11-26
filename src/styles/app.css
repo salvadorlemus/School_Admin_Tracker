@@ -30,6 +30,9 @@
     --space-md: 12px;
     --space-lg: 16px;
     --space-xl: 20px;
+    /* The web: the reading column's width, and the side menu's. */
+    --content-max: 760px;
+    --sidebar: 232px;
     --color-desk: #E7E3DA;
     --color-bg: #F6F4EF;
     --color-surface: #FFFFFF;
@@ -258,18 +261,18 @@ p, h1, h2, h3, li, dd, .grow, .card {
     overflow: hidden;
 }
 
-/* On a laptop the app shows inside a phone outline with a notch, at 390 x 844. */
+/* With ?frame, on a laptop the app shows inside a phone outline with a notch, at 390 x 844. */
 @media (min-width: 600px) and (min-height: 760px) {
-    body {
+    html.framed body {
         display: grid;
         place-items: center;
     }
 
-    #root {
+    html.framed #root {
         height: auto;
     }
 
-    .device {
+    html.framed .device {
         --safe-top: 47px;
         --safe-bottom: 34px;
         width: 390px;
@@ -280,7 +283,7 @@ p, h1, h2, h3, li, dd, .grow, .card {
         box-shadow: 0 0 0 10px var(--fixed-ink), 0 24px 60px var(--fixed-shade);
     }
 
-    .device::before {
+    html.framed .device::before {
         content: '';
         position: absolute;
         top: 11px;
@@ -294,7 +297,7 @@ p, h1, h2, h3, li, dd, .grow, .card {
         pointer-events: none;
     }
 
-    .device::after {
+    html.framed .device::after {
         content: '';
         position: absolute;
         bottom: 8px;
@@ -1462,3 +1465,83 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 
 /* The app's version, at the end of the sign-in screen. */
 .version { margin: var(--space-lg) 0 0; text-align: center; color: var(--color-faint); font-size: var(--fs-xs); }
+
+/* ---------- The web: the app fills the browser window ---------- */
+
+@media (min-width: 600px) {
+    /* As on a phone, the page itself never scrolls: each screen's scroll area does. */
+    html:not(.framed), html:not(.framed) body { overflow: hidden; }
+    html:not(.framed) .device { position: fixed; inset: 0; height: auto; }
+
+    /* One reading column, centred: the bars and the content line up with it. */
+    html:not(.framed) .topbar,
+    html:not(.framed) .scroll,
+    html:not(.framed) .footer {
+        /* From the window's width (not the column's), so the grid's column never sizes itself from its own padding. */
+        padding-left: max(var(--gutter), calc((100vw - var(--side, 0px) - var(--content-max)) / 2));
+        padding-right: max(var(--gutter), calc((100vw - var(--side, 0px) - var(--content-max)) / 2));
+    }
+
+    /* Popups open as dialogs in the middle, not from the bottom edge. */
+    html:not(.framed) .layer { justify-content: center; align-items: center; padding: var(--space-xl); }
+    html:not(.framed) .sheet {
+        width: min(560px, 100%);
+        max-height: min(88vh, 820px);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 20px 50px var(--color-shadow);
+    }
+    html:not(.framed) .sheet-tall { height: min(88vh, 820px); }
+    /* No notch on the web: the title gets its own room at the top. */
+    html:not(.framed) .topbar { padding-top: var(--space-lg); }
+    /* A dialog has no handle to drag. */
+    html:not(.framed) .sheet-grip { display: none; }
+    /* The month keeps days short on a wide column, so it fits the window. */
+    html:not(.framed) .month button { aspect-ratio: auto; min-height: 64px; }
+}
+
+/* Wide windows: the bottom bar becomes a side menu, with the app's name at its top. */
+@media (min-width: 900px) {
+    /* A screen with a bottom bar (the device wraps every screen in another .screen, which stays as it is). */
+    html:not(.framed) .screen:has(> .nav) {
+        display: grid;
+        grid-template-columns: var(--sidebar) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-areas: "nav top" "nav main" "nav foot";
+        --side: var(--sidebar);
+    }
+    /* Each part fills its cell (the padding centres the content inside it). */
+    html:not(.framed) .screen > .topbar, html:not(.framed) .screen > .scroll, html:not(.framed) .screen > .footer { width: 100%; min-width: 0; box-sizing: border-box; }
+    html:not(.framed) .screen > .topbar { grid-area: top; }
+    html:not(.framed) .screen > .scroll { grid-area: main; }
+    html:not(.framed) .screen > .footer { grid-area: foot; }
+    html:not(.framed) .screen > .nav {
+        grid-area: nav;
+        grid-auto-flow: row;
+        grid-auto-rows: min-content;
+        align-content: start;
+        gap: var(--space-xs);
+        padding: calc(var(--safe-top) + var(--space-xl)) var(--space-md) var(--space-xl);
+        border-top: 0;
+        border-right: 1px solid var(--color-line);
+    }
+    html:not(.framed) .screen > .nav::before {
+        content: 'Lyra';
+        padding: 0 var(--space-md) var(--space-lg);
+        font-family: var(--font-display);
+        font-size: var(--fs-xl);
+        font-weight: 700;
+        color: var(--color-accent);
+    }
+    html:not(.framed) .nav button {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: var(--space-md);
+        min-height: var(--tap);
+        padding: 0 var(--space-md);
+        border-radius: var(--radius-sm);
+        font-size: var(--fs-md);
+    }
+    html:not(.framed) .nav button[aria-current="page"] { background: var(--color-accent-soft); }
+    html:not(.framed) .nav button:hover:not([aria-current="page"]) { background: var(--color-neutral); }
+    html:not(.framed) .nav .badge { top: 6px; left: 26px; }
+}

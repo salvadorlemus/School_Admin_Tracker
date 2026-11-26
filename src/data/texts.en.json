@@ -1450,6 +1450,8 @@
   "app.version": "Lyra · version {version}",
   "signIn.notAdmin": "This account doesn’t run the platform. Sign in from your school’s app.",
   "signIn.noSchool": "This account doesn’t belong to any school yet.",
+  "upload.passAmount": "Covered by {pass}",
+  "signIn.unavailable": "Lyra isn’t available right now. Try again later.",
   "students.classGroup": "{name} · {n}",
   "payments.paidNote": "This month is paid: the school confirmed your screenshot.",
   "payments.sentNote": "You've sent this month's screenshot; the school is checking it."
