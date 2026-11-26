@@ -1,3 +1,5 @@
+import {classSlots} from '../shared/pieces';
+import {monthRange, pickedMonth, shiftMonth} from '../../lib/months';
 import {useState} from 'react';
 import {Icon} from '../../ui/Icon';
 import {useRouter} from '../../lib/router';
@@ -36,7 +38,7 @@ import {ENDED_ENROLLMENTS} from '../../mock/changes';
 
 const TRIAL_PRICE = PRICES.find(price => price.id === 'trial')?.amount ?? 200;
 
-const slots = (item: SchoolClass) => item.slots.map(slot => `${weekdayShort(slot.weekday)} ${timeRange(slot.start, slot.end)}`).join(' · ');
+const slots = classSlots;
 const placesLeft = (item: SchoolClass) => Math.max(0, (item.max ?? 99) - item.students);
 
 function enrolledIn(student: string) {
@@ -213,7 +215,7 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
     onJoin: (id: string, date: string) => void;
 }) {
     const router = useRouter();
-    const month = router.query.get('month') === '12' ? '2026-12-01' : '2026-11-01';
+    const month = pickedMonth(router.query.get('month'));
     const day = router.query.get('day') ?? (month === TODAY.slice(0, 7) + '-01' ? TODAY : month);
     const all = router.query.get('all') === '1';
     const takes = new Set(classesOf(student));
@@ -229,11 +231,11 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
     return (
         <>
             <div className="row">
-                <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={month === '2026-11-01'}
-                        onClick={() => router.replace(router.withQuery('month', null))}><Icon name="back"/></button>
+                <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={month <= monthRange().min}
+                        onClick={() => router.replace(router.withQuery('month', shiftMonth(month, -1)))}><Icon name="back"/></button>
                 <span className="big">{monthYear(month)}</span>
-                <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={month === '2026-12-01'}
-                        onClick={() => router.replace(router.withQuery('month', '12'))}><Icon name="chevron"/></button>
+                <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={month >= monthRange().max}
+                        onClick={() => router.replace(router.withQuery('month', shiftMonth(month, 1)))}><Icon name="chevron"/></button>
             </div>
             <div className="month" role="group" aria-label={monthYear(month)}>
                 {[1, 2, 3, 4, 5, 6, 7].map(w => <span key={w} className="month-head" aria-hidden="true">{weekdayShort(w).slice(0, 2)}</span>)}
@@ -398,7 +400,7 @@ export function ClassDetail({id}: { id: string }) {
                 <div className="card">
                     <span className="big num">{money(pack.price)} {t('detail.perMonth')}</span>
                     <span className="small">{t('detail.packageBody', {n: pack.perWeek})}</span>
-                    <ul className="small" style={{margin: 0, paddingLeft: 18}}>{pack.classes.map(c => <li
+                    <ul className="small plain-list" >{pack.classes.map(c => <li
                         key={c}>{classById(c).name} · {slots(classById(c))}</li>)}</ul>
                 </div>
             )}

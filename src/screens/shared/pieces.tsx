@@ -132,7 +132,7 @@ export function StudentCardView({student, compact, photo, onPhoto}: {
     return (
         <div className="stack">
             {!compact && (
-                <div className="row-start" style={{alignItems: 'center'}}>
+                <div className="row-start align-center" >
                     {photo
                         ? <PhotoPicker name={student.name} label={t('form.photo')} onPicked={onPhoto}/>
                         : <span className="avatar avatar-lg" aria-hidden="true">{initials(student.name)}</span>}

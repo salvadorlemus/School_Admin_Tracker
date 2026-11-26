@@ -128,10 +128,10 @@ export function Schools() {
             {shown.map(s => (
                 <button key={s.id} type="button" className={s.enabled ? 'card' : 'card card-cancelled'}
                         onClick={() => router.navigate(`/a/schools/${s.id}`)}>
-                    <div className="row"><span className="row-start" style={{alignItems: 'center', minWidth: 0}}><SchoolLogo school={s.id} size="md"/><span className="big">{s.name}</span></span>{s.enabled ? billingChip(s.billing) :
+                    <div className="row"><span className="row-start align-center min-w-0" ><SchoolLogo school={s.id} size="md"/><span className="big">{s.name}</span></span>{s.enabled ? billingChip(s.billing) :
                         <span className="chip chip-cancelled">{t('admin.disabled')}</span>}</div>
                     <span className="small muted">{s.directors.map(d => d.name).join(', ')}</span>
-                    <div className="stats" style={{marginTop: 4}}>
+                    <div className="stats mt-xs" >
                         <div className="stat"><strong>{s.students}</strong>{t('admin.students')}</div>
                         <div className="stat"><strong>{s.checkins}</strong>{t('admin.checkins')}</div>
                         <div className="stat"><strong>{decimal(s.storage)}</strong>{t('admin.storage')}</div>
@@ -170,7 +170,7 @@ export function SchoolNew() {
                                 onClick={() => router.replace(`/a/schools/created?name=${encodeURIComponent(name.trim())}&email=${encodeURIComponent(email.trim())}`)}>
                     {t('admin.create')}</button>}>
             <TextField id="sn-name" label={t('admin.schoolName')} value={name} onChange={event => setName(event.target.value)}/>
-            <div className="row-start" style={{alignItems: 'center'}}>
+            <div className="row-start align-center" >
                 <PhotoPicker name={name || '?'} label={t('admin.logo')}/>
                 <span className="hint">{t('admin.logoHint')}</span>
             </div>
@@ -405,7 +405,7 @@ export function AdminSchoolEdit({id}: { id: string }) {
                     router.back(`/a/schools/${school.id}`);
                 }}>{t('form.saveChanges')}</button>}>
             <TextField id="se-name" label={t('admin.schoolName')} value={name} onChange={event => setName(event.target.value)}/>
-            <div className="row-start" style={{alignItems: 'center'}}>
+            <div className="row-start align-center" >
                 <PhotoPicker name={name || '?'} label={t('admin.logo')} onPicked={url => url && SCHOOL_LOGOS.set(school.id, url)}/>
                 <span className="hint">{t('admin.logoHint')}</span>
             </div>

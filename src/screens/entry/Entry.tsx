@@ -1,5 +1,8 @@
-import {useState} from 'react';
-import {LANGUAGES, t} from '../../lib/texts';
+import {isAdminPath, onAdminHost, onAppHost} from '../../lib/hosts';
+import {homePath, signIn} from '../../live/session';
+import {useEffect, useState} from 'react';
+import {supabase} from '../../lib/supabase';
+import {LANGUAGES, t, type TextKey} from '../../lib/texts';
 import {useRouter} from '../../lib/router';
 import {acceptTerms, TERMS_STATE} from '../../mock/changes';
 import {useLanguage} from '../../state/LanguageProvider';
@@ -37,6 +40,8 @@ function BackButton({to}: { to: string }) {
 
 export function SignIn() {
     const router = useRouter();
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
     const shortcuts: [string, string, string][] = [
         ['/s/home', 'Sofía Ramírez', t('proto.student')],
         ['/g/home', 'Daniela Vega', t('proto.guardian')],
@@ -67,24 +72,32 @@ export function SignIn() {
         <BareScreen>
             <div className="row">
                 <span className="brand"><span className="brand-name">{t('app.name')}</span><span className="small muted">{t('app.tagline')}</span></span>
-                <div style={{width: 120}}><LanguageSwitch/></div>
+                <div className="lang-switch"><LanguageSwitch/></div>
             </div>
             <h1 className="huge">{t('signIn.title')}</h1>
-            <form className="stack" onSubmit={event => {
+            <form className="stack" onSubmit={async event => {
                 event.preventDefault();
-                router.navigate('/s/home');
+                const form = new FormData(event.currentTarget);
+                setBusy(true);
+                const problem = await signIn(String(form.get('email') ?? ''), String(form.get('password') ?? ''));
+                setBusy(false);
+                if (problem) setError(t('signIn.wrong'));
+                else if (homePath() === '/') setError(t(onAdminHost() ? 'signIn.notAdmin' : 'signIn.noSchool'));
+                else router.replace(homePath());
             }}>
-                <EmailField id="signin-email" label={t('signIn.email')} defaultValue="sofia.ramirez@correo.mx"/>
-                <TextField id="signin-password" label={t('signIn.password')} type="password"
-                           autoComplete="current-password" defaultValue="••••••••"/>
-                <button type="submit" className="btn btn-lg">{t('signIn.submit')}</button>
+                <EmailField id="signin-email" name="email" label={t('signIn.email')}/>
+                <TextField id="signin-password" name="password" label={t('signIn.password')} type="password" autoComplete="current-password"/>
+                {error && <div className="banner banner-error small" role="alert">{error}</div>}
+                <button type="submit" className="btn btn-lg" disabled={busy}>{t(busy ? 'signIn.busy' : 'signIn.submit')}</button>
                 <button type="button" className="btn btn-ghost">{t('signIn.forgot')}</button>
             </form>
+            <p className="hint">{t('proto.liveHint')}</p>
             <h2 className="section-title">{t('proto.shortcuts')}</h2>
-            <ul className="list">{shortcuts.map(row)}</ul>
+            <ul className="list">{shortcuts.filter(([path]) => onAdminHost() ? isAdminPath(path) : !onAppHost() || !isAdminPath(path)).map(row)}</ul>
             <h2 className="section-title">{t('proto.flows')}</h2>
             <ul className="list">{flows.map(([path, label]) => row([path, label, '']))}</ul>
             <p className="hint">{t('proto.note')}</p>
+            <p className="version">{t('app.version', {version: __APP_VERSION__})}</p>
         </BareScreen>
     );
 }
@@ -138,7 +151,7 @@ export function InviteLanding({kind}: { kind: InviteKind }) {
                     footer={<button type="button" className="btn btn-lg" disabled={!ready}
                                     onClick={() => router.navigate(next)}>{t('common.continue')}</button>}>
             <BackButton to="/"/>
-            <p className="small muted row-start" style={{alignItems: 'center'}}><SchoolLogo school="colibri" size="md"/>{t('invite.step', {at: 1, of: STEPS[kind]})} · {school}</p>
+            <p className="small muted row-start align-center" ><SchoolLogo school="colibri" size="md"/>{t('invite.step', {at: 1, of: STEPS[kind]})} · {school}</p>
             <h1 className="huge">{title}</h1>
             <p>{body}</p>
             <EmailField id="inv-email" label={t('signIn.email')} defaultValue={INVITED[kind].email} readOnly
@@ -147,7 +160,7 @@ export function InviteLanding({kind}: { kind: InviteKind }) {
                        value={password} onChange={event => setPassword(event.target.value)}/>
             <Check id="inv-show" label={t('invite.showPassword')} checked={show} onChange={setShow}/>
             <h2 className="section-title">{t('invite.then')}</h2>
-            <ol className="stack" style={{paddingLeft: 20, margin: 0, gap: 4}}>
+            <ol className="stack plain-list gap-xs" >
                 {steps.map(step => <li key={step}>{step}</li>)}
             </ol>
         </BareScreen>
@@ -263,7 +276,7 @@ export function TermsReader({mode}: { mode: 'invite' | 'invite-minor' | 'new' })
                     <span>{mode === 'new' ? '' : `${t('invite.step', {at: STEPS[mode === 'invite' ? 'adult' : 'minor'], of: STEPS[mode === 'invite' ? 'adult' : 'minor']})} · `}{SCHOOLS.colibri.name} · {t('terms.version', {n: TERMS_STATE.version})}</span>
                 </div>
             </header>
-            <div style={{padding: '0 var(--gutter) 10px'}} className="stack-sm">
+            <div className="stack-sm reader-head">
                 {mode === 'new' && <p className="small">{t('terms.newBody')}</p>}
                 {mode === 'invite-minor' && <p className="small">{t('terms.forKids', {names: 'Lucas y Emma'})}</p>}
                 <div className="progress" role="progressbar" aria-label={t('terms.progress')}
@@ -364,8 +377,7 @@ export function DeleteLink() {
                 <DoneMessage icon="heart" title={t('delete.doneTitle')} body={
                                                                              <div className="stack">
                                                                                 <p>{t('delete.doneBody', {school: SCHOOLS.ambar.name})}</p>
-                                                                                <p className="strong"
-                                                                                   style={{color: 'var(--color-text)'}}>{t('delete.sorry', {school: SCHOOLS.ambar.name})}</p>
+                                                                                <p className="strong text-default">{t('delete.sorry', {school: SCHOOLS.ambar.name})}</p>
                                                                             </div>
                                                                         }/>
             </BareScreen>
@@ -389,7 +401,7 @@ export function DeleteLink() {
             <h1 className="huge">{t('delete.panelTitle')}</h1>
             <div className="card">
                 <span className="strong">{t('delete.goes')}</span>
-                <ul className="small" style={{margin: 0, paddingLeft: 18}}>
+                <ul className="small plain-list" >
                     <li>{t('delete.goes1')}</li>
                     <li>{t('delete.goes2')}</li>
                     <li>{t('delete.goes3')}</li>
@@ -402,6 +414,68 @@ export function DeleteLink() {
             <p className="small">{t('delete.otherSchools', {school: SCHOOLS.colibri.name})}</p>
             <Check id="del-sure" label={t('delete.check', {school: SCHOOLS.ambar.name})} checked={sure}
                    onChange={setSure}/>
+        </BareScreen>
+    );
+}
+
+/**
+ * The invitation link from the email (#/invite/{token}). It shows who invited them and to which school
+ * without using the link up (a mail scanner opening it spends nothing); Continue creates their login
+ * with the password, or checks the one they already have, then signs them in. The page reads the
+ * same whether the person was new or not.
+ */
+export function JoinWithLink({token}: { token: string }) {
+    const router = useRouter();
+    const [peek, setPeek] = useState<{ school: string; inviter: string | null; role: string; name: string; email: string } | null>(null);
+    const [problem, setProblem] = useState('');
+    const [password, setPassword] = useState('');
+    const [show, setShow] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const call = async (body: Record<string, unknown>) => {
+        const {data, error} = await supabase.functions.invoke('accept-invite', {body: {token, ...body}});
+        if (!error) return data as Record<string, unknown>;
+        const reply = await (error as { context?: Response }).context?.json?.().catch(() => null) as { error?: string } | null;
+        throw new Error(reply?.error ?? 'error');
+    };
+    useEffect(() => {
+        call({peek: true}).then(data => setPeek(data as unknown as NonNullable<typeof peek>)).catch((reason: Error) => setProblem(reason.message));
+    }, [token]);
+    const errorText = (key: string) => t(({expired: 'join.expired', used: 'join.used', cancelled: 'join.cancelled', password_short: 'join.passwordShort',
+        password_existing: 'join.passwordExisting', link: 'join.badLink'} as Record<string, TextKey>)[key] ?? 'join.error');
+    return (
+        <BareScreen>
+            <div className="row">
+                <span className="brand"><span className="brand-name">{t('app.name')}</span><span className="small muted">{t('app.tagline')}</span></span>
+                <div className="lang-switch"><LanguageSwitch/></div>
+            </div>
+            {!peek && !problem && <p className="muted">{t('join.loading')}</p>}
+            {problem && !peek && <div className="banner banner-error">{errorText(problem)}</div>}
+            {peek && (
+                <form className="stack" onSubmit={async event => {
+                    event.preventDefault();
+                    setBusy(true);
+                    setProblem('');
+                    try {
+                        await call({password});
+                        const failed = await signIn(peek.email, password);
+                        if (failed) throw new Error('error');
+                        router.replace(homePath());
+                    } catch (reason) {
+                        setProblem((reason as Error).message);
+                    } finally {
+                        setBusy(false);
+                    }
+                }}>
+                    <h1 className="huge">{t('join.title', {school: peek.school})}</h1>
+                    <p>{t('join.body', {inviter: peek.inviter ?? peek.school, role: t(`join.role.${peek.role}` as TextKey)})}</p>
+                    <p className="small muted">{peek.email}</p>
+                    <TextField id="join-password" label={t('join.password')} type={show ? 'text' : 'password'} autoComplete="new-password"
+                               value={password} onChange={event => setPassword(event.target.value)} hint={t('join.passwordHint')}/>
+                    <Check id="join-show" label={t('join.show')} checked={show} onChange={setShow}/>
+                    {problem && <div className="banner banner-error small" role="alert">{errorText(problem)}</div>}
+                    <button type="submit" className="btn btn-lg" disabled={busy || password.length < 8}>{t(busy ? 'signIn.busy' : 'join.continue')}</button>
+                </form>
+            )}
         </BareScreen>
     );
 }

@@ -42,7 +42,7 @@ export function DirectorStudents() {
             {onlyNew ? (
                 <div className="banner">
                     <span className="strong">{t('dstu.newOnly', {n: list.length})}</span>
-                    <button type="button" className="btn btn-secondary btn-sm" style={{alignSelf: 'flex-start'}}
+                    <button type="button" className="btn btn-secondary btn-sm self-start"
                             onClick={() => router.replace(router.withQuery('new', null))}>{t('dstu.seeAll')}</button>
                 </div>
             ) : <Segmented label={t('dstu.status')} value={status}
@@ -143,7 +143,7 @@ export function DirectorStudent({id}: { id: string }) {
                 <div className="banner">
                     <span className="strong">{t('dstu.turns18', {when: dayMonth(student.turns18)})}</span>
                     <span>{t('dstu.turns18Body')}</span>
-                    <button type="button" className="btn btn-secondary btn-sm" style={{alignSelf: 'flex-start'}}
+                    <button type="button" className="btn btn-secondary btn-sm self-start"
                             onClick={() => router.navigate(`/d/register?adult=${id}`)}>{t('dstu.registerAdult')}</button>
                 </div>
             )}
@@ -284,7 +284,7 @@ export function Register() {
                 <>
                     <h2 className="section-title">{t('reg.children')}</h2>
                     {kids.map((name, index) => (
-                        <div key={index} className="row" style={{alignItems: 'flex-end'}}>
+                        <div key={index} className="row align-end" >
                             <div className="grow">
                                 <TextField id={`rg-kid-${index}`} label={t('reg.childN', {n: index + 1})} value={name}
                                            autoComplete="off"
@@ -560,7 +560,7 @@ export function TeacherDetail({id}: { id: string }) {
             {teacher.status === 'invited' && (
                 <div className="banner">
                     <span>{t('teachers.invitedBody')}</span>
-                    <button type="button" className="btn btn-secondary btn-sm" style={{alignSelf: 'flex-start'}}
+                    <button type="button" className="btn btn-secondary btn-sm self-start"
                             onClick={() => toast(t('regSent.resent'))}>{t('regSent.resend')}</button>
                 </div>
             )}
@@ -863,7 +863,7 @@ export function Terms() {
                 {!showAll && waiting.length > 2 && <ListRow title={t('dterms.andMore', {n: waiting.length - 2})} onClick={() => setShowAll(true)}/>}
             </ul>
             {showAll && (
-                <button type="button" className="btn btn-ghost btn-sm" style={{alignSelf: 'center'}} aria-controls="terms-waiting"
+                <button type="button" className="btn btn-ghost btn-sm self-center" aria-controls="terms-waiting"
                         onClick={() => setShowAll(false)}>{t('dterms.showLess')}</button>
             )}
             <h2 className="section-title">{t('dterms.versions')}</h2>

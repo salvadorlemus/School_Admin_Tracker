@@ -1,3 +1,4 @@
+import {LIVE} from '../live/state';
 import {attendanceOf, CLASSES, classById, pricesOf, PROOFS, rosterOf, schoolOfClass, type Session, SESSIONS, type Student, STUDENTS, studentsOf, teacherName, TODAY} from './data';
 import {monthPayment, payRule, sessionPay} from './pay';
 
@@ -199,10 +200,11 @@ const COLIBRI = {
 let loaded = 'colibri';
 
 /** Fills the Resumen with a school's numbers (redrawn on a school switch, so this runs once per school shown). */
-export function loadInsights(school: string) {
-    if (school === loaded) return;
+export function loadInsights(school: string, force = false) {
+    if (school === loaded && !force) return;
     loaded = school;
-    if (school !== 'helios') {
+    // The live app calculates every school's numbers from its records; the prototype keeps Colibrí's sample.
+    if (!LIVE.on && school !== 'helios') {
         replace(MARGINS, COLIBRI.margins);
         replace(TRIALS, COLIBRI.trials);
         replace(FILL, COLIBRI.fill);

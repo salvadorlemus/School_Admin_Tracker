@@ -1,3 +1,9 @@
+import {leaveForOwnHost} from './lib/hosts';
+import {useEffect, useState} from 'react';
+import {LIVE, useLiveVersion} from './live/state';
+import {homePath, restoreSession} from './live/session';
+import {onLiveError} from './live/actions';
+import {t} from './lib/texts';
 import {useCurrentSchool} from './state/school';
 import type {ComponentType} from 'react';
 import {InsightScreen} from './screens/director/Insights';
@@ -6,7 +12,7 @@ import {matchPath, useRouter} from './lib/router';
 import {Device} from './ui/Layers';
 import {
     DeleteLink, InviteCard, InviteChild, InviteDone, InviteFamily, InviteLanding, InviteTeacherCard,
-    SchoolDisabled, SignIn, TermsReader,
+    SchoolDisabled, SignIn, JoinWithLink, TermsReader,
 } from './screens/entry/Entry';
 import {
     Account,
@@ -151,10 +157,31 @@ const ROUTES: Route[] = [
     ['/a/payments/new', AdminPaymentNew],
     ['/a/log', AdminLog],
     ['/a/account', AdminAccount],
+    ['/invite/:token', ({token}) => <JoinWithLink token={token}/>],
 ];
 
+/** Opening the page: a saved session loads the real data first; otherwise the sign-in screen. */
+let booted: Promise<boolean> | null = null;
+
 export default function App() {
-    const {path} = useRouter();
+    const router = useRouter();
+    const {path} = router;
+    const version = useLiveVersion();
+    const [ready, setReady] = useState(booted !== null && LIVE.on);
+    const [problem, setProblem] = useState('');
+    useEffect(() => {
+        const stop = onLiveError(message => setProblem(message));
+        return () => {
+            stop();
+        };
+    }, []);
+    useEffect(() => {
+        booted ??= restoreSession().catch(() => false);
+        void booted.then(on => {
+            setReady(true);
+            if (on && path === '/') router.replace(homePath());
+        });
+    }, []);
     let found: { Screen: ComponentType<Params>; params: Params } | null = null;
     for (const [pattern, Screen] of ROUTES) {
         const params = matchPath(pattern, path);
@@ -164,7 +191,20 @@ export default function App() {
         }
     }
     const {Screen, params} = found ?? {Screen: SignIn, params: {}};
-    // Keyed by path (and the staff's school): a new screen starts fresh, while a popup opening (?sheet=) keeps the screen as it is.
+    // The admin panel and the app each live on their own address.
+    if (leaveForOwnHost(path)) return null;
+    // Keyed by path (and the staff's school, and each reload of the live data): a new screen starts fresh, while a popup opening (?sheet=) keeps the screen as it is.
     const school = useCurrentSchool();
-    return <Device><Screen key={`${path}@${school}`} {...params}/></Device>;
+    if (!ready) return <Device><div className="boot" aria-busy="true">{t('app.name')}</div></Device>;
+    return (
+        <Device>
+            <Screen key={`${path}@${school}#${version}`} {...params}/>
+            {problem && (
+                <div className="live-problem" role="alert">
+                    <span>{t('live.refused', {reason: problem})}</span>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setProblem('')}>{t('common.close')}</button>
+                </div>
+            )}
+        </Device>
+    );
 }

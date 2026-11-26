@@ -1,3 +1,4 @@
+import {live} from '../live/actions';
 import {attendanceOf, classById, guestsOf, NOW, PACKAGES, PRICES, type SchoolId, schoolOfClass, schoolOfSession, type Session, SESSIONS, studentById, TEACHERS, TODAY} from './data';
 import {teacherOf} from './changes';
 import {PROOFS} from './data';
@@ -259,6 +260,11 @@ export interface TeacherPayment {
 
 let seeded: TeacherPayment[] | null = null;
 
+/** The live app's payments, from the database. */
+export function setTeacherPayments(list: TeacherPayment[]) {
+    seeded = list;
+}
+
 /** The sample's payments: the last two closed periods at Colibrí and Helios. */
 export function teacherPayments(): TeacherPayment[] {
     if (seeded) return seeded;
@@ -297,10 +303,12 @@ export function paymentState(teacher: string, school: SchoolId, period: string):
 }
 
 export function recordTeacherPayment(payment: Omit<TeacherPayment, 'id' | 'state'>) {
+    live.recordTeacherPayment(payment.teacher, payment.period, payment.amount, payment.date, payment.method, payment.note);
     teacherPayments().push({...payment, id: `tp-${payment.teacher}-${payment.period}-${teacherPayments().length}`, state: 'paid'});
 }
 
 export function answerTeacherPayment(id: string, ok: boolean, note?: string) {
+    live.answerTeacherPayment(id, ok, note);
     const payment = teacherPayments().find(item => item.id === id);
     if (!payment) return;
     payment.state = ok ? 'confirmed' : 'flagged';

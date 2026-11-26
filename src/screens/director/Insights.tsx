@@ -227,7 +227,7 @@ export function InsightScreen({id}: { id: string }) {
                         <ListRow key={row.classId} title={classById(row.classId).name}
                                  sub={<>
                                      {whoWhen(row.classId)}
-                                     <span className="progress" style={{display: 'block', margin: '4px 0'}}><span
+                                     <span className="progress progress-inline" ><span
                                          style={{width: `${Math.round(row.enrolled / row.max * 100)}%`}}/></span>
                                      {t('ins.fillRow', {
                                          enrolled: row.enrolled,

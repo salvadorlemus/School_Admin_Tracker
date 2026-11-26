@@ -1,3 +1,4 @@
+import {LIVE, LIVE_STUDENTS} from '../live/state';
 /**
  * Invented sample data for the clickable prototype (docs/design/claude-design-brief.md). Nothing
  * here comes from the database; this folder goes away once the screens read Supabase. Today is
@@ -21,9 +22,15 @@ export const SCHOOL_LOGOS = new Map<SchoolId, string>();
 
 export const STRESS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stress');
 
-export const TODAY = '2026-11-26';
+export let TODAY = '2026-11-26';
 /** The prototype's clock: today at 10:15. */
-export const NOW = '10:15';
+export let NOW = '10:15';
+
+/** The live app's clock: today and now in the school's time zone (the prototype keeps its fixed day). */
+export function setClock(today: string, now: string) {
+    TODAY = today;
+    NOW = now;
+}
 
 const minutes = (hm: string) => {
     const [h, m] = hm.split(':').map(Number);
@@ -51,7 +58,8 @@ export function sessionWindow(session: { date: string; start: string; end: strin
 
 export type SchoolId = string;
 
-export const SCHOOLS: Record<SchoolId, { name: string; short: string }> = {
+/** Each school's name, short name and time zone (the prototype's are all in Mexico City). */
+export const SCHOOLS: Record<SchoolId, { name: string; short: string; zone?: string }> = {
     colibri: {name: 'Estudio Aéreo Colibrí', short: 'Colibrí'},
     ambar: {name: 'Ámbar Danza Aérea', short: 'Ámbar'},
     helios: HELIOS_SCHOOL,
@@ -112,6 +120,7 @@ export interface Teacher {
 }
 
 /** The person signed in for each staff role in the sample data. */
+/** The person signed in for each staff role (the live loader sets the real one). */
 export const STAFF_ME: Record<'t' | 'd', string> = {t: 'mariana-a', d: 'ana'};
 
 export const TEACHERS: Teacher[] = [
@@ -706,10 +715,11 @@ if (STRESS) {
     }
 }
 
-export const studentById = (id: string) => [...STUDENTS, ...AMBAR_STUDENTS, ...HELIOS_STUDENTS].find(student => student.id === id) ?? STUDENTS[0];
+export const studentById = (id: string) => (LIVE.on ? LIVE_STUDENTS : [...STUDENTS, ...AMBAR_STUDENTS, ...HELIOS_STUDENTS]).find(student => student.id === id) ?? (LIVE.on ? LIVE_STUDENTS[0] : STUDENTS[0]);
 
 /** A school's students; the sample's unmarked ones are Colibrí's. */
-export const studentsOf = (school: SchoolId): Student[] => school === 'helios' ? HELIOS_STUDENTS : school === 'ambar' ? AMBAR_STUDENTS : STUDENTS;
+export const studentsOf = (school: SchoolId): Student[] => LIVE.on ? LIVE_STUDENTS.filter(student => student.school === school)
+    : school === 'helios' ? HELIOS_STUDENTS : school === 'ambar' ? AMBAR_STUDENTS : STUDENTS;
 export const studentsHere = () => studentsOf(currentSchool());
 
 /** Who's expected at today's Telas intermedio, and who has checked in (at 10:15). */
@@ -1267,7 +1277,8 @@ export const AMBAR_STUDENTS: Student[] = [
 
 // ---- Helios: two months of history, generated from each student's plan (see helios.ts) ----
 
-const HISTORY = heliosHistory(SESSIONS, TODAY, NOW, id => classById(id).name);
+/** Who's expected and who came, by session (the live loader refills these maps). */
+export const HISTORY = heliosHistory(SESSIONS, TODAY, NOW, id => classById(id).name);
 PROOFS.push(...HISTORY.proofs);
 ENROLLMENTS.push(...HISTORY.enrollments);
 BOARD.push(...HISTORY.board, ...HELIOS_NOTICES);
@@ -1289,12 +1300,12 @@ for (const teacher of TEACHERS.filter(other => other.schools?.includes('helios')
 /** Who came to a session already given, as the teacher's pay counts them (Helios's history; undefined elsewhere). */
 export const attendanceOf = (session: Session): Attendance[] | undefined => HISTORY.attended.get(session.id);
 /** Teachers who came to a session as guests. */
-export const guestsOf = (session: Session): number => HISTORY.guests.get(session.id)?.length ?? (schoolOfSession(session) === 'helios' ? 0 : 1);
+export const guestsOf = (session: Session): number => HISTORY.guests.get(session.id)?.length ?? (LIVE.on || schoolOfSession(session) === 'helios' ? 0 : 1);
 
 /** Who's expected at a session and who came: Helios's from its history, the others' from today's sample class. */
 export function rosterOf(session: Session): { student: string; at?: string; by?: 'guardian' }[] {
     const expected = HISTORY.expected.get(session.id);
-    if (!expected) return TODAY_ROSTER;
+    if (!expected) return LIVE.on ? [] : TODAY_ROSTER;
     const came = HISTORY.attended.get(session.id) ?? [];
     const extra = came.filter(entry => !expected.includes(entry.student)).map(entry => ({student: entry.student, at: entry.at, by: entry.by}));
     return [...expected.map(student => {

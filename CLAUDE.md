@@ -51,7 +51,13 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   (invites, emails, data deletion, deleting a school's files), `pg_cron` for reminders.
 - Email (invites with the terms PDF, payment emails, deletion links, password links) through Resend,
   from the verified `mail.kokoasoft.com`; Supabase Auth's own emails go through Resend's SMTP too.
-- Hosted on Render as a static site at `lyra.kokoasoft.com` (a Cloudflare CNAME to Render).
+- Hosted on Render as one static site with two addresses (Cloudflare CNAMEs to Render), as in
+  VetClinicTracker: the app at `lyra.kokoasoft.com` and the platform admin panel at
+  `lyra.admin.kokoasoft.com`. `VITE_APP_HOST` and `VITE_ADMIN_HOST` (Render's environment) tell them
+  apart (`src/lib/hosts.ts`): the admin's address shows only the admin panel and the sign-in, the
+  app's never shows the panel; unset (locally) both share one address. Invitations always open the app.
+- The version (`package.json`) shows at the end of the sign-in screen; each release bumps it and is
+  tagged (`V1.1.0`).
 - Never put the secret / service_role key in the app.
 
 ## Data model (draft)
@@ -137,6 +143,13 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 - `notification`: a personal in-app notice for a person (what it's about, read or not). Payment
   notices are also emailed. Reminders are created by a `pg_cron` job and emailed by an Edge Function; each
   reminder is sent once.
+- Built so far (`supabase/migrations/`, not pushed yet): the tables above, plus `package_offer` (a
+  package the director offers) beside `student_package` (a student's), `email_outbox` (every email,
+  queued by the database and sent once by an Edge Function through Resend), `invitation` (only the
+  link token's hash), `deletion_request`, and the queues `file_deletion` and `login_deletion` that an
+  Edge Function with the secret key works through. One daily `pg_cron` job (`private.daily()`) sends
+  payment and payday reminders, finds minors turning 18, charges fees owed again and runs the
+  3-month data countdown, each by the school's own date.
 
 ## Roles
 
@@ -620,6 +633,11 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 - Keep TypeScript strict: no `any`, no `@ts-ignore`.
 - No new dependencies without asking first.
 - A new migration changes production: the owner approves each push. Never edit a migration that has run.
+- **Database work happens locally first**: `npm run db:start` (Docker Desktop running) starts Supabase on
+  this machine, `npm run db:reset` rebuilds it from `supabase/migrations/`, and `npm run test:db` runs
+  the pgTAP tests in `supabase/tests/database/` (each rule checked as the roles it applies to, inside a
+  transaction that's rolled back). Every rule that lives in the database gets a test there. Migrations
+  that haven't been pushed can still be edited; once pushed, never.
 - New tables and functions need explicit grants (start from no privileges, as VetClinicTracker does).
 - Interactive elements are real buttons and inputs (keyboard and focus). Each input says what it
   holds (`type`, `inputMode`, `autoComplete`), so phones open the right keyboard (numbers for
@@ -676,6 +694,15 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
   health conditions, cancelling or reassigning sessions, new prices or terms, posts, corrections,
   deactivating and deleting all show a confirmation box first. Buttons for a step that needs
   something first (reading the whole PDF, ticking a box, typing a name) stay off until it's done.
+- **The live app** (`src/live/`): signing in with a real login loads what that person may see
+  from Supabase into the same shapes the prototype uses (`load.ts`), so the screens read it unchanged;
+  the screens' changes are sent to the database (`actions.ts`) and everything reloads after each one,
+  so a refused change comes back as it was (shown at the bottom). Wired so far: the director's and
+  the teacher's screens (reading), confirming and rejecting screenshots, sessions (cancel, move,
+  substitute, change teacher, end a class), prices, deactivating students, attendance by hand, posts,
+  fees marked paid, teacher payments and their answers; the invitation link (`#/invite/{token}`). The
+  student's and guardian's screens, registration (card and terms), check-in, uploads and the admin
+  panel still show the prototype's data. Helios's data is `supabase/seed.sql`.
 - **The prototype** runs in this app with invented data from `src/mock/` (an aerial dance studio,
   Estudio Aéreo Colibrí, and its sister schools, plus Helios in `src/mock/helios.ts`: a real
   studio's schedule, prices and teacher pay, with invented students whose two months of attendance and

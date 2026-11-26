@@ -522,7 +522,9 @@ export function Confetti() {
         if (!element || !context || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         const width = (element.width = element.offsetWidth);
         const height = (element.height = element.offsetHeight);
-        const colours = ['#0E5E66', '#5B3FB0', '#E0B43A', '#E86A5A', '#5FC2CB', '#1B6E3F'];
+        // Its colours are the stylesheet's (--confetti-1 … 6).
+        const styles = getComputedStyle(document.documentElement);
+        const colours = [1, 2, 3, 4, 5, 6].map(n => styles.getPropertyValue(`--confetti-${n}`).trim() || 'currentColor');
         const bits = Array.from({length: 90}, () => ({
             x: width / 2,
             y: height * 0.35,

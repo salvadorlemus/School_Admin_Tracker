@@ -1,3 +1,5 @@
+import {LIVE} from '../../live/state';
+import {signOut} from '../../live/session';
 import {LANGUAGES, t} from '../../lib/texts';
 import {useRouter} from '../../lib/router';
 import {useState} from 'react';
@@ -71,7 +73,7 @@ export function PasswordRow({email}: { email: string }) {
 export function SignOutButton() {
     const router = useRouter();
     return (
-        <button type="button" className="btn btn-secondary btn-lg" onClick={() => router.navigate('/')}>
+        <button type="button" className="btn btn-secondary btn-lg" onClick={() => LIVE.on ? void signOut() : router.navigate('/')}>
             <Icon name="logout"/>{t('account.signOut')}
         </button>
     );

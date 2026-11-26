@@ -1,3 +1,5 @@
+import {monthRange, pickedMonth, shiftMonth} from '../../lib/months';
+import {live} from '../../live/actions';
 import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {
@@ -53,7 +55,7 @@ export function Schedule() {
     const router = useRouter();
     const school = useCurrentSchool();
     const day = useSheetRoute('day');
-    const month = router.query.get('month') === '12' ? '2026-12-01' : '2026-11-01';
+    const month = pickedMonth(router.query.get('month'));
     const mine = me(router.path).id;
     const sessions = mySessions(mine, school);
     const lead = weekdayOf(month) - 1;
@@ -79,12 +81,12 @@ export function Schedule() {
         <Screen title={t('schedule.title')}>
             <div className="row">
                 <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')}
-                        disabled={month === '2026-11-01'}
-                        onClick={() => router.replace(router.withQuery('month', null))}><Icon name="back"/></button>
+                        disabled={month <= monthRange().min}
+                        onClick={() => router.replace(router.withQuery('month', shiftMonth(month, -1)))}><Icon name="back"/></button>
                 <span className="big">{monthYear(month)}</span>
                 <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')}
-                        disabled={month === '2026-12-01'}
-                        onClick={() => router.replace(router.withQuery('month', '12'))}><Icon name="chevron"/></button>
+                        disabled={month >= monthRange().max}
+                        onClick={() => router.replace(router.withQuery('month', shiftMonth(month, 1)))}><Icon name="chevron"/></button>
             </div>
             <div className="month" role="group" aria-label={monthYear(month)}>
                 {[1, 2, 3, 4, 5, 6, 7].map(w => <span key={w} className="month-head"
@@ -344,6 +346,7 @@ export function AddAttendance({id}: { id: string }) {
         <Screen title={t('add.title')} subtitle={`${classById(session.classId).name} · ${time(session.start)}`}
                 back={`${role}/session/${id}`} nav={false} note={role === '/d' ? undefined : t('add.noRemove')}
                 footer={<button type="button" className="btn btn-lg" disabled={picked.length === 0} onClick={() => {
+                    live.addAttendance(id, picked);
                     toast(t('add.saved', {n: picked.length}));
                     router.back(`${role}/session/${id}`);
                 }}>{picked.length ? t('add.saveN', {n: picked.length}) : t('add.save')}</button>}>
@@ -575,6 +578,7 @@ export function PostNotice() {
                                         body: t('post.confirmBody', {n: reach}),
                                         confirm: t('post.publish')
                                     })) {
+                                        live.postNotice(target === 'all' ? undefined : target, text.trim());
                                         toast(t('post.published'));
                                         router.back(home);
                                     }

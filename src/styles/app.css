@@ -4,6 +4,32 @@
    named for it, so every screen uses the same one. */
 
 :root {
+    /* Fixed colours: the same in light and dark (the device frame, the camera, a PDF page, confetti). */
+    --fixed-ink: #1D1B20;
+    --fixed-paper: #FFFFFF;
+    --fixed-black: #000000;
+    --fixed-muted: #8C8792;
+    --fixed-shade: rgba(0, 0, 0, 0.35);
+    --confetti-1: #0E5E66;
+    --confetti-2: #5B3FB0;
+    --confetti-3: #E0B43A;
+    --confetti-4: #E86A5A;
+    --confetti-5: #5FC2CB;
+    --confetti-6: #1B6E3F;
+    /* Type sizes beyond the main scale below (small print, labels and buttons, display numbers). */
+    --fs-2xs: 10px;
+    --fs-caption: 11px;
+    --fs-ui: 14px;
+    --fs-body-lg: 17px;
+    --fs-2xl: 28px;
+    --fs-3xl: 30px;
+    --fs-4xl: 32px;
+    /* Spacing: one scale for gaps, margins and padding. */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 20px;
     --color-desk: #E7E3DA;
     --color-bg: #F6F4EF;
     --color-surface: #FFFFFF;
@@ -251,7 +277,7 @@ p, h1, h2, h3, li, dd, .grow, .card {
         /* A laptop window shorter than the phone would scroll the page past the bottom bar. */
         max-height: calc(100vh - 32px);
         border-radius: 52px;
-        box-shadow: 0 0 0 10px #1D1B20, 0 24px 60px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 0 0 10px var(--fixed-ink), 0 24px 60px var(--fixed-shade);
     }
 
     .device::before {
@@ -263,7 +289,7 @@ p, h1, h2, h3, li, dd, .grow, .card {
         height: 35px;
         margin-left: -62px;
         border-radius: 20px;
-        background: #000;
+        background: var(--fixed-black);
         z-index: 50;
         pointer-events: none;
     }
@@ -472,7 +498,7 @@ p { margin: 0; }
 .btn-danger:hover { background: var(--color-rejected); opacity: 0.9; }
 .btn-ghost { background: transparent; color: var(--color-accent); border-color: transparent; }
 .btn-ghost:hover { background: var(--color-accent-soft); }
-.btn-sm { min-height: var(--tap); padding: 0 12px; font-size: 14px; border-radius: var(--radius-sm); }
+.btn-sm { min-height: var(--tap); padding: 0 12px; font-size: var(--fs-ui); border-radius: var(--radius-sm); }
 .btn-lg { min-height: 60px; font-size: var(--fs-lg); border-radius: var(--radius-lg); }
 .btn-block { width: 100%; }
 .btn:disabled, .btn[aria-disabled="true"] { background: var(--color-neutral); color: var(--color-faint); border-color: transparent; cursor: not-allowed; opacity: 1; }
@@ -507,7 +533,7 @@ p { margin: 0; }
     border-radius: 9px;
     background: var(--color-ink);
     color: var(--color-on-ink);
-    font-size: 11px;
+    font-size: var(--fs-caption);
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -637,13 +663,13 @@ button.list-row:hover { background: var(--color-surface-2); }
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: var(--fs-ui);
     font-weight: 700;
     overflow: hidden;
 }
 
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
-.avatar-lg { width: 88px; height: 88px; font-size: 28px; }
+.avatar-lg { width: 88px; height: 88px; font-size: var(--fs-2xl); }
 
 /* A photo with a camera badge on it: tapping the photo adds or changes it. */
 .photo-picker {
@@ -658,8 +684,8 @@ button.list-row:hover { background: var(--color-surface-2); }
     cursor: pointer;
 }
 
-.photo-picker .avatar { width: 96px; height: 96px; font-size: 30px; }
-.photo-picker-sm, .photo-picker-sm .avatar { width: 56px; height: 56px; font-size: 18px; }
+.photo-picker .avatar { width: 96px; height: 96px; font-size: var(--fs-3xl); }
+.photo-picker-sm, .photo-picker-sm .avatar { width: 56px; height: 56px; font-size: var(--fs-lg); }
 
 .photo-picker .photo-badge {
     position: absolute;
@@ -683,7 +709,7 @@ button.list-row:hover { background: var(--color-surface-2); }
     grid-template-columns: auto 1fr;
     gap: 6px 14px;
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-ui);
 }
 
 .dl dt { color: var(--color-muted); }
@@ -724,7 +750,7 @@ button.list-row:hover { background: var(--color-surface-2); }
 .banner {
     border-radius: var(--radius-md);
     padding: 12px 14px;
-    font-size: 14px;
+    font-size: var(--fs-ui);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -742,7 +768,7 @@ button.list-row:hover { background: var(--color-surface-2); }
 /* ---------- Forms ---------- */
 
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.label { font-size: 14px; font-weight: 600; }
+.label { font-size: var(--fs-ui); font-weight: 600; }
 .hint { font-size: var(--fs-sm); color: var(--color-muted); }
 .field-error { font-size: var(--fs-sm); color: var(--color-rejected); font-weight: 600; }
 
@@ -769,7 +795,7 @@ select.input { appearance: auto; }
     align-items: flex-start;
     min-height: var(--tap);
     padding: 4px 0;
-    font-size: 14px;
+    font-size: var(--fs-ui);
     cursor: pointer;
 }
 
@@ -792,7 +818,7 @@ select.input { appearance: auto; }
 
 /* Segmented switch: Mes / Planear, ES / EN, adult / minor. */
 .seg { display: flex; background: var(--color-neutral); border-radius: var(--radius-pill); padding: 3px; }
-.seg button { flex: 1; min-height: var(--tap); border: 0; border-radius: var(--radius-pill); background: transparent; font-weight: 600; font-size: 14px; color: var(--color-neutral-text); cursor: pointer; }
+.seg button { flex: 1; min-height: var(--tap); border: 0; border-radius: var(--radius-pill); background: transparent; font-weight: 600; font-size: var(--fs-ui); color: var(--color-neutral-text); cursor: pointer; }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--color-ink); color: var(--color-on-ink); }
 
 /* Day chips that scroll sideways. */
@@ -814,7 +840,7 @@ select.input { appearance: auto; }
     cursor: pointer;
 }
 
-.day-strip button strong { font-size: 17px; color: var(--color-text); }
+.day-strip button strong { font-size: var(--fs-body-lg); color: var(--color-text); }
 .day-strip button[aria-pressed="true"] { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-on-ink); }
 .day-strip button[aria-pressed="true"] strong { color: var(--color-on-ink); }
 
@@ -833,7 +859,7 @@ select.input { appearance: auto; }
     justify-content: center;
     gap: 3px;
     padding: 0;
-    font-size: 14px;
+    font-size: var(--fs-ui);
     font-variant-numeric: tabular-nums;
     cursor: pointer;
 }
@@ -849,7 +875,7 @@ select.input { appearance: auto; }
 
 /* A time slot in a day list. */
 .slot { display: flex; gap: 12px; align-items: flex-start; }
-.slot-time { width: 52px; flex: none; font-weight: 600; font-variant-numeric: tabular-nums; padding-top: 14px; font-size: 14px; }
+.slot-time { width: 52px; flex: none; font-weight: 600; font-variant-numeric: tabular-nums; padding-top: 14px; font-size: var(--fs-ui); }
 .slot > .card, .slot > button.card { flex: 1; }
 
 /* ---------- Layers: sheets, dialogs, toasts ---------- */
@@ -960,15 +986,15 @@ select.input { appearance: auto; }
     aspect-ratio: 3 / 4;
     max-width: 100%;
     border-radius: var(--radius-lg);
-    background: #1D1B20;
+    background: var(--fixed-ink);
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
 }
 
-.camera-frame { width: 62%; aspect-ratio: 1; border: 4px solid #FFFFFF; border-radius: 22px; box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.35); }
-.camera p { position: absolute; bottom: 14px; left: 0; right: 0; color: #FFFFFF; text-align: center; font-size: 14px; }
+.camera-frame { width: 62%; aspect-ratio: 1; border: 4px solid var(--fixed-paper); border-radius: 22px; box-shadow: 0 0 0 999px var(--fixed-shade); }
+.camera p { position: absolute; bottom: 14px; left: 0; right: 0; color: var(--fixed-paper); text-align: center; font-size: var(--fs-ui); }
 
 .pdf {
     flex: 1;
@@ -982,21 +1008,21 @@ select.input { appearance: auto; }
 }
 
 .pdf-page {
-    background: #FFFFFF;
-    color: #1D1B20;
+    background: var(--fixed-paper);
+    color: var(--fixed-ink);
     border-radius: 6px;
     padding: 22px 20px;
     min-height: 420px;
     box-shadow: 0 2px 8px var(--color-shadow);
-    font-size: 13px;
+    font-size: var(--fs-sm);
     line-height: 1.55;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
-.pdf-page h3 { font-size: 15px; }
-.pdf-page .pdf-foot { margin-top: auto; color: #8C8792; font-size: 11px; text-align: right; }
+.pdf-page h3 { font-size: var(--fs-md); }
+.pdf-page .pdf-foot { margin-top: auto; color: var(--fixed-muted); font-size: var(--fs-caption); text-align: right; }
 
 .proof-image {
     aspect-ratio: 3 / 4;
@@ -1056,7 +1082,7 @@ select.input { appearance: auto; }
     background: var(--color-surface);
     color: var(--color-text);
     font-weight: 600;
-    font-size: 14px;
+    font-size: var(--fs-ui);
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -1075,7 +1101,7 @@ select.input { appearance: auto; }
     background: var(--color-surface);
     color: var(--color-text);
     font-weight: 600;
-    font-size: 14px;
+    font-size: var(--fs-ui);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1176,7 +1202,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 
 /* Round 17: the QR screen and the check-in button take their look from here, not inline styles. */
 .qr-close { position: absolute; top: calc(var(--safe-top) + 10px); right: 16px; }
-.qr-title { font-size: 18px; font-weight: 600; }
+.qr-title { font-size: var(--fs-lg); font-weight: 600; }
 .qr-code { max-width: 100%; }
 .qr-code rect, .qr-timer text { fill: var(--qr-ink); }
 .qr-track { stroke: var(--qr-track); }
@@ -1261,16 +1287,16 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 }
 .metric > .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .metric-wide { cursor: default; }
-.metric-value { font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--tone-text, var(--color-text)); }
-.metric-tone { font-size: 12px; font-weight: 600; color: var(--tone-text, var(--color-muted)); }
+.metric-value { font-size: var(--fs-2xl); font-weight: 700; line-height: 1.15; color: var(--tone-text, var(--color-text)); }
+.metric-tone { font-size: var(--fs-xs); font-weight: 600; color: var(--tone-text, var(--color-muted)); }
 [data-tone="good"] { --tone: var(--color-confirmed); --tone-text: var(--color-confirmed-text); --tone-soft: var(--color-confirmed-soft); }
 [data-tone="watch"] { --tone: var(--color-warning); --tone-text: var(--color-warning-text); --tone-soft: var(--color-warning-soft); }
 [data-tone="bad"] { --tone: var(--color-rejected); --tone-text: var(--color-rejected-text); --tone-soft: var(--color-rejected-soft); }
-.trend { font-size: 12px; color: var(--tone-text); }
+.trend { font-size: var(--fs-xs); color: var(--tone-text); }
 .tone-chip { background: var(--tone-soft); color: var(--tone-text); white-space: nowrap; }
 .slot-grid { display: grid; grid-template-columns: 44px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; }
 .slot-row { display: contents; }
-.slot-cell { display: block; text-align: center; padding: 8px 0; border-radius: var(--radius-sm); background: var(--tone-soft); color: var(--tone-text); font-weight: 600; font-size: 14px; }
+.slot-cell { display: block; text-align: center; padding: 8px 0; border-radius: var(--radius-sm); background: var(--tone-soft); color: var(--tone-text); font-weight: 600; font-size: var(--fs-ui); }
 .bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; height: 120px; }
 .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
 .bar { width: 100%; max-width: 36px; border-radius: 6px 6px 0 0; background: var(--tone); }
@@ -1297,7 +1323,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 
 /* A slimmer bottom bar: smaller icons and labels, the same tap width. */
 .nav { padding: 2px 4px max(var(--safe-bottom), 2px); }
-.nav button { min-height: 46px; gap: 1px; font-size: 11px; }
+.nav button { min-height: 46px; gap: 1px; font-size: var(--fs-caption); }
 .nav button svg { width: 21px; height: 21px; }
 
 /* Tighter rhythm on phones: a screen that would scroll for one line fits instead. */
@@ -1367,7 +1393,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 .menu-text { position: relative; display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--color-accent); font-weight: 600; vertical-align: bottom; }
 .menu-text-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .menu-text > svg { flex: none; transform: rotate(90deg); }
-.menu-text-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; border: 0; }
+.menu-text-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: var(--fs-input); border: 0; }
 .menu-text:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 4px; }
 .sheet-title .menu-text, .sheet-title .menu-text-value { color: var(--color-accent); font-size: var(--fs-sm); }
 /* A heading that holds a choice: "Tablero de Colibrí ▾" on one line. */
@@ -1401,11 +1427,38 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 
 /* A school's logo, or its initials until one is uploaded: always the same small square. */
 .school-logo { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 6px; background: var(--color-accent-soft); color: var(--color-accent-strong); font-weight: 700; object-fit: cover; letter-spacing: 0; text-transform: none; }
-.school-logo-sm { width: 20px; height: 20px; font-size: 10px; }
-.school-logo-md { width: 36px; height: 36px; font-size: 14px; border-radius: 9px; }
+.school-logo-sm { width: 20px; height: 20px; font-size: var(--fs-2xs); }
+.school-logo-md { width: 36px; height: 36px; font-size: var(--fs-ui); border-radius: 9px; }
 .title-school { gap: 6px; }
 .heading-pick .school-logo { margin-right: 2px; }
 
 /* The app's name on the sign-in screen. */
 .brand { display: flex; flex-direction: column; min-width: 0; }
-.brand-name { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--color-accent); line-height: 1.1; }
+.brand-name { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700; color: var(--color-accent); line-height: 1.1; }
+
+/* The live app: opening, and a change the database refused. */
+.boot { display: grid; place-items: center; height: 100%; font-family: var(--font-display); font-size: var(--fs-4xl); font-weight: 700; color: var(--color-accent); }
+.live-problem { position: absolute; left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 60; display: flex; gap: 8px; align-items: center;
+    background: var(--color-surface); border: 1px solid var(--color-rejected); color: var(--color-text); border-radius: 12px; padding: 10px 12px; font-size: var(--fs-sm); }
+.live-problem > span { flex: 1; min-width: 0; }
+
+/* ---- Layout helpers: what screens used to set inline ---- */
+.align-center { align-items: center; }
+.align-end { align-items: flex-end; }
+.self-start { align-self: flex-start; }
+.self-center { align-self: center; }
+.min-w-0 { min-width: 0; }
+.mt-xs { margin-top: var(--space-xs); }
+.gap-xs { gap: var(--space-xs); }
+.gap-lg { gap: var(--space-lg); }
+.plain-list { margin: 0; padding-left: var(--space-xl); }
+.lang-switch { width: 120px; }
+.list-row-bare { padding: 0; min-height: 0; }
+.progress-inline { display: block; margin: var(--space-xs) 0; }
+.text-default { color: var(--color-text); }
+.reader-head { padding: 0 var(--gutter) 10px; }
+.scroll-bare-top { padding-top: calc(var(--safe-top) + 10px); }
+.contents { display: contents; }
+
+/* The app's version, at the end of the sign-in screen. */
+.version { margin: var(--space-lg) 0 0; text-align: center; color: var(--color-faint); font-size: var(--fs-xs); }

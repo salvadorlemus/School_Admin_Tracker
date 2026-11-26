@@ -42,7 +42,7 @@ export function useStaffCard({name: initialName, phone: initialPhone, email: ini
     const body = (
         <>
             <p className="hint">{t('staff.why')}</p>
-            <div className="row-start" style={{alignItems: 'center', gap: 16}}>
+            <div className="row-start align-center gap-lg" >
                 <PhotoPicker name={name} label={t('form.photo')}/>
                 <p className="hint">{t(register ? 'form.photoOptional' : 'form.photoHint')}</p>
             </div>

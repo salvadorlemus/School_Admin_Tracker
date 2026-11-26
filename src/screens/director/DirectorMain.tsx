@@ -1,3 +1,5 @@
+import {monthRange, shiftMonth} from '../../lib/months';
+import {live} from '../../live/actions';
 import {currentSchool} from '../../state/school';
 import {useState} from 'react';
 import {t} from '../../lib/texts';
@@ -17,10 +19,8 @@ import {
     weekdayShort
 } from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {
-    classById, CLASSES, PRICES, schoolOfClass, schoolOfSession, PROOFS, REVIEWED, roomName, SCHOOLS, sessionById, SESSIONS, sessionsOn, studentById,
-    teacherName, TEACHERS, TODAY, NOW, STRESS, STUDENTS, type SchoolClass, type Session, teacherSchools, isPass, roomsHere, studentsHere, pricesHere, type Student,
-} from '../../mock/data';
+import {classById, CLASSES, PRICES, schoolOfClass, schoolOfSession, PROOFS, REVIEWED, roomName, SCHOOLS, sessionById, SESSIONS, sessionsOn, studentById,
+    teacherName, TEACHERS, TODAY, NOW, STRESS, STUDENTS, type SchoolClass, type Session, teacherSchools, isPass, roomsHere, studentsHere, pricesHere, type Student, STAFF_ME} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Avatar, Carousel, Check, DateField, Empty, ListRow, NumberField, SearchField, Segmented, SelectField, TextField, TimeField, useQueryIndex} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -187,8 +187,8 @@ function MonthView() {
     const router = useRouter();
     const day = router.query.get('day') ?? TODAY;
     const onlyMine = router.query.get('mine') === '1';
-    // The director (Ana) teaches too: her own sessions, or ones she covers.
-    const isMine = (session: Session) => teacherOf(session) === 'ana' || session.substitute === 'ana';
+    // A director who teaches: their own sessions, or ones they cover.
+    const isMine = (session: Session) => teacherOf(session) === STAFF_ME.d || session.substitute === STAFF_ME.d;
     const on = (date: string) => sessionsOn(date).filter(session => !onlyMine || isMine(session));
     const sheet = useSheetRoute('session');
     const first = `${day.slice(0, 7)}-01`;
@@ -202,11 +202,11 @@ function MonthView() {
         <>
             <div className="row">
                 <span className="month-nav">
-                    <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={first <= '2026-11-01'}
-                            onClick={() => goMonth('2026-11-01')}><Icon name="back"/></button>
+                    <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={first <= monthRange().min}
+                            onClick={() => goMonth(shiftMonth(first, -1))}><Icon name="back"/></button>
                     <span className="big">{monthYear(first)}</span>
-                    <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={first >= '2026-12-01'}
-                            onClick={() => goMonth('2026-12-01')}><Icon name="chevron"/></button>
+                    <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={first >= monthRange().max}
+                            onClick={() => goMonth(shiftMonth(first, 1))}><Icon name="chevron"/></button>
                 </span>
                 <button type="button" className="chip-toggle" aria-pressed={onlyMine}
                         onClick={() => router.replace(router.withQuery('mine', onlyMine ? null : '1'))}>
@@ -333,7 +333,7 @@ function PlanView() {
                             const overCapacity = weekday === 6 && slot.room === 's1' && item.id === 'retrato';
                             return (
                                 <div key={item.id + slot.start} className="card">
-                                    <button type="button" className="list-row" style={{padding: 0, minHeight: 0}}
+                                    <button type="button" className="list-row list-row-bare" 
                                             onClick={() => router.navigate(`/d/activity/${item.id}`)}>
                                         <span className="grow">
                                             <span className="big">{item.name}</span>
@@ -356,8 +356,7 @@ function PlanView() {
                                         {item.monthly && <span className="chip">{t('classes.monthly', {amount: money(item.monthly.price)})}</span>}
                                         {item.perVisit && <span className="chip">{t('classes.perVisit')}</span>}
                                     </span>
-                                    <button type="button" className="btn btn-ghost btn-sm"
-                                            style={{alignSelf: 'flex-start'}}
+                                    <button type="button" className="btn btn-ghost btn-sm self-start"
                                             onClick={() => router.navigate(`/d/activity/new?from=${item.id}`)}>
                                         <Icon name="copy" size={18}/>{t('plan.duplicate')}
                                     </button>
@@ -689,7 +688,7 @@ export function EndClass({id}: { id: string }) {
             <SelectField id="end-last" label={t('end.last')} value={last} onChange={setLast} placeholder={t('common.pick')}
                          options={dates.map(date => ({value: date, label: dayLong(date)}))}/>
             <h2 className="section-title">{t('end.what')}</h2>
-            <ul className="stack" style={{paddingLeft: 20, margin: 0}}>
+            <ul className="stack plain-list" >
                 <li>{t('end.enrollments', {n: item.students})}</li>
                 {item.inPackages && <li>{t('end.packages')}</li>}
                 <li>{t('end.board')}</li>
@@ -818,6 +817,7 @@ function SchoolDues({tab, redraw}: { tab: string; redraw: () => void }) {
                                  : <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
                                      if (await confirm({title: t('dpay.feeConfirm', {name: personName(student.name)}), body: t('dpay.feeConfirmBody'), confirm: t('dpay.markDone')})) {
                                          FEES_DONE.add(student.id);
+                                         live.markFeeDone(student.id);
                                          redraw();
                                          toast(t('dpay.feeSaved'));
                                      }

@@ -5,7 +5,8 @@
 enrollments, QR check-in, payments and payment screenshots, teacher pay, and a notices board.
 Several schools share one app, and each sees only its own people and records.
 
-**Status — v1.0.0: clickable prototype.** Every screen, for every role, is built and works with
+**Status — v1.1.0: the database is live (Supabase), with Helios as the first school; the director's and
+teacher's screens read and change it. The rest of the screens are still the clickable prototype.** Every screen, for every role, is built and works with
 invented sample data. Changes made while clicking around stay in memory until the page reloads.
 The backend (Supabase database, auth, storage, emails) is the next step; its data model and rules
 are written down in [`CLAUDE.md`](CLAUDE.md).
@@ -65,8 +66,9 @@ the director's summary numbers in `src/mock/insights.ts`, the admin's school lis
 ## Demo hosting
 
 Render static site from this repo (`main`): build `npm ci && npm run build`, publish `dist`,
-environment `NODE_VERSION=20`; custom domain `lyra.kokoasoft.com`. In Cloudflare, a `CNAME lyra`
-to the Render address, DNS only until Render issues the certificate, then proxied with SSL Full
+environment `NODE_VERSION=20`, `VITE_APP_HOST=lyra.kokoasoft.com`, `VITE_ADMIN_HOST=lyra.admin.kokoasoft.com`;
+custom domains `lyra.kokoasoft.com` and `lyra.admin.kokoasoft.com`. In Cloudflare, a `CNAME lyra` and a
+`CNAME lyra.admin` to the Render address, DNS only until Render issues the certificate, then proxied with SSL Full
 (strict). The page is marked `noindex` while it's a demo.
 
 ## Tech

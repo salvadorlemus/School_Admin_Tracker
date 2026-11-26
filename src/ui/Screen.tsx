@@ -219,7 +219,7 @@ export function Screen({title, subtitle, titleLine, back, onBack, nav = true, fo
 export function BareScreen({children, footer, note}: { children: ReactNode; footer?: ReactNode; note?: ReactNode }) {
     return (
         <div className="screen screen-no-bottom">
-            <div className="scroll" style={{paddingTop: 'calc(var(--safe-top) + 10px)'}}>{children}</div>
+            <div className="scroll scroll-bare-top" >{children}</div>
             {(footer || note) && (
                 <div className="footer">
                     {note && <p className="hint center">{note}</p>}

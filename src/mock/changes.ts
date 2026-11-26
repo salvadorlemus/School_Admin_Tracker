@@ -1,3 +1,4 @@
+import {live} from '../live/actions';
 import {currentSchool} from '../state/school';
 import {addDays, money, timeRange, weekdayOf, weekdayShort} from '../lib/format';
 import {
@@ -90,6 +91,7 @@ function handOver(item: SchoolClass, teacher: string, since: string) {
 
 /** Moving is a cancellation with its replacement linked to it (rule 17). */
 export function moveSession(id: string, to: { date: string; start: string; end: string; room: string }) {
+    live.moveSession(id, to);
     const session = sessionById(id);
     const newId = `${session.classId}-${to.date}-${to.start}-moved`;
     session.status = 'cancelled';
@@ -113,6 +115,7 @@ export function moveSession(id: string, to: { date: string; start: string; end: 
 }
 
 export function cancelSession(id: string) {
+    live.cancelSession(id);
     const session = sessionById(id);
     session.status = 'cancelled';
     post({kind: 'cancelled', classId: session.classId, title: sessionTitle(session), at: sessionAt(session), text: 'notice.cancelledOnly'});
@@ -121,6 +124,7 @@ export function cancelSession(id: string) {
 /** Picking the session's own teacher again takes the substitute away. */
 export function giveToSubstitute(id: string, teacher: string) {
     const session = sessionById(id);
+    live.setSubstitute(id, teacher === teacherOf(session) ? null : teacher);
     if (teacher === teacherOf(session)) {
         session.substitute = undefined;
         post({kind: 'teacher', classId: session.classId, title: sessionTitle(session), at: sessionAt(session), text: 'notice.noSubstitute', vars: {name: teacherName(teacher)}});
@@ -137,6 +141,7 @@ export function giveToSubstitute(id: string, teacher: string) {
 }
 
 export function changeTeacher(classId: string, teacher: string, since: string) {
+    live.changeTeacher(classId, teacher, since);
     const item = classById(classId);
     handOver(item, teacher, since);
     post({
@@ -177,6 +182,7 @@ export function editClass(classId: string, fields: ClassFields, since: string) {
 
 /** Ending a class on one of its sessions: the later ones go; its enrollments end with it. */
 export function endClass(classId: string, last: string) {
+    live.endClass(classId, last);
     const item = classById(classId);
     item.until = last;
     item.ending = true;
@@ -248,12 +254,14 @@ export function endEnrollment(student: string, what: string, until: string) {
 }
 
 export function setStudentStatus(id: string, status: 'active' | 'inactive') {
+    live.setStudentStatus(id, status);
     const student = studentById(id);
     if (student.id === id) student.status = status;
 }
 
 /** A new price from a date: the current one stays until then (never edited), posted as important. */
 export function schedulePrice(id: string, amount: number, from: string) {
+    live.schedulePrice(id, amount, from);
     const price = PRICES.find(item => item.id === id);
     if (!price) return;
     price.next = {amount, from};
@@ -302,7 +310,13 @@ const TERMS = {
 };
 
 /** The terms of the school a director is working in (Colibrí's for students: the sample's). */
-export const termsState = () => currentSchool() === 'helios' ? TERMS.helios : TERMS.colibri;
+/** The live app's terms, by school (from the database). */
+export const LIVE_TERMS: Record<string, ReturnType<typeof termsOf>> = {};
+export function setLiveTerms(school: string, version: number, uploaded: string, pending: string[], earlier: { version: number; uploaded: string }[], roster: string[]) {
+    LIVE_TERMS[school] = termsOf(version, uploaded, pending, earlier, () => roster, () => new Set());
+}
+
+export const termsState = () => LIVE_TERMS[currentSchool()] ?? (currentSchool() === 'helios' ? TERMS.helios : TERMS.colibri);
 export const TERMS_STATE = TERMS.colibri;
 
 export function publishTerms() {
@@ -319,6 +333,7 @@ export function acceptTerms(name: string) {
 
 /** A director's decision on a screenshot; the student (or guardian) gets a personal notice (rule 10). */
 export function decideProof(id: string, state: 'confirmed' | 'rejected', reason: string) {
+    live.decideProof(id, state === 'confirmed', reason);
     const proof = PROOFS.find(item => item.id === id);
     if (!proof) return;
     proof.state = state;
