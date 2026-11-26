@@ -1,8 +1,10 @@
+import {classWhen} from '../shared/pieces';
+import {currentSchool} from '../../state/school';
 import type {ReactNode} from 'react';
 import {t, type TextKey} from '../../lib/texts';
 import {dayMonth, decimal, money, monthInSentence, monthName, personName, weekdayShort} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {classById, studentById, TODAY} from '../../mock/data';
+import {classById, studentById, TODAY, teacherName} from '../../mock/data';
 import {
     AT_RISK,
     COHORTS,
@@ -13,6 +15,7 @@ import {
     LATE_MONTHS,
     lateTone,
     lateTotal,
+    loadInsights,
     marginTone,
     marginTotal,
     MARGINS,
@@ -68,6 +71,8 @@ interface Metric {
 }
 
 function metrics(): Metric[] {
+    // The school picked at the top: its own numbers.
+    loadInsights(currentSchool());
     const margin = marginTotal();
     const trials = trialTotal();
     const fill = fillTotal();
@@ -120,6 +125,9 @@ function metrics(): Metric[] {
         },
     ];
 }
+
+/** A class's teacher, days and hours: classes can share a name (Helios's "Danza aérea"). */
+const whoWhen = (classId: string) => `${teacherName(classById(classId).teacher)} · ${classWhen(classById(classId))}`;
 
 /** Panel › Resumen: six numbers about the school, each opening its breakdown. */
 export function SummaryView() {
@@ -177,7 +185,7 @@ export function InsightScreen({id}: { id: string }) {
                 <ul className="list">
                     {MARGINS.map(row => (
                         <ListRow key={row.classId} title={classById(row.classId).name}
-                                 sub={t('ins.marginRow', {income: money(row.income), pay: money(row.pay)})}
+                                 sub={<>{whoWhen(row.classId)}<br/>{t('ins.marginRow', {income: money(row.income), pay: money(row.pay)})}</>}
                                  chips={<ToneChip
                                      tone={marginTone(row)}>{money(row.margin)} · {pct(row.margin / row.income)}</ToneChip>}
                                  onClick={() => router.navigate(`/d/activity/${row.classId}`)}/>
@@ -193,7 +201,7 @@ export function InsightScreen({id}: { id: string }) {
                 <ul className="list">
                     {TRIALS.map(row => (
                         <ListRow key={row.classId} title={classById(row.classId).name}
-                                 sub={t('ins.trialRow', {trials: row.trials, enrolled: row.enrolled})}
+                                 sub={<>{whoWhen(row.classId)}<br/>{t('ins.trialRow', {trials: row.trials, enrolled: row.enrolled})}</>}
                                  chips={<ToneChip
                                      tone={trialTone(row.enrolled / row.trials)}>{pct(row.enrolled / row.trials)}</ToneChip>}/>
                     ))}
@@ -218,7 +226,8 @@ export function InsightScreen({id}: { id: string }) {
                     {FILL.map(row => (
                         <ListRow key={row.classId} title={classById(row.classId).name}
                                  sub={<>
-                                     <span className="progress" style={{display: 'block', margin: '4px 0'}}><span
+                                     {whoWhen(row.classId)}
+                                     <span className="progress progress-inline" ><span
                                          style={{width: `${Math.round(row.enrolled / row.max * 100)}%`}}/></span>
                                      {t('ins.fillRow', {
                                          enrolled: row.enrolled,
@@ -235,12 +244,12 @@ export function InsightScreen({id}: { id: string }) {
                     <span role="columnheader"/>
                     {(['morning', 'afternoon', 'evening'] as const).map(part => <span key={part} role="columnheader"
                                                                                       className="small muted">{t(`ins.part.${part}` as const)}</span>)}
-                    {[1, 2, 3, 4, 5, 6].map(weekday => (
+                    {[...new Set(SLOTS.map(slot => slot.weekday))].map(weekday => (
                         <div key={weekday} role="row" className="slot-row">
                             <span role="rowheader" className="small strong">{weekdayShort(weekday)}</span>
                             {SLOTS.filter(slot => slot.weekday === weekday).map(slot => (
                                 <span key={slot.part} role="cell" className="slot-cell"
-                                      data-tone={toneUp(slot.rate, 0.75, 0.5)}>{pct(slot.rate)}</span>
+                                      data-tone={slot.rate < 0 ? undefined : toneUp(slot.rate, 0.75, 0.5)}>{slot.rate < 0 ? '—' : pct(slot.rate)}</span>
                             ))}
                         </div>
                     ))}

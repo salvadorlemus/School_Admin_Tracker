@@ -1,3 +1,4 @@
+import {LIVE, LIVE_STUDENTS} from '../live/state';
 /**
  * Invented sample data for the clickable prototype (docs/design/claude-design-brief.md). Nothing
  * here comes from the database; this folder goes away once the screens read Supabase. Today is
@@ -7,6 +8,8 @@
  * Spanish. Texts the app writes itself are keys into the texts files.
  */
 
+import {currentSchool} from '../state/school';
+import {HELIOS_CLASSES, HELIOS_PACKAGES, HELIOS_PRICES, HELIOS_ROOM, HELIOS_SCHOOL, HELIOS_STUDENTS, HELIOS_TEACHERS, heliosExceptions, heliosHistory, type Attendance} from './helios';
 import type {TextKey} from '../lib/texts';
 
 /**
@@ -19,9 +22,15 @@ export const SCHOOL_LOGOS = new Map<SchoolId, string>();
 
 export const STRESS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stress');
 
-export const TODAY = '2026-11-26';
+export let TODAY = '2026-11-26';
 /** The prototype's clock: today at 10:15. */
-export const NOW = '10:15';
+export let NOW = '10:15';
+
+/** The live app's clock: today and now in the school's time zone (the prototype keeps its fixed day). */
+export function setClock(today: string, now: string) {
+    TODAY = today;
+    NOW = now;
+}
 
 const minutes = (hm: string) => {
     const [h, m] = hm.split(':').map(Number);
@@ -49,18 +58,20 @@ export function sessionWindow(session: { date: string; start: string; end: strin
 
 export type SchoolId = string;
 
-export const SCHOOLS: Record<SchoolId, { name: string; short: string }> = {
-    colibri: {name: 'Taller de Arte Colibrí', short: 'Colibrí'},
-    ambar: {name: 'Estudio Ámbar', short: 'Ámbar'},
+/** Each school's name, short name and time zone (the prototype's are all in Mexico City). */
+export const SCHOOLS: Record<SchoolId, { name: string; short: string; zone?: string }> = {
+    colibri: {name: 'Estudio Aéreo Colibrí', short: 'Colibrí'},
+    ambar: {name: 'Ámbar Danza Aérea', short: 'Ámbar'},
+    helios: HELIOS_SCHOOL,
 };
 
 /** The stress schools; the first has a very long name. */
 const STRESS_SCHOOLS: Record<string, { name: string; short: string }> = {
-    bajio: {name: 'Academia Internacional de Artes Plásticas y Visuales Contemporáneas del Bajío', short: 'Academia Internacional del Bajío'},
+    bajio: {name: 'Academia Internacional de Artes Circenses y Danza Aérea Contemporánea del Bajío', short: 'Academia Internacional del Bajío'},
     lumbre: {name: 'Casa de la Lumbre', short: 'Lumbre'},
-    trazo: {name: 'Trazo Libre Escuela de Dibujo', short: 'Trazo Libre'},
-    pigmentos: {name: 'Pigmentos del Norte', short: 'Pigmentos'},
-    barro: {name: 'Barro y Fuego Taller de Cerámica', short: 'Barro y Fuego'},
+    trazo: {name: 'Vuelo Libre Escuela de Aéreos', short: 'Vuelo Libre'},
+    pigmentos: {name: 'Giros del Norte', short: 'Giros'},
+    barro: {name: 'Cuerda y Aro Estudio de Circo', short: 'Cuerda y Aro'},
 };
 if (STRESS) Object.assign(SCHOOLS, STRESS_SCHOOLS);
 const STRESS_IDS = Object.keys(STRESS_SCHOOLS);
@@ -76,17 +87,21 @@ export interface Room {
 }
 
 export const ROOMS: Room[] = [
-    {id: 's1', name: 'Salón 1', classesAtOnce: 3, students: 30, futureSessions: 38},
-    {id: 's2', name: 'Salón 2', classesAtOnce: 2, students: 16, futureSessions: 21},
-    {id: 'cer', name: 'Sala de Cerámica', classesAtOnce: 1, students: 10, futureSessions: 9},
-    {id: 'patio', name: 'Patio techado junto a la bodega de materiales (planta baja)', futureSessions: 4},
-    {id: 'old', name: 'Salón 3 (antes de la remodelación)', archived: true, futureSessions: 0},
-    {id: 'ta', school: 'ambar', name: 'Taller A', futureSessions: 6},
-    {id: 'tb', school: 'ambar', name: 'Taller B', futureSessions: 6},
+    {id: 's1', name: 'Sala aérea 1', classesAtOnce: 3, students: 30, futureSessions: 38},
+    {id: 's2', name: 'Sala aérea 2', classesAtOnce: 2, students: 16, futureSessions: 21},
+    {id: 'cer', name: 'Sala de piso', classesAtOnce: 1, students: 10, futureSessions: 9},
+    {id: 'patio', name: 'Patio techado junto a la bodega de aparatos y colchonetas (planta baja)', futureSessions: 4},
+    {id: 'old', name: 'Sala aérea 3 (antes de la remodelación)', archived: true, futureSessions: 0},
+    {id: 'ta', school: 'ambar', name: 'Sala A', futureSessions: 6},
+    {id: 'tb', school: 'ambar', name: 'Sala B', futureSessions: 6},
+    HELIOS_ROOM,
 ];
 
+/** The rooms of the school a director is working in. */
+export const roomsHere = () => ROOMS.filter(room => (room.school ?? 'colibri') === currentSchool());
+
 // Stress data: thirty more rooms at Colibrí.
-if (STRESS) for (let i = 1; i <= 30; i++) ROOMS.push({id: `r${i}`, name: i === 7 ? 'Estudio de grabado y serigrafía con prensa de gran formato (segundo piso, ala norte)' : `Aula ${i}`, classesAtOnce: i % 3 ? 1 : undefined, students: i % 3 ? 12 : undefined, futureSessions: i % 5});
+if (STRESS) for (let i = 1; i <= 30; i++) ROOMS.push({id: `r${i}`, name: i === 7 ? 'Sala de aparatos con doble altura y puntos de anclaje certificados (segundo piso, ala norte)' : `Sala ${i}`, classesAtOnce: i % 3 ? 1 : undefined, students: i % 3 ? 12 : undefined, futureSessions: i % 5});
 
 export interface Teacher {
     id: string;
@@ -97,13 +112,16 @@ export interface Teacher {
     phone: string;
     status: 'active' | 'invited' | 'inactive';
     director?: boolean;
+    /** The schools they direct, when they direct several (the school switch lists them). */
+    directs?: SchoolId[];
     futureSessions: number;
     emergency: { name: string; relation: string; phone: string }[];
     health?: string;
 }
 
 /** The person signed in for each staff role in the sample data. */
-export const STAFF_ME: Record<'t' | 'd', string> = {t: 'mariana', d: 'ana'};
+/** The person signed in for each staff role (the live loader sets the real one). */
+export const STAFF_ME: Record<'t' | 'd', string> = {t: 'mariana-a', d: 'ana'};
 
 export const TEACHERS: Teacher[] = [
     {
@@ -130,6 +148,8 @@ export const TEACHERS: Teacher[] = [
         phone: '55 9012 3456',
         status: 'active',
         director: true,
+        schools: ['helios'],
+        directs: ['helios'],
         futureSessions: 5,
         emergency: [{name: 'Pablo Méndez', relation: 'businessPartner', phone: '55 0123 4567'}],
     },
@@ -145,6 +165,7 @@ export const TEACHERS: Teacher[] = [
         id: 'sergio', name: 'Sergio Luna', email: 'sergio.luna@correo.mx', phone: '', status: 'invited',
         futureSessions: 0, emergency: [],
     },
+    ...HELIOS_TEACHERS,
 ];
 
 if (STRESS) {
@@ -201,7 +222,7 @@ export interface SchoolClass {
 export const CLASSES: SchoolClass[] = [
     {
         id: 'figura', max: 12,
-        name: 'Dibujo de figura humana',
+        name: 'Telas aéreas intermedio',
         teacher: 'mariana',
         kind: 'weekly',
         from: '2026-09-01',
@@ -216,7 +237,7 @@ export const CLASSES: SchoolClass[] = [
         inPackages: true,
     },
     {
-        id: 'acuarela', max: 14, name: 'Acuarela', teacher: 'lucia', kind: 'weekly', from: '2026-09-01', until: '2026-12-19',
+        id: 'acuarela', max: 14, name: 'Aro aéreo', teacher: 'lucia', kind: 'weekly', from: '2026-09-01', until: '2026-12-19',
         slots: [{weekday: 1, start: '17:00', end: '19:00', room: 's2'}, {
             weekday: 3,
             start: '17:00',
@@ -226,12 +247,12 @@ export const CLASSES: SchoolClass[] = [
         students: 12, inPackages: true, monthly: {sessions: 4, price: 1400},
     },
     {
-        id: 'oleo', max: 18, name: 'Óleo', teacher: 'ana', kind: 'weekly', from: '2026-09-05', until: '2026-12-19',
+        id: 'oleo', max: 18, name: 'Trapecio', teacher: 'ana', kind: 'weekly', from: '2026-09-05', until: '2026-12-19',
         slots: [{weekday: 6, start: '10:00', end: '13:00', room: 's1'}], students: 16, inPackages: true, perVisit: true,
     },
     {
         id: 'retrato', max: 18,
-        name: 'Retrato',
+        name: 'Pole dance',
         teacher: 'lucia',
         kind: 'weekly',
         from: '2026-09-05',
@@ -243,7 +264,7 @@ export const CLASSES: SchoolClass[] = [
     },
     {
         id: 'ceramica', max: 10,
-        name: 'Cerámica en torno',
+        name: 'Telas aéreas básico',
         teacher: 'diego',
         kind: 'weekly',
         from: '2026-09-03',
@@ -255,7 +276,7 @@ export const CLASSES: SchoolClass[] = [
     },
     {
         id: 'infantil', forKids: true, max: 14,
-        name: 'Dibujo infantil',
+        name: 'Aéreo infantil',
         teacher: 'mariana',
         kind: 'weekly',
         from: '2026-09-03',
@@ -267,7 +288,7 @@ export const CLASSES: SchoolClass[] = [
     },
     {
         id: 'escultura', max: 10,
-        name: 'Escultura en barro',
+        name: 'Acondicionamiento',
         teacher: 'diego',
         kind: 'weekly',
         from: '2026-09-01',
@@ -279,7 +300,7 @@ export const CLASSES: SchoolClass[] = [
     },
     {
         id: 'botanica', max: 8,
-        name: 'Ilustración botánica con acuarela y tinta sobre papel de algodón (nivel intermedio)',
+        name: 'Telas aéreas: secuencias, caídas y transiciones al aro (nivel intermedio)',
         teacher: 'fernanda',
         kind: 'weekly',
         from: '2026-10-02',
@@ -291,7 +312,7 @@ export const CLASSES: SchoolClass[] = [
     },
     {
         id: 'grabado', forKids: true, max: 16,
-        name: 'Grabado juvenil',
+        name: 'Aéreo juvenil',
         teacher: 'fernanda',
         kind: 'weekly',
         from: '2026-12-05',
@@ -302,14 +323,14 @@ export const CLASSES: SchoolClass[] = [
         monthly: {sessions: 4, price: 1200},
     },
     {
-        // Thursdays 17:00, while Dibujo infantil (16:00–17:30) is on: Mateo and Valentina can't take both.
-        id: 'pintura', forKids: true, max: 12, name: 'Pintura con acuarela para niños', teacher: 'lucia', kind: 'weekly',
+        // Thursdays 17:00, while Aéreo infantil (16:00–17:30) is on: Mateo and Valentina can't take both.
+        id: 'pintura', forKids: true, max: 12, name: 'Acrobacia de piso para niños', teacher: 'lucia', kind: 'weekly',
         from: '2026-09-03', until: '2026-12-17', slots: [{weekday: 4, start: '17:00', end: '18:30', room: 's2'}],
         students: 6, inPackages: false, monthly: {sessions: 4, price: 1100}, perVisit: true,
     },
     {
         id: 'libre', max: 4,
-        name: 'Taller libre de grabado',
+        name: 'Práctica libre en aparatos',
         teacher: 'fernanda',
         kind: 'free',
         from: '2026-11-27',
@@ -319,24 +340,25 @@ export const CLASSES: SchoolClass[] = [
         inPackages: false,
     },
     {
-        id: 'amb-ceramica', school: 'ambar', name: 'Cerámica', teacher: 'tomas', kind: 'weekly', from: '2026-09-02', until: '2026-12-16',
+        id: 'amb-ceramica', school: 'ambar', name: 'Hamaca aérea', teacher: 'tomas', kind: 'weekly', from: '2026-09-02', until: '2026-12-16',
         slots: [{weekday: 3, start: '18:00', end: '20:00', room: 'tb'}], students: 10, max: 10, inPackages: false, monthly: {sessions: 4, price: 1400},
     },
     {
-        id: 'amb-bocetaje', school: 'ambar', name: 'Bocetaje urbano', teacher: 'mariana', kind: 'weekly', from: '2026-09-05', until: '2026-12-19',
+        id: 'amb-bocetaje', school: 'ambar', name: 'Flexibilidad', teacher: 'mariana', kind: 'weekly', from: '2026-09-05', until: '2026-12-19',
         slots: [{weekday: 6, start: '09:00', end: '11:00', room: 'ta'}], students: 7, max: 12, inPackages: false, monthly: {sessions: 4, price: 1100}, perVisit: true,
     },
+    ...HELIOS_CLASSES,
 ];
 
 if (STRESS) {
     CLASSES.push({
-        id: 'larga', max: 20, name: 'Taller intensivo de dibujo anatómico y figura humana con modelo vivo (nivel avanzado)', teacher: 'larga',
+        id: 'larga', max: 20, name: 'Taller intensivo de telas aéreas: caídas, envolturas y coreografía para presentación (nivel avanzado)', teacher: 'larga',
         kind: 'weekly', from: '2026-09-01', until: '2026-12-19', slots: [{weekday: 3, start: '10:00', end: '13:00', room: 's1'}],
         students: 18, inPackages: false, monthly: {sessions: 4, price: 1800}, perVisit: true,
     });
     // One class in each stress school, given by Mariana, so her school switch has something in each.
     STRESS_IDS.forEach((school, index) => CLASSES.push({
-        id: `cl-${school}`, school, max: 12, name: index === 0 ? 'Composición, color y perspectiva para ilustración editorial' : `Dibujo ${SCHOOLS[school]?.short ?? school}`,
+        id: `cl-${school}`, school, max: 12, name: index === 0 ? 'Composición coreográfica y presencia escénica para números aéreos' : `Aéreo ${SCHOOLS[school]?.short ?? school}`,
         teacher: 'mariana', kind: 'weekly', from: '2026-09-01', until: '2026-12-19',
         slots: [{weekday: (index % 5) + 1, start: '19:00', end: '21:00', room: 's1'}], students: 8, inPackages: false, monthly: {sessions: 4, price: 1000 + index * 100},
     }));
@@ -346,7 +368,7 @@ if (STRESS) {
     // A class for kids in three stress schools (Mateo takes all three, Valentina two): the guardian's school filter has something to filter.
     STRESS_IDS.slice(0, 3).forEach((school, index) => {
         CLASSES.push({
-            id: `ck-${school}`, school, forKids: true, max: 10, name: `Dibujo infantil ${SCHOOLS[school]?.short ?? school}`, teacher: 'mariana', kind: 'weekly',
+            id: `ck-${school}`, school, forKids: true, max: 10, name: `Aéreo infantil ${SCHOOLS[school]?.short ?? school}`, teacher: 'mariana', kind: 'weekly',
             from: '2026-09-01', until: '2026-12-19', slots: [{weekday: index + 2, start: '16:00', end: '17:30', room: 's1'}], students: 6, inPackages: false,
             monthly: {sessions: 4, price: 1100},
         });
@@ -355,7 +377,7 @@ if (STRESS) {
 
 if (STRESS) {
     // Thirty more classes at Colibrí, across the week, with the stress teachers and rooms.
-    const subjects = ['Óleo', 'Acrílico', 'Carboncillo', 'Grabado', 'Serigrafía', 'Escultura', 'Cerámica', 'Ilustración', 'Cómic', 'Fotografía'];
+    const subjects = ['Telas', 'Aro', 'Trapecio', 'Pole', 'Hamaca', 'Cuerda', 'Flexibilidad', 'Acondicionamiento', 'Acrobacia', 'Coreografía'];
     for (let i = 0; i < 30; i++) CLASSES.push({
         id: `sx${i}`, max: 10 + (i % 6), name: `${subjects[i % 10]} ${['inicial', 'intermedio', 'avanzado'][i % 3]}`, teacher: `t${i}`, kind: 'weekly',
         from: '2026-09-01', until: '2026-12-19', slots: [{weekday: (i % 6) + 1, start: `${String(8 + (i % 12)).padStart(2, '0')}:00`, end: `${String(10 + (i % 12)).padStart(2, '0')}:00`, room: `r${(i % 30) + 1}`}],
@@ -363,7 +385,7 @@ if (STRESS) {
     });
     // Eleven classes Mariana gives on Thursdays (today), one an hour from 7:00.
     for (let i = 0; i < 11; i++) CLASSES.push({
-        id: `mx${i}`, max: 8, name: i === 4 ? 'Retrato al natural con luz de ventana y fondo neutro (sesión larga)' : `Bocetos rápidos ${i + 1}`, teacher: 'mariana', kind: 'weekly',
+        id: `mx${i}`, max: 8, name: i === 4 ? 'Telas aéreas: subidas, llaves y descensos controlados (sesión larga)' : `Calentamiento ${i + 1}`, teacher: 'mariana', kind: 'weekly',
         from: '2026-09-01', until: '2026-12-19', slots: [{weekday: 4, start: `${String(7 + i).padStart(2, '0')}:30`, end: `${String(8 + i).padStart(2, '0')}:20`, room: `r${i + 1}`}],
         students: 3 + (i % 5), inPackages: false, monthly: {sessions: 4, price: 900}, perVisit: true,
     });
@@ -395,14 +417,14 @@ export interface Session {
 /** The last day the sample sessions reach: the calendars show November and December. */
 export const LAST_SAMPLE_DAY = '2026-12-31';
 
-/** November's and December's sessions: each weekly slot on its weekdays, then today's exceptions. */
+/** November's and December's sessions (Helios: from 26 Sep, for its history): each weekly slot on its weekdays, then today's exceptions. */
 function buildSessions(): Session[] {
     const sessions: Session[] = [];
-    for (let day = new Date(2026, 10, 1); day <= new Date(2026, 11, 31); day.setDate(day.getDate() + 1)) {
+    for (let day = new Date(2026, 8, 26); day <= new Date(2026, 11, 31); day.setDate(day.getDate() + 1)) {
         const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
         const weekday = ((day.getDay() + 6) % 7) + 1;
         for (const item of CLASSES) {
-            if (date < item.from || date > item.until) continue;
+            if (date < item.from || date > item.until || (date < '2026-11-01' && item.school !== 'helios')) continue;
             for (const slot of item.slots) {
                 if (slot.weekday !== weekday) continue;
                 sessions.push({
@@ -432,26 +454,39 @@ function buildSessions(): Session[] {
         id: 'libre-2026-11-27-18:00', classId: 'libre', date: '2026-11-27', start: '18:00', end: '20:00', room: 's1',
         status: 'scheduled', expected: 3,
     });
+    HELIOS_NOTICES.push(...heliosExceptions(sessions));
     return sessions.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
 }
+
+const HELIOS_NOTICES: Notice[] = [];
 
 export const SESSIONS = buildSessions();
 export const sessionById = (id: string) => SESSIONS.find(session => session.id === id) ?? SESSIONS[0];
 export const schoolOfSession = (session: Session): SchoolId => schoolOfClass(classById(session.classId));
-export const sessionsOn = (date: string, school: SchoolId = 'colibri') =>
+export const sessionsOn = (date: string, school: SchoolId = currentSchool()) =>
     SESSIONS.filter(session => session.date === date && schoolOfSession(session) === school);
 
 // ---- Students ----
 
-export type PlanKind = 'package3' | 'package2' | 'monthly' | 'totalpass' | 'cash';
+export type PlanKind = 'package3' | 'package2' | 'package' | 'monthly' | 'totalpass' | 'wellhub' | 'cash';
 
 export interface Student {
     id: string;
+    /** Colibrí when not given. */
+    school?: SchoolId;
     name: string;
     age: number;
     minor?: boolean;
     guardian?: string;
     plan: PlanKind;
+    /** plan 'package': which of the school's packages. */
+    packageId?: string;
+    /** Wellhub or TotalPass, plus the complementary classes paid monthly. */
+    passExtra?: boolean;
+    /** When they joined the school. */
+    since?: string;
+    /** The last day they came, once they left. */
+    left?: string;
     planLabel: string;
     paymentDay: 15 | 30;
     termsPending?: boolean;
@@ -489,7 +524,7 @@ export const STUDENTS: Student[] = [
         minor: true,
         guardian: 'Daniela Vega',
         plan: 'monthly',
-        planLabel: 'Dibujo infantil',
+        planLabel: 'Aéreo infantil',
         paymentDay: 30,
         status: 'active',
         health: 'Alergia al cacahuate; la maestra tiene su autoinyector.',
@@ -507,7 +542,7 @@ export const STUDENTS: Student[] = [
         minor: true,
         guardian: 'Daniela Vega',
         plan: 'monthly',
-        planLabel: 'Dibujo infantil',
+        planLabel: 'Aéreo infantil',
         paymentDay: 30,
         status: 'active',
         emergency: [{name: 'Daniela Vega', relation: 'mother', phone: '55 2222 3333'}],
@@ -524,7 +559,7 @@ export const STUDENTS: Student[] = [
         paymentDay: 15,
         status: 'active',
         turns18: '2026-11-29',
-        health: 'Usa lentes de contacto; si le entra polvo de carboncillo necesita ir al baño a enjuagarse. Le cuesta pedirlo frente al grupo, así que conviene preguntarle en voz baja si está bien cuando se talla los ojos.',
+        health: 'Se lesionó el hombro izquierdo hace un año; no debe colgarse solo de ese brazo ni hacer caídas de hombro. Le cuesta decirlo frente al grupo, así que conviene preguntarle en voz baja antes de una secuencia nueva.',
         emergency: [{name: 'Patricia Sánchez', relation: 'mother', phone: '55 6666 7777'}],
         pickup: ['Patricia Sánchez'],
     },
@@ -544,7 +579,7 @@ export const STUDENTS: Student[] = [
         name: 'Regina Flores',
         age: 45,
         plan: 'monthly',
-        planLabel: 'Cerámica',
+        planLabel: 'Telas aéreas básico',
         paymentDay: 30,
         status: 'active',
         overPlan: '5 / 4',
@@ -553,10 +588,10 @@ export const STUDENTS: Student[] = [
     {
         id: 'hector',
         name: 'Héctor Navarro',
-        newEnrollment: {what: 'Cerámica', when: '2026-11-24'},
+        newEnrollment: {what: 'Telas aéreas básico', when: '2026-11-24'},
         age: 52,
         plan: 'monthly',
-        planLabel: 'Cerámica',
+        planLabel: 'Telas aéreas básico',
         paymentDay: 15,
         status: 'active',
         feeOwed: true,
@@ -565,10 +600,10 @@ export const STUDENTS: Student[] = [
     {
         id: 'camila',
         name: 'Camila Ortiz',
-        newEnrollment: {what: 'Acuarela', when: '2026-11-25'},
+        newEnrollment: {what: 'Aro aéreo', when: '2026-11-25'},
         age: 19,
         plan: 'monthly',
-        planLabel: 'Acuarela',
+        planLabel: 'Aro aéreo',
         paymentDay: 30,
         status: 'active',
         emergency: [{name: 'Teresa Ortiz', relation: 'mother', phone: '55 7777 6666'}],
@@ -612,7 +647,7 @@ export const STUDENTS: Student[] = [
         paymentDay: 30,
         status: 'active',
         emergency: [{name: 'José Antonio Villaseñor Castañeda', relation: 'brother', phone: '55 3210 9876'}],
-        health: 'Hernia de disco lumbar (L4-L5). Puede trabajar de pie máximo 40 minutos; necesita una silla con respaldo cerca del caballete y pausas para estirarse. No debe cargar los bultos de barro ni las tablas de grabado.',
+        health: 'Hernia de disco lumbar (L4-L5). Nada de invertidos ni caídas con impacto en la espalda; necesita pausas para estirarse y colchoneta doble debajo del aparato. No debe cargar ni montar aparatos.',
     },
     {
         id: 'lucas',
@@ -621,7 +656,7 @@ export const STUDENTS: Student[] = [
         minor: true,
         guardian: 'Rosa Paz',
         plan: 'monthly',
-        planLabel: 'Dibujo infantil',
+        planLabel: 'Aéreo infantil',
         paymentDay: 30,
         status: 'invited',
         emergency: [],
@@ -642,7 +677,7 @@ export const STUDENTS: Student[] = [
         name: 'Julia Paredes',
         age: 33,
         plan: 'monthly',
-        planLabel: 'Escultura',
+        planLabel: 'Acondicionamiento',
         paymentDay: 15,
         status: 'inactive',
         emergency: [],
@@ -659,7 +694,7 @@ if (STRESS) {
         GUARDIAN_KIDS.push({id, name: `${first} López Vega`});
         STUDENTS.push({
             id, name: `${first} López Vega`, age: 5 + index * 2, minor: true, guardian: 'Daniela Vega', plan: 'monthly',
-            planLabel: 'Dibujo infantil', paymentDay: 30, status: 'active', emergency: [{name: 'Daniela Vega', relation: 'mother', phone: '55 2222 3333'}],
+            planLabel: 'Aéreo infantil', paymentDay: 30, status: 'active', emergency: [{name: 'Daniela Vega', relation: 'mother', phone: '55 2222 3333'}],
             health: index === 2 ? 'Alergia severa a frutos secos, mariscos y al látex; usa autoinyector de epinefrina que lleva en la mochila, en el bolsillo de enfrente. Si presenta ronchas o dificultad para respirar, aplicarlo de inmediato en el muslo y llamar al 911 y a su mamá.' : undefined,
         });
     });
@@ -675,14 +710,19 @@ if (STRESS) {
             planLabel: i % 4 === 0 ? 'Paquete 3/sem' : i % 4 === 1 ? 'TotalPass' : i % 4 === 2 ? 'Por visita · efectivo' : 'Paquete 2/sem',
             paymentDay: i % 2 ? 15 : 30, status: i % 9 === 8 ? 'invited' : 'active', termsPending: i % 7 === 0, overPlan: i % 11 === 5 ? '5 / 4' : undefined,
             feeOwed: i % 13 === 4, emergency: [{name: `${firsts[(i + 2) % 10]} ${lasts[i % 10]}`, relation: 'mother', phone: '55 0000 0000'}],
-            health: i % 6 === 0 ? 'Usa lentes de contacto; si se le irritan los ojos con el carboncillo, necesita lavarse con agua limpia. Tiene rinitis alérgica estacional y a veces necesita salir a tomar aire durante la clase.' : undefined,
+            health: i % 6 === 0 ? 'Usa lentes de contacto; en invertidos se le pueden mover y necesita parar a acomodarlos. Tiene rinitis alérgica estacional y a veces necesita salir a tomar aire durante la clase.' : undefined,
         });
     }
 }
 
-export const studentById = (id: string) => [...STUDENTS, ...AMBAR_STUDENTS].find(student => student.id === id) ?? STUDENTS[0];
+export const studentById = (id: string) => (LIVE.on ? LIVE_STUDENTS : [...STUDENTS, ...AMBAR_STUDENTS, ...HELIOS_STUDENTS]).find(student => student.id === id) ?? (LIVE.on ? LIVE_STUDENTS[0] : STUDENTS[0]);
 
-/** Who's expected at today's Dibujo de figura, and who has checked in (at 10:15). */
+/** A school's students; the sample's unmarked ones are Colibrí's. */
+export const studentsOf = (school: SchoolId): Student[] => LIVE.on ? LIVE_STUDENTS.filter(student => student.school === school)
+    : school === 'helios' ? HELIOS_STUDENTS : school === 'ambar' ? AMBAR_STUDENTS : STUDENTS;
+export const studentsHere = () => studentsOf(currentSchool());
+
+/** Who's expected at today's Telas intermedio, and who has checked in (at 10:15). */
 export const TODAY_ROSTER: { student: string; at?: string; by?: 'guardian' }[] = [
     {student: 'andres'}, {student: 'tomas'}, {student: 'jimena'},
     {student: 'emilio', at: '9:56', by: 'guardian'}, {student: 'paula', at: '9:58'}, {student: 'sofia', at: '10:02'},
@@ -701,7 +741,7 @@ export interface Proof {
     student: string;
     school: SchoolId;
     covers: string;
-    method: 'cash' | 'transfer' | 'card' | 'totalpass';
+    method: 'cash' | 'transfer' | 'card' | 'totalpass' | 'wellhub';
     amount: number;
     sent: string;
     sentAt: string;
@@ -709,12 +749,15 @@ export interface Proof {
     reason?: string;
 }
 
+/** Wellhub and TotalPass check-ins: their screenshots aren't for the director to check. */
+export const isPass = (method: Proof['method']) => method === 'totalpass' || method === 'wellhub';
+
 export const PROOFS: Proof[] = [
     {
         id: 'p1', sentAt: '19:42',
         student: 'mateo',
         school: 'colibri',
-        covers: 'Dibujo infantil · 2026-11',
+        covers: 'Aéreo infantil · 2026-11',
         method: 'cash',
         amount: 1200,
         sent: '2026-11-25',
@@ -724,7 +767,7 @@ export const PROOFS: Proof[] = [
         id: 'p2', sentAt: '19:44',
         student: 'valentina',
         school: 'colibri',
-        covers: 'Dibujo infantil · 2026-11',
+        covers: 'Aéreo infantil · 2026-11',
         method: 'cash',
         amount: 1200,
         sent: '2026-11-25',
@@ -734,7 +777,7 @@ export const PROOFS: Proof[] = [
         id: 'p3', sentAt: '08:15',
         student: 'regina',
         school: 'colibri',
-        covers: 'Cerámica en torno · 2026-11',
+        covers: 'Telas aéreas básico · 2026-11',
         method: 'card',
         amount: 1600,
         sent: '2026-11-24',
@@ -754,7 +797,7 @@ export const PROOFS: Proof[] = [
         id: 'p5', sentAt: '21:30',
         student: 'sofia',
         school: 'ambar',
-        covers: 'Cerámica · 2026-10',
+        covers: 'Hamaca aérea · 2026-10',
         method: 'card',
         amount: 1400,
         sent: '2026-10-29',
@@ -764,7 +807,7 @@ export const PROOFS: Proof[] = [
         id: 'p6', sentAt: '21:12',
         student: 'sofia',
         school: 'ambar',
-        covers: 'Cerámica · 2026-10',
+        covers: 'Hamaca aérea · 2026-10',
         method: 'card',
         amount: 1400,
         sent: '2026-10-28',
@@ -775,7 +818,7 @@ export const PROOFS: Proof[] = [
         id: 'p7', sentAt: '11:47',
         student: 'camila',
         school: 'colibri',
-        covers: 'Acuarela · 2026-11',
+        covers: 'Aro aéreo · 2026-11',
         method: 'transfer',
         amount: 1400,
         sent: '2026-11-22',
@@ -786,7 +829,7 @@ export const PROOFS: Proof[] = [
         id: 'p8', sentAt: '10:03',
         student: 'andres',
         school: 'colibri',
-        covers: 'Dibujo de figura humana · 2026-11-26',
+        covers: 'Telas aéreas intermedio · 2026-11-26',
         method: 'totalpass',
         amount: 0,
         sent: '2026-11-26',
@@ -846,7 +889,7 @@ export const BOARD: Notice[] = [
         date: '2026-11-26',
         kind: 'substitute',
         classId: 'ceramica',
-        title: 'Cerámica en torno · 12:00',
+        title: 'Telas aéreas básico · 12:00',
         text: 'notice.substitute',
         vars: {name: 'Rodrigo Salas'},
         unread: true
@@ -857,9 +900,9 @@ export const BOARD: Notice[] = [
         date: '2026-11-25',
         kind: 'note',
         classId: 'figura',
-        title: 'Dibujo de figura humana',
+        title: 'Telas aéreas intermedio',
         author: 'Mariana Ruiz',
-        body: 'Para el jueves traigan carboncillo suave y una goma moldeable. Vamos a trabajar con modelo vivo durante las dos horas, así que lleguen 10 minutos antes para acomodar los caballetes sin interrumpir la pose.',
+        body: 'Para el jueves traigan ropa ajustada de manga larga (la tela quema) y nada de anillos ni aretes. Vamos a trabajar caídas toda la clase, así que lleguen 10 minutos antes para calentar muñecas y hombros.',
     },
     {
         id: 'n2',
@@ -867,7 +910,7 @@ export const BOARD: Notice[] = [
         date: '2026-11-24',
         kind: 'cancelled',
         classId: 'oleo',
-        title: 'Óleo',
+        title: 'Trapecio',
         at: '2026-11-28 10:00',
         text: 'notice.cancelled',
         vars: {when: '2026-12-02 10:00'}
@@ -878,7 +921,7 @@ export const BOARD: Notice[] = [
         date: '2026-11-20',
         kind: 'teacher',
         classId: 'acuarela',
-        title: 'Acuarela',
+        title: 'Aro aéreo',
         text: 'notice.newTeacher',
         vars: {name: 'Mariana Ruiz', when: '2026-12-07'}
     },
@@ -888,9 +931,9 @@ export const BOARD: Notice[] = [
         date: '2026-11-19',
         kind: 'note',
         classId: 'infantil',
-        title: 'Dibujo infantil',
+        title: 'Aéreo infantil',
         author: 'Mariana Ruiz',
-        body: 'Para la próxima clase traigan un mandil o una camisa vieja: vamos a pintar con témpera.'
+        body: 'Para la próxima clase traigan leggins y calcetas antiderrapantes: vamos a practicar en el aro bajo.'
     },
     {
         id: 'n4',
@@ -898,7 +941,7 @@ export const BOARD: Notice[] = [
         date: '2026-11-19',
         kind: 'note',
         classId: 'amb-ceramica',
-        title: 'Cerámica',
+        title: 'Hamaca aérea',
         author: 'Tomás Rivas',
         body: 'El horno se enciende el viernes; dejen sus piezas secas en la repisa de abajo antes del jueves.'
     },
@@ -918,7 +961,7 @@ export const PERSONAL: Record<'s' | 'g' | 't' | 'd', Personal[]> = {
         {
             id: 'ps1',
             text: 'personal.due',
-            vars: {what: 'Cerámica', school: 'Estudio Ámbar', when: '2026-11-30'},
+            vars: {what: 'Hamaca aérea', school: 'Ámbar Danza Aérea', when: '2026-11-30'},
             date: '2026-11-25',
             unread: true,
             school: 'ambar'
@@ -937,7 +980,7 @@ export const PERSONAL: Record<'s' | 'g' | 't' | 'd', Personal[]> = {
         {
             id: 'pg2',
             text: 'personal.due',
-            vars: {what: 'Dibujo infantil', school: 'Colibrí', when: '2026-11-30'},
+            vars: {what: 'Aéreo infantil', school: 'Colibrí', when: '2026-11-30'},
             date: '2026-11-25',
             school: 'colibri'
         },
@@ -1010,17 +1053,18 @@ export function isLive(notice: Notice): boolean {
 
 export function boardFor(role: string, school: SchoolId): Notice[] {
     return BOARD.filter(notice => notice.school === school && isLive(notice) && (!notice.classId || role === 'd'
-        || (role === 't' ? [classById(notice.classId).teacher, ...SESSIONS.filter(s => s.classId === notice.classId).map(s => s.substitute)].includes('mariana')
-            // A class that's becoming hers is hers to read about too.
-            || (notice.kind === 'teacher' && notice.vars?.name === 'Mariana Ruiz')
+        || (role === 't' ? [classById(notice.classId).teacher, ...SESSIONS.filter(s => s.classId === notice.classId).map(s => s.substitute)].includes(STAFF_ME.t)
+            // A class that's becoming theirs is theirs to read about too.
+            || (notice.kind === 'teacher' && notice.vars?.name === TEACHERS.find(teacher => teacher.id === STAFF_ME.t)?.name)
             : (BOARD_READERS[role] ?? []).some(id => classesOf(id).includes(notice.classId ?? '')))))
         .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function unreadNotices(role: string): number {
     if (role === 'a') return 0;
-    const personal = PERSONAL[role as keyof typeof PERSONAL] ?? [];
-    const schools: SchoolId[] = role === 's' ? SOFIA_SCHOOLS : ['colibri'];
+    // Staff read the personal notices of the school they're working in.
+    const personal = (PERSONAL[role as keyof typeof PERSONAL] ?? []).filter(item => role === 's' || role === 'g' || item.school === currentSchool());
+    const schools: SchoolId[] = role === 's' ? SOFIA_SCHOOLS : role === 'g' ? ['colibri'] : [currentSchool()];
     const board = schools.flatMap(school => boardFor(role, school)).filter(notice => notice.unread);
     return personal.filter(item => item.unread).length + board.length;
 }
@@ -1029,6 +1073,8 @@ export function unreadNotices(role: string): number {
 
 export interface Price {
     id: string;
+    /** Colibrí when not given. */
+    school?: SchoolId;
     kind: 'fee' | 'monthly' | 'package' | 'visit' | 'free' | 'trial';
     label: string;
     amount: number;
@@ -1058,17 +1104,17 @@ export const PRICES: Price[] = [
         history: [{amount: 2200, from: '2025-08-01'}]
     },
     {id: 'pk2', kind: 'package', label: 'Paquete 2 clases por semana', amount: 1800, from: '2026-08-01', history: []},
-    {id: 'm-acuarela', kind: 'monthly', label: 'Acuarela', amount: 1400, from: '2026-08-01', history: []},
-    {id: 'm-retrato', kind: 'monthly', label: 'Retrato', amount: 1400, from: '2026-08-01', history: []},
+    {id: 'm-acuarela', kind: 'monthly', label: 'Aro aéreo', amount: 1400, from: '2026-08-01', history: []},
+    {id: 'm-retrato', kind: 'monthly', label: 'Pole dance', amount: 1400, from: '2026-08-01', history: []},
     {
         id: 'm-ceramica',
         kind: 'monthly',
-        label: 'Cerámica en torno',
+        label: 'Telas aéreas básico',
         amount: 1600,
         from: '2026-08-01',
         history: [{amount: 1500, from: '2025-08-01'}]
     },
-    {id: 'm-infantil', kind: 'monthly', label: 'Dibujo infantil', amount: 1200, from: '2026-08-01', history: []},
+    {id: 'm-infantil', kind: 'monthly', label: 'Aéreo infantil', amount: 1200, from: '2026-08-01', history: []},
     {
         id: 'visit',
         kind: 'visit',
@@ -1081,7 +1127,11 @@ export const PRICES: Price[] = [
     {id: 'free1', kind: 'free', label: '1', amount: 450, from: '2026-10-01', history: []},
     {id: 'free2', kind: 'free', label: '2–3', amount: 350, from: '2026-10-01', history: []},
     {id: 'free4', kind: 'free', label: '4', amount: 300, from: '2026-10-01', history: []},
+    ...HELIOS_PRICES,
 ];
+
+export const pricesOf = (school: SchoolId) => PRICES.filter(price => (price.school ?? 'colibri') === school);
+export const pricesHere = () => pricesOf(currentSchool());
 
 /** Teacher's attendance count this month, per class: students only, guest teachers apart. */
 export const TEACHER_MONTH = [
@@ -1100,7 +1150,7 @@ export interface Enrollment {
     id: string;
     student: string;
     classId?: string;
-    packageId?: 'pk3' | 'pk2';
+    packageId?: string;
     how: 'monthly' | 'visit' | 'package';
     from: string;
 }
@@ -1126,9 +1176,9 @@ if (STRESS) {
     STRESS_IDS.forEach((school, index) => ENROLLMENTS.push({id: `es-${school}`, student: 'sofia', classId: `cl-${school}`, how: 'monthly', from: '2026-09-0' + (index + 1)}));
     BOARD.unshift({
         id: 'n-larga', school: 'colibri', date: '2026-11-26', kind: 'note', classId: 'larga', unread: true,
-        title: 'Taller intensivo de dibujo anatómico y figura humana con modelo vivo (nivel avanzado)',
+        title: 'Taller intensivo de telas aéreas: caídas, envolturas y coreografía para presentación (nivel avanzado)',
         author: 'María de los Ángeles Guadalupe Hernández-Villaseñor de la Garza',
-        body: 'Para la sesión del miércoles necesitamos: carboncillo vegetal suave y comprimido, gomas moldeables, papel kraft de 70 × 100 cm, pinzas, una tabla de apoyo y ropa cómoda que se pueda manchar. Lleguen quince minutos antes para acomodar caballetes, porque el modelo empieza puntual y las poses largas no se interrumpen. Quien no pueda venir, avíseme por aquí con anticipación, por favor.',
+        body: 'Para la sesión del miércoles necesitamos: ropa ajustada de manga larga, leggins sin cierres, cabello recogido, nada de anillos, aretes ni relojes, una botella de agua y magnesia si la usan. Lleguen quince minutos antes para calentar, porque el ensayo de la coreografía empieza puntual y las secuencias largas no se interrumpen. Quien no pueda venir, avíseme por aquí con anticipación, por favor.',
     });
 }
 
@@ -1136,7 +1186,7 @@ if (STRESS) {
     const kinds: Notice['kind'][] = ['substitute', 'cancelled', 'note', 'teacher', 'substitute', 'note'];
     for (let i = 0; i < 12; i++) BOARD.push({
         id: `nf${i}`, school: 'colibri', date: `2026-11-${String(25 - i).padStart(2, '0')}`, kind: kinds[i % 6], classId: 'figura',
-        title: 'Dibujo de figura humana', at: `2026-11-${String(25 - i).padStart(2, '0')} 10:00`, unread: i < 3,
+        title: 'Telas aéreas intermedio', at: `2026-11-${String(25 - i).padStart(2, '0')} 10:00`, unread: i < 3,
         ...(kinds[i % 6] === 'note' ? {author: 'Mariana Ruiz', body: `Cambio ${i + 1}: traigan el material de la semana pasada; trabajaremos la misma pose.`}
             : kinds[i % 6] === 'teacher' ? {text: 'notice.newTeacher' as TextKey, vars: {name: 'Lucía Ortega', when: '2026-12-07'}}
                 : kinds[i % 6] === 'cancelled' ? {text: 'notice.cancelled' as TextKey, vars: {when: '2026-12-02 10:00'}}
@@ -1164,10 +1214,25 @@ export const TERMS_WAITING = [
     'Hugo Salinas', 'Inés Herrera', 'Jorge Ibarra', 'Karla Montes', 'Luis Ávila', 'Marisol Vidal', 'Nicolás Prado', 'Olga Treviño',
 ];
 
-export const PACKAGES = [
-    {id: 'pk3' as const, perWeek: 3, classes: ['figura', 'acuarela', 'oleo'], price: 2400},
-    {id: 'pk2' as const, perWeek: 2, classes: ['figura', 'acuarela'], price: 1800},
+export interface Package {
+    id: string;
+    /** Colibrí when not given. */
+    school?: SchoolId;
+    perWeek: number;
+    classes: string[];
+    price: number;
+    /** No longer offered: the students who have it keep it until they leave it. */
+    retired?: boolean;
+}
+
+export const PACKAGES: Package[] = [
+    {id: 'pk3', perWeek: 3, classes: ['figura', 'acuarela', 'oleo'], price: 2400},
+    {id: 'pk2', perWeek: 2, classes: ['figura', 'acuarela'], price: 1800},
+    ...HELIOS_PACKAGES,
 ];
+
+/** A package's name: Colibrí's in the reader's language, the others as the school wrote them. */
+export const packageLabel = (id: string) => PRICES.find(price => price.id === id)?.label ?? id;
 
 /** Trial classes already taken: one per student per class. */
 export const TRIALS_TAKEN: Record<string, string[]> = {sofia: ['retrato']};
@@ -1197,10 +1262,10 @@ export const FAMILY: FamilyPerson[] = [
 /** The relationships offered in a dropdown, as keys: each shows in the reader's language ("Other…" keeps what was typed). */
 export const RELATIONS = ['mother', 'father', 'grandmother', 'grandfather', 'aunt', 'uncle', 'sister', 'brother', 'wife', 'husband', 'partner', 'daughter', 'son', 'friend', 'businessPartner'] as const;
 
-/** Students a teacher sees at Estudio Ámbar (the rest of the sample students are Colibrí's). */
+/** Students a teacher sees at Ámbar Danza Aérea (the rest of the sample students are Colibrí's). */
 export const AMBAR_STUDENTS: Student[] = [
     {
-        id: 'renata', name: 'Renata Ibarra', age: 23, plan: 'monthly', planLabel: 'Bocetaje urbano', paymentDay: 15, status: 'active',
+        id: 'renata', name: 'Renata Ibarra', age: 23, plan: 'monthly', planLabel: 'Flexibilidad', paymentDay: 15, status: 'active',
         emergency: [{name: 'Hugo Ibarra', relation: 'father', phone: '55 6060 7070'}],
     },
     {
@@ -1209,3 +1274,46 @@ export const AMBAR_STUDENTS: Student[] = [
         emergency: [{name: 'Lidia Peña', relation: 'sister', phone: '55 8080 9090'}],
     },
 ];
+
+// ---- Helios: two months of history, generated from each student's plan (see helios.ts) ----
+
+/** Who's expected and who came, by session (the live loader refills these maps). */
+export const HISTORY = heliosHistory(SESSIONS, TODAY, NOW, id => classById(id).name);
+PROOFS.push(...HISTORY.proofs);
+ENROLLMENTS.push(...HISTORY.enrollments);
+BOARD.push(...HISTORY.board, ...HELIOS_NOTICES);
+BOARD.sort((a, b) => b.date.localeCompare(a.date));
+for (const session of SESSIONS) {
+    const expected = HISTORY.expected.get(session.id);
+    if (!expected) continue;
+    session.expected = expected.length;
+    const came = HISTORY.attended.get(session.id);
+    if (came) session.checkedIn = came.length;
+}
+for (const item of CLASSES.filter(other => other.school === 'helios')) {
+    item.students = new Set(SESSIONS.filter(session => session.classId === item.id && session.date >= TODAY).slice(0, 6).flatMap(session => HISTORY.expected.get(session.id) ?? [])).size;
+}
+const ahead = SESSIONS.filter(session => session.date >= TODAY && session.status === 'scheduled' && schoolOfSession(session) === 'helios');
+HELIOS_ROOM.futureSessions = ahead.length;
+for (const teacher of TEACHERS.filter(other => other.schools?.includes('helios'))) teacher.futureSessions = ahead.filter(session => (session.substitute ?? classById(session.classId).teacher) === teacher.id).length;
+
+/** Who came to a session already given, as the teacher's pay counts them (Helios's history; undefined elsewhere). */
+export const attendanceOf = (session: Session): Attendance[] | undefined => HISTORY.attended.get(session.id);
+/** Teachers who came to a session as guests. */
+export const guestsOf = (session: Session): number => HISTORY.guests.get(session.id)?.length ?? (LIVE.on || schoolOfSession(session) === 'helios' ? 0 : 1);
+
+/** Who's expected at a session and who came: Helios's from its history, the others' from today's sample class. */
+export function rosterOf(session: Session): { student: string; at?: string; by?: 'guardian' }[] {
+    const expected = HISTORY.expected.get(session.id);
+    if (!expected) return LIVE.on ? [] : TODAY_ROSTER;
+    const came = HISTORY.attended.get(session.id) ?? [];
+    const extra = came.filter(entry => !expected.includes(entry.student)).map(entry => ({student: entry.student, at: entry.at, by: entry.by}));
+    return [...expected.map(student => {
+        const entry = came.find(other => other.student === student);
+        return entry ? {student, at: entry.at, by: entry.by} : {student};
+    }), ...extra];
+}
+
+/** The students who usually come to a class (Helios: from their usual week), for a teacher's list. */
+export const classStudents = (classId: string): string[] => [...new Set(SESSIONS.filter(session => session.classId === classId && session.date >= TODAY)
+    .slice(0, 6).flatMap(session => HISTORY.expected.get(session.id) ?? []))];

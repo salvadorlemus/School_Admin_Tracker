@@ -1,6 +1,7 @@
-# CLAUDE.md — Art School Management
+# CLAUDE.md — Lyra (art school management)
 
-An app for art schools: register students and teachers, define classes and their schedules, link
+**Lyra** (`lyra.kokoasoft.com`) is an app for art schools, starting with aerial dance studios (silks,
+hoop, trapeze, pole): register students and teachers, define classes and their schedules, link
 students to the classes they take, and track attendance and payments. Several schools share one app;
 each sees only its own people and records. **Status (v1.0.0)**: every screen is built as a clickable
 prototype with invented data (`src/mock/`); the Supabase database, auth, storage and emails are
@@ -50,7 +51,13 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   (invites, emails, data deletion, deleting a school's files), `pg_cron` for reminders.
 - Email (invites with the terms PDF, payment emails, deletion links, password links) through Resend,
   from the verified `mail.kokoasoft.com`; Supabase Auth's own emails go through Resend's SMTP too.
-- Hosted on Render as a static site, on a subdomain of `kokoasoft.com`, behind Cloudflare.
+- Hosted on Render as one static site with two addresses (Cloudflare CNAMEs to Render), as in
+  VetClinicTracker: the app at `lyra.kokoasoft.com` and the platform admin panel at
+  `lyra.admin.kokoasoft.com`. `VITE_APP_HOST` and `VITE_ADMIN_HOST` (Render's environment) tell them
+  apart (`src/lib/hosts.ts`): the admin's address shows only the admin panel and the sign-in, the
+  app's never shows the panel; unset (locally) both share one address. Invitations always open the app.
+- The version (`package.json`) shows at the end of the sign-in screen; each release bumps it and is
+  tagged (`V1.1.0`).
 - Never put the secret / service_role key in the app.
 
 ## Data model (draft)
@@ -136,6 +143,13 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
 - `notification`: a personal in-app notice for a person (what it's about, read or not). Payment
   notices are also emailed. Reminders are created by a `pg_cron` job and emailed by an Edge Function; each
   reminder is sent once.
+- Built so far (`supabase/migrations/`, not pushed yet): the tables above, plus `package_offer` (a
+  package the director offers) beside `student_package` (a student's), `email_outbox` (every email,
+  queued by the database and sent once by an Edge Function through Resend), `invitation` (only the
+  link token's hash), `deletion_request`, and the queues `file_deletion` and `login_deletion` that an
+  Edge Function with the secret key works through. One daily `pg_cron` job (`private.daily()`) sends
+  payment and payday reminders, finds minors turning 18, charges fees owed again and runs the
+  3-month data countdown, each by the school's own date.
 
 ## Roles
 
@@ -167,7 +181,7 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
   and notices of all their schools together, each labelled with its school. Check-in needs no choice
   either: the scanned QR belongs to one session, which belongs to one class, teacher and school.
 - **Directors and teachers in several schools** switch between them from the line under each main
-  tab's title, which names the current school with an arrow ("Taller de Arte Colibrí ▾") and lists
+  tab's title, which names the current school with an arrow ("Estudio Aéreo Colibrí ▾") and lists
   their schools when tapped (not on Account), since everything they do (schedule, students,
   payments, notices) is for one school at a time. With one school there's no switch.
 
@@ -235,7 +249,7 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    and their guardians.
 9. **Rooms**: each school's director names its rooms (salons, spaces) and can archive them (never
    delete: past classes point at them); a room with future sessions can't be archived until they
-   move. Every class schedule says its room: "Teacher A, Tuesdays 7–9 am, Salón 1". Rooms are wide
+   move. Every class schedule says its room: "Teacher A, Tuesdays 7–9 am, Sala aérea 1". Rooms are wide
    spaces, so several classes can share one at overlapping times. Each room has an optional capacity:
    how many classes it holds at once, and how many students in total (enrolled and booked; drop-ins
    can't be foreseen). When a schedule would go over either number, the director sees a warning and
@@ -323,7 +337,7 @@ to; the platform tables (`billing_payment`, the admin log) belong to the admin.
    directors get a notice inviting them to register the student again as an adult (with their own
    login) and to delete the old registration, which ends the guardian's access.
 23. **Notices board**: each school has a board in the app where every schedule change is posted
-   automatically ("Nov 26, Drawing 12 pm: given by a substitute"; "Nov 28, Ceramics 4 pm:
+   automatically ("Nov 26, Silks 12 pm: given by a substitute"; "Nov 28, Trapeze 4 pm:
    cancelled"), and so is every price change, marked important. Teachers can post notes for their
    own classes, and directors for a class or the whole school; posts are never edited (a correction
    is a new post). Students and guardians see the boards of their schools together, newest first, with
@@ -400,11 +414,11 @@ its school; no school menu. Bottom bar: Home, Classes, Payments, Account.
   until the end of the paid month; a class a package covers is left with the package), and the
   classes, packages and free hours they can join (a guardian, for the child picked) in three tabs.
   Classes their package covers aren't offered again. With many classes: a search and a row of day
-  initials. Classes they can join come first, with places
+  initials; once one school is picked, only the day row (that school's classes are few enough). Classes they can join come first, with places
   left; then those at the same time as one they take at that school ("overlaps …", rule 5); then
   the full ones. A class opens with how to pay (shown, not asked, when there's one way) and when to
   start (the next session already picked), **Enroll**, and **Trial class** if they haven't tried it.
-  With classes in several schools, "School: ‹all› ▾" at the top keeps both views to one school (their
+  With classes in several schools, the line under the title ("‹all schools› ▾", like the staff's school line, always in view) keeps both views to one school (their
   classes, the ones to join, and packages and free hours, which are their school's). Two views,
   **List** and **Calendar**. The calendar is the month with their sessions as dots; "Show classes with places" adds rings on the days with classes they
   could join (with places left). A day lists their sessions (each opening the class popup), then **You can join**:
@@ -485,7 +499,8 @@ keeps to the sessions they give, each opening its Session.
   day), students about to leave (stopped coming, month unpaid, missed sessions, class ending; each
   opens their file), late payments (after the 5 days following the payment day; by month and who),
   and students still active 3 months after joining (by the month they joined). Each breakdown says
-  where its colours change.
+  where its colours change, and names each class with its teacher, days and hours (classes can share
+  a name).
 - **Calendar**, two tabs. **Month**: every session by day, with previous and next month and a legend drawn
   with the calendar's own dots; tap one to open its Session (QR and attendance: add, remove or
   correct, with the change history), then two groups of changes. **Only this session**: move it
@@ -531,7 +546,8 @@ keeps to the sessions they give, each opening its Session.
   teacher. A deactivated teacher can be reactivated.
 - **Payments**: screenshots to confirm or reject, one after another (deciding one opens the next),
   each with the date and time it was sent, to match the bank deposit, and the amount against the
-  plan's price (marked when they differ), shown before the picture;
+  plan's price (marked when they differ), shown before the picture; rejecting picks the reason from a
+  dropdown (the usual ones, or "Other…" to write it), which is what the student reads;
   registration fees, who's due or overdue.
 - **Pay teachers**: a closed period (text with ▾) with each teacher's calculated pay and where its
   payment stands (to pay, to confirm, received, doesn't match; disputed ones first); a teacher opens
@@ -541,12 +557,17 @@ keeps to the sessions they give, each opening its Session.
   approaches (5 days before, the day before, the day itself), the director gets a notice saying how
   many are still to pay, like the students' payment reminders. Panel's to-dos list teachers to
   pay and disputed payments.
-- **Teacher pay** ("How their pay is calculated"): the pay days and the scheme (rule 24), with each teacher's amount for the current
+- **Teacher pay** ("How their pay is calculated"): the pay days and the scheme (rule 24; by ranges,
+  each range's from, up to and pay are typed, a new range starts empty before the last "or more" one,
+  and a range that doesn't follow the one before says so and keeps save off), with each teacher's amount for the current
   period under the form, recalculated as it's edited, to compare schemes before saving. Each
   teacher's file has **Their pay**, the same view the teacher has.
 - **Prices**: registration fee (and the months without paying after which it's owed again), monthly
   plans per class, packages, per-visit cash, trial class, free hours; each change is a new price from a date (shown beside the current one until then), posted on the
-  board as important.
+  board as important. **Add package** (the footer button) and each package open its own screen: name,
+  classes a week, the classes it covers (all or some, each with its teacher, days and hours) and, for
+  a new one, its price (an existing one changes price like any other). One nobody has can be
+  deleted; one in use is no longer offered (its students keep it) and can be offered again.
 - **Terms**: upload a new version; who has and hasn't accepted (a few, then a last row for the rest,
   in a list that shows five at a time), counting only current students (a deactivated one leaves
   the counts); earlier versions with their full date.
@@ -612,6 +633,11 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
 - Keep TypeScript strict: no `any`, no `@ts-ignore`.
 - No new dependencies without asking first.
 - A new migration changes production: the owner approves each push. Never edit a migration that has run.
+- **Database work happens locally first**: `npm run db:start` (Docker Desktop running) starts Supabase on
+  this machine, `npm run db:reset` rebuilds it from `supabase/migrations/`, and `npm run test:db` runs
+  the pgTAP tests in `supabase/tests/database/` (each rule checked as the roles it applies to, inside a
+  transaction that's rolled back). Every rule that lives in the database gets a test there. Migrations
+  that haven't been pushed can still be edited; once pushed, never.
 - New tables and functions need explicit grants (start from no privileges, as VetClinicTracker does).
 - Interactive elements are real buttons and inputs (keyboard and focus). Each input says what it
   holds (`type`, `inputMode`, `autoComplete`), so phones open the right keyboard (numbers for
@@ -668,8 +694,20 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
   health conditions, cancelling or reassigning sessions, new prices or terms, posts, corrections,
   deactivating and deleting all show a confirmation box first. Buttons for a step that needs
   something first (reading the whole PDF, ticking a box, typing a name) stay off until it's done.
-- **The prototype** runs in this app with invented data from `src/mock/` (remove it as screens
-  read Supabase); its sessions cover November and December, the months the calendars show. The director's changes (the calendar's, reassigning and deactivating teachers, adding and
+- **The live app** (`src/live/`): signing in with a real login loads what that person may see
+  from Supabase into the same shapes the prototype uses (`load.ts`), so the screens read it unchanged;
+  the screens' changes are sent to the database (`actions.ts`) and everything reloads after each one,
+  so a refused change comes back as it was (shown at the bottom). Wired so far: the director's and
+  the teacher's screens (reading), confirming and rejecting screenshots, sessions (cancel, move,
+  substitute, change teacher, end a class), prices, deactivating students, attendance by hand, posts,
+  fees marked paid, teacher payments and their answers; the invitation link (`#/invite/{token}`). The
+  student's and guardian's screens, registration (card and terms), check-in, uploads and the admin
+  panel still show the prototype's data. Helios's data is `supabase/seed.sql`.
+- **The prototype** runs in this app with invented data from `src/mock/` (an aerial dance studio,
+  Estudio Aéreo Colibrí, and its sister schools, plus Helios in `src/mock/helios.ts`: a real
+  studio's schedule, prices and teacher pay, with invented students whose two months of attendance and
+  payments are generated from their plans; the prototype's teacher (Mariana Alvarez) and director (Ana
+  Torres) work there; remove it as screens read Supabase); its sessions cover November and December, the months the calendars show. The director's changes (the calendar's, reassigning and deactivating teachers, adding and
   archiving rooms, ending enrollments, deactivating students, new prices and terms, confirming or
   rejecting screenshots, the teacher pay rule and teacher payments), a teacher confirming or
   disputing a payment, a student leaving a class and the admin enabling, disabling or deleting a school

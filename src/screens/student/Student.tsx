@@ -63,7 +63,7 @@ export function Home() {
                             <span>{t(guardian ? 'home.checkInKids' : 'home.checkIn')}</span>
                             <span className="small">
                                 {guardian ? t('home.checkInKidsOpen', {time: time('15:50')}) : t('home.checkInOpen', {
-                                    class: 'Dibujo de figura humana',
+                                    class: 'Telas aéreas intermedio',
                                     time: time('10:30')
                                 })}
                             </span>
@@ -78,7 +78,7 @@ export function Home() {
                            <Icon name="scan"/>{t('checkin.scanNow')}</button>}>
                     <p>{t('checkin.whoBody')}</p>
                     {KIDS.map(kid => (
-                        <Option key={kid.id} id={`kid-${kid.id}`} label={personName(kid.name)} hint={`Dibujo infantil · ${time('16:00')}`}
+                        <Option key={kid.id} id={`kid-${kid.id}`} label={personName(kid.name)} hint={`Aéreo infantil · ${time('16:00')}`}
                                 checked={picked.includes(kid.id)} onChange={value => setKid(kid.id, value)}/>
                     ))}
                 </Sheet>
@@ -99,7 +99,7 @@ function StudentHomeBody() {
             <button type="button" className="card card-accent"
                     onClick={() => router.navigate('/s/upload?plan=amb-ceramica')}>
                 <span className="row"><span className="strong">{t('home.dueTitle', {
-                    what: 'Cerámica',
+                    what: 'Hamaca aérea',
                     school: SCHOOLS.ambar.name
                 })}</span><Icon name="chevron" size={18}/></span>
                 <span className="small">{t('home.dueBody', {when: dayMonth('2026-11-30'), amount: money(1400)})}</span>
@@ -154,7 +154,7 @@ function GuardianHomeBody() {
                                       </span>
                                   </span>
                                   <span className="small">{t('home.kidPlan', {
-                                      class: 'Dibujo infantil',
+                                      class: 'Aéreo infantil',
                                       used: 3,
                                       of: 4
                                   })}</span>
@@ -258,7 +258,7 @@ export function CheckInResult() {
                 {ok ? (
                     <>
                         <p className="huge">{t('checkin.ok')}</p>
-                        <p className="big">{guardian ? 'Dibujo infantil' : 'Dibujo de figura humana'}</p>
+                        <p className="big">{guardian ? 'Aéreo infantil' : 'Telas aéreas intermedio'}</p>
                         <p className="muted">{guardian
                             ? t('checkin.okKids', {names, time: time('15:56')})
                             : t('checkin.okAt', {time: time('10:02')})}</p>
@@ -308,7 +308,7 @@ export function plansFor(guardian: boolean): Plan[] {
             ...KIDS.map((kid): Plan => ({
                 key: `${kid.id}-infantil`,
                 kind: 'monthly',
-                title: `${kid.name.split(' ')[0]} · Dibujo infantil`,
+                title: `${kid.name.split(' ')[0]} · Aéreo infantil`,
                 school: 'colibri',
                 amount: 1200,
                 due: t('payments.dueOn', {when: dayMonth('2026-11-30')}),
@@ -334,7 +334,7 @@ export function plansFor(guardian: boolean): Plan[] {
         {
             key: 'amb-ceramica',
             kind: 'monthly',
-            title: `Cerámica · ${t('payments.monthlyPlan')}`,
+            title: `Hamaca aérea · ${t('payments.monthlyPlan')}`,
             school: 'ambar',
             amount: 1400,
             due: t('payments.dueOn', {when: dayMonth('2026-11-30')}),

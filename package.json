@@ -1,16 +1,19 @@
 {
-  "name": "art-school-management",
+  "name": "lyra",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "db:start": "supabase start -x realtime,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta",
+    "db:reset": "supabase db reset",
+    "test:db": "supabase test db"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.119.0",
+    "@supabase/supabase-js": "2.119.2",
     "pdfjs-dist": "4.10.38",
     "react": "18.3.1",
     "react-dom": "18.3.1"
@@ -19,7 +22,7 @@
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.4",
-    "supabase": "3.0.0",
+    "supabase": "3.4.0",
     "typescript": "5.6.3",
     "vite": "6.4.5"
   }

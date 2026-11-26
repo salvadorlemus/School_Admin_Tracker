@@ -18,7 +18,7 @@ export function LanguageProvider({children}: { children: ReactNode }) {
     return (
         <LanguageContext.Provider value={{language, changeLanguage}}>
             {/* The key remounts the tree, so components that kept a text in state show the new language. */}
-            <div key={language} style={{display: 'contents'}}>{children}</div>
+            <div key={language} className="contents">{children}</div>
         </LanguageContext.Provider>
     );
 }

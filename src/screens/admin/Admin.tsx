@@ -7,7 +7,7 @@ import {DateField, EmailField, ListRow, MoneyField, PhotoPicker, SearchField, Se
 import {Icon} from '../../ui/Icon';
 import {useConfirm, useToast} from '../../ui/Layers';
 import {DoneMessage, SchoolLogo} from '../shared/pieces';
-import {SCHOOL_LOGOS, STRESS} from '../../mock/data';
+import {attendanceOf, CLASSES, SCHOOL_LOGOS, SESSIONS, STRESS, studentsOf, TEACHERS} from '../../mock/data';
 import {LanguageRow, PasswordRow, SignOutButton, ThemeRow} from '../shared/Common';
 
 /** The platform admin panel: schools, their billing, usage counts. Never a school's students or records. */
@@ -15,7 +15,7 @@ import {LanguageRow, PasswordRow, SignOutButton, ThemeRow} from '../shared/Commo
 const SCHOOL_ROWS = [
     {
         id: 'colibri',
-        name: 'Taller de Arte Colibrí',
+        name: 'Estudio Aéreo Colibrí',
         enabled: true,
         billing: 'ok' as const,
         students: 58,
@@ -33,7 +33,7 @@ const SCHOOL_ROWS = [
     },
     {
         id: 'ambar',
-        name: 'Estudio Ámbar',
+        name: 'Ámbar Danza Aérea',
         enabled: true,
         billing: 'soon' as const,
         students: 31,
@@ -46,9 +46,25 @@ const SCHOOL_ROWS = [
         directors: [{name: 'Irene Castañeda', phone: '33 1122 3344', email: 'irene@estudioambar.mx'}],
         fee: 1000
     },
+    // Helios: its counts come from its sample history.
+    {
+        id: 'helios',
+        name: 'Helios',
+        enabled: true,
+        billing: 'ok' as const,
+        students: studentsOf('helios').filter(student => student.status === 'active').length,
+        teachers: TEACHERS.filter(teacher => teacher.schools?.includes('helios')).length,
+        classes: CLASSES.filter(item => item.school === 'helios').length,
+        checkins: SESSIONS.filter(session => session.classId.startsWith('h-') && session.date >= '2026-10-27').reduce((sum, session) => sum + (attendanceOf(session)?.length ?? 0), 0),
+        storage: 0.3,
+        active: studentsOf('helios').filter(student => student.status === 'active').length,
+        lastActivity: '2026-11-25',
+        directors: [{name: 'Ana Torres', phone: '55 9012 3456', email: 'ana.torres@correo.mx'}],
+        fee: 1000
+    },
     {
         id: 'pigmento',
-        name: 'Casa Pigmento',
+        name: 'Casa Pirueta',
         enabled: false,
         billing: 'late' as const,
         students: 22,
@@ -58,13 +74,13 @@ const SCHOOL_ROWS = [
         storage: 0.4,
         active: 0,
         lastActivity: '2026-10-14',
-        directors: [{name: 'Julián Ortega', phone: '81 5566 7788', email: 'julian@casapigmento.mx'}],
+        directors: [{name: 'Julián Ortega', phone: '81 5566 7788', email: 'julian@casapirueta.mx'}],
         fee: 1000
     },
 ];
 
 if (STRESS) {
-    const names = ['Academia Internacional de Artes Plásticas y Visuales Contemporáneas del Bajío', 'Casa de la Lumbre', 'Trazo Libre Escuela de Dibujo', 'Pigmentos del Norte', 'Barro y Fuego Taller de Cerámica'];
+    const names = ['Academia Internacional de Artes Circenses y Danza Aérea Contemporánea del Bajío', 'Casa de la Lumbre', 'Vuelo Libre Escuela de Aéreos', 'Giros del Norte', 'Cuerda y Aro Estudio de Circo'];
     names.forEach((name, index) => SCHOOL_ROWS.push({
         id: `stress${index}`, name, enabled: index !== 3, billing: (['ok', 'soon', 'late', 'ok', 'late'] as const)[index],
         students: 12 + index * 9, teachers: 2 + index, classes: 3 + index, checkins: 40 * index, storage: 0.2 + index / 10, active: index === 3 ? 0 : 10 + index * 8, lastActivity: index === 3 ? '2026-09-30' : '2026-11-24',
@@ -112,10 +128,10 @@ export function Schools() {
             {shown.map(s => (
                 <button key={s.id} type="button" className={s.enabled ? 'card' : 'card card-cancelled'}
                         onClick={() => router.navigate(`/a/schools/${s.id}`)}>
-                    <div className="row"><span className="row-start" style={{alignItems: 'center', minWidth: 0}}><SchoolLogo school={s.id} size="md"/><span className="big">{s.name}</span></span>{s.enabled ? billingChip(s.billing) :
+                    <div className="row"><span className="row-start align-center min-w-0" ><SchoolLogo school={s.id} size="md"/><span className="big">{s.name}</span></span>{s.enabled ? billingChip(s.billing) :
                         <span className="chip chip-cancelled">{t('admin.disabled')}</span>}</div>
                     <span className="small muted">{s.directors.map(d => d.name).join(', ')}</span>
-                    <div className="stats" style={{marginTop: 4}}>
+                    <div className="stats mt-xs" >
                         <div className="stat"><strong>{s.students}</strong>{t('admin.students')}</div>
                         <div className="stat"><strong>{s.checkins}</strong>{t('admin.checkins')}</div>
                         <div className="stat"><strong>{decimal(s.storage)}</strong>{t('admin.storage')}</div>
@@ -154,7 +170,7 @@ export function SchoolNew() {
                                 onClick={() => router.replace(`/a/schools/created?name=${encodeURIComponent(name.trim())}&email=${encodeURIComponent(email.trim())}`)}>
                     {t('admin.create')}</button>}>
             <TextField id="sn-name" label={t('admin.schoolName')} value={name} onChange={event => setName(event.target.value)}/>
-            <div className="row-start" style={{alignItems: 'center'}}>
+            <div className="row-start align-center" >
                 <PhotoPicker name={name || '?'} label={t('admin.logo')}/>
                 <span className="hint">{t('admin.logoHint')}</span>
             </div>
@@ -187,8 +203,8 @@ export function SchoolNew() {
 export function SchoolCreated() {
     const router = useRouter();
     const toast = useToast();
-    const name = router.query.get('name') || 'Taller del Sur';
-    const email = router.query.get('email') || 'rosa.garza@tallerdelsur.mx';
+    const name = router.query.get('name') || 'Estudio Aéreo del Sur';
+    const email = router.query.get('email') || 'rosa.garza@aereodelsur.mx';
     return (
         <Screen title={t('admin.newSchool')} back="/a/schools" nav={false}
                 footer={<div className="btn-row">
@@ -213,30 +229,30 @@ export function AdminPayments() {
                     name="plus"/>{t('admin.recordPayment')}</button>}>
             <h2 className="section-title">{t('admin.overdueList')}</h2>
             <ul className="list">
-                <ListRow title="Casa Pigmento" sub={t('admin.overdueRow', {month: monthInSentence('2026-10-01'), amount: money(1000)})}
+                <ListRow title="Casa Pirueta" sub={t('admin.overdueRow', {month: monthInSentence('2026-10-01'), amount: money(1000)})}
                          right={<span className="chip chip-rejected">{t('admin.overdue', {month: monthShort('2026-10-01')})}</span>}/>
             </ul>
             <h2 className="section-title">{t('admin.upcoming')}</h2>
             <ul className="list">
-                <ListRow title={`${dayShort('2026-12-01')} · Estudio Ámbar`}
+                <ListRow title={`${dayShort('2026-12-01')} · Ámbar Danza Aérea`}
                          sub={t('admin.paymentDue', {amount: money(1000)})}
                          right={billingChip('soon')}/>
-                <ListRow title={`${dayShort('2026-12-01')} · Taller de Arte Colibrí`}
+                <ListRow title={`${dayShort('2026-12-01')} · Estudio Aéreo Colibrí`}
                          sub={t('admin.paymentDue', {amount: money(1500)})}/>
-                <ListRow title={`${dayShort('2026-12-15')} · Casa Pigmento`} sub={t('admin.reminderMine')}
+                <ListRow title={`${dayShort('2026-12-15')} · Casa Pirueta`} sub={t('admin.reminderMine')}
                          right={<span className="chip">{t('admin.reminder')}</span>}/>
             </ul>
             <h2 className="section-title">{t('admin.history')}</h2>
             <ul className="list">
-                <ListRow title={`${dayShort('2026-11-02')} · Taller de Arte Colibrí`}
+                <ListRow title={`${dayShort('2026-11-02')} · Estudio Aéreo Colibrí`}
                          sub={`${t('admin.monthPaid', {month: monthInSentence('2026-11-01')})} · ${t('method.transfer')}`}
                          right={<span className="num strong">{money(1500)}</span>}/>
-                <ListRow title={`${dayShort('2026-11-01')} · Estudio Ámbar`}
+                <ListRow title={`${dayShort('2026-11-01')} · Ámbar Danza Aérea`}
                          sub={`${t('admin.monthPaid', {month: monthInSentence('2026-11-01')})} · ${t('method.card')}`}
                          right={<span className="num strong">{money(1000)}</span>}/>
-                <ListRow title={`${dayShort('2026-11-01')} · Estudio Ámbar`} sub={t('admin.correction')}
+                <ListRow title={`${dayShort('2026-11-01')} · Ámbar Danza Aérea`} sub={t('admin.correction')}
                          right={<span className="num strong">{money(-1000)}</span>}/>
-                <ListRow title={`${dayShort('2026-10-14')} · Casa Pigmento`} sub={t('admin.wasDisabled')}/>
+                <ListRow title={`${dayShort('2026-10-14')} · Casa Pirueta`} sub={t('admin.wasDisabled')}/>
             </ul>
             <p className="hint">{t('admin.neverEdited')}</p>
             <h2 className="section-title">{t('admin.fees')}</h2>
@@ -253,10 +269,10 @@ export function AdminPayments() {
 
 export function AdminLog() {
     const rows = [
-        [t('admin.logPayment', {school: 'Taller de Arte Colibrí', amount: money(1500)}), '2026-11-02', '10:12'],
-        [t('admin.logInvite', {name: 'Pablo Méndez', school: 'Taller de Arte Colibrí'}), '2026-10-20', '17:40'],
-        [t('admin.logDisable', {school: 'Casa Pigmento'}), '2026-10-14', '09:03'],
-        [t('admin.logCreate', {school: 'Estudio Ámbar'}), '2026-08-28', '12:30'],
+        [t('admin.logPayment', {school: 'Estudio Aéreo Colibrí', amount: money(1500)}), '2026-11-02', '10:12'],
+        [t('admin.logInvite', {name: 'Pablo Méndez', school: 'Estudio Aéreo Colibrí'}), '2026-10-20', '17:40'],
+        [t('admin.logDisable', {school: 'Casa Pirueta'}), '2026-10-14', '09:03'],
+        [t('admin.logCreate', {school: 'Ámbar Danza Aérea'}), '2026-08-28', '12:30'],
     ];
     return (
         <Screen title={t('nav.log')} subtitle={t('admin.logSub')}>
@@ -389,7 +405,7 @@ export function AdminSchoolEdit({id}: { id: string }) {
                     router.back(`/a/schools/${school.id}`);
                 }}>{t('form.saveChanges')}</button>}>
             <TextField id="se-name" label={t('admin.schoolName')} value={name} onChange={event => setName(event.target.value)}/>
-            <div className="row-start" style={{alignItems: 'center'}}>
+            <div className="row-start align-center" >
                 <PhotoPicker name={name || '?'} label={t('admin.logo')} onPicked={url => url && SCHOOL_LOGOS.set(school.id, url)}/>
                 <span className="hint">{t('admin.logoHint')}</span>
             </div>

@@ -1,6 +1,6 @@
 import {t, type TextKey} from '../../lib/texts';
 import {dayMonth, dayMonthYear, dayShort, monthInSentence, time} from '../../lib/format';
-import {PRICES, RELATIONS, TODAY, type Notice, type Price, type Student} from '../../mock/data';
+import {packageLabel, PRICES, RELATIONS, TODAY, type Notice, type Price, type Student} from '../../mock/data';
 
 /**
  * What the app writes about the data, in the reader's language. The data keeps names (classes,
@@ -11,10 +11,14 @@ import {PRICES, RELATIONS, TODAY, type Notice, type Price, type Student} from '.
 /** A relationship from the list ("mother"), or the words typed under "Other…". */
 export const relationText = (value: string) => (RELATIONS as readonly string[]).includes(value) ? t(`rel.${value}` as TextKey) : value;
 
-/** How a student pays, short: "Acuarela · monthly", "3 a week package", "Per visit · cash", "TotalPass". */
-export function planText(student: Pick<Student, 'plan' | 'planLabel'>): string {
+/** How a student pays, short: "Aro aéreo · monthly", "3 a week package", "Per visit · cash", "TotalPass". */
+export function planText(student: Pick<Student, 'plan' | 'planLabel'> & Partial<Pick<Student, 'packageId' | 'passExtra'>>): string {
     if (student.plan === 'monthly') return `${student.planLabel} · ${t('plan.monthlyShort')}`;
-    if (student.plan === 'totalpass') return 'TotalPass';
+    if (student.plan === 'package') return packageLabel(student.packageId ?? '');
+    if (student.plan === 'totalpass' || student.plan === 'wellhub') {
+        const pass = student.plan === 'wellhub' ? 'Wellhub' : 'TotalPass';
+        return student.passExtra ? t('plan.passExtra', {pass}) : pass;
+    }
     return t(`plan.${student.plan}Short` as TextKey);
 }
 
@@ -22,7 +26,9 @@ export function planText(student: Pick<Student, 'plan' | 'planLabel'>): string {
 export function priceLabel(price: Price): string {
     if (price.kind === 'free') return t('prices.freeRow', {n: price.label});
     if (price.kind === 'monthly') return price.label;
-    if (price.kind === 'package') return t(price.id === 'pk2' ? 'payments.package2' : 'payments.package3');
+    // Colibrí's two sample packages are written in the reader's language until the director renames them.
+    if (price.kind === 'package') return price.id === 'pk2' && price.label === 'Paquete 2 clases por semana' ? t('payments.package2')
+        : price.id === 'pk3' && price.label === 'Paquete 3 clases por semana' ? t('payments.package3') : price.label;
     return t(price.kind === 'fee' ? 'prices.feeRow' : price.kind === 'visit' ? 'prices.visitRow' : 'prices.trialRow');
 }
 
@@ -35,10 +41,11 @@ export function dateText(value: string): string {
     return value;
 }
 
-/** What a payment screenshot covers: "Dibujo infantil · noviembre", "3 a week package · November", a session's date. */
+/** What a payment screenshot covers: "Aéreo infantil · noviembre", "3 a week package · November", a session's date. */
 export function coversText(covers: string): string {
     const [what, period] = covers.split(' · ');
-    const name = what === 'pk3' ? t('payments.package3') : what === 'pk2' ? t('payments.package2') : what;
+    const pack = PRICES.find(price => price.kind === 'package' && price.id === what);
+    const name = pack ? priceLabel(pack) : what;
     return period ? `${name} · ${dateText(period)}` : name;
 }
 

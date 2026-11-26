@@ -1,3 +1,6 @@
+import {monthRange, shiftMonth} from '../../lib/months';
+import {live} from '../../live/actions';
+import {currentSchool} from '../../state/school';
 import {useState} from 'react';
 import {t} from '../../lib/texts';
 import {
@@ -16,10 +19,8 @@ import {
     weekdayShort
 } from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {
-    classById, CLASSES, PRICES, schoolOfClass, schoolOfSession, PROOFS, REVIEWED, ROOMS, roomName, SCHOOLS, sessionById, SESSIONS, sessionsOn, studentById,
-    teacherName, TEACHERS, TODAY, NOW, STRESS, STUDENTS, type SchoolClass, type Session, teacherSchools,
-} from '../../mock/data';
+import {classById, CLASSES, PRICES, schoolOfClass, schoolOfSession, PROOFS, REVIEWED, roomName, SCHOOLS, sessionById, SESSIONS, sessionsOn, studentById,
+    teacherName, TEACHERS, TODAY, NOW, STRESS, STUDENTS, type SchoolClass, type Session, teacherSchools, isPass, roomsHere, studentsHere, pricesHere, type Student, STAFF_ME} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Avatar, Carousel, Check, DateField, Empty, ListRow, NumberField, SearchField, Segmented, SelectField, TextField, TimeField, useQueryIndex} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -28,7 +29,7 @@ import {DoneMessage, DotLegend, ProofChip, SessionCard, SessionBody} from '../sh
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
-import {cancelSession, changeTeacher, createClass, decideProof, FEES_DONE, GROWN, SEEN, TERMS_STATE, editClass, endClass, giveToSubstitute, moveSession, teacherOf, type ClassFields} from '../../mock/changes';
+import {cancelSession, changeTeacher, createClass, decideProof, FEES_DONE, GROWN, SEEN, termsState, editClass, endClass, giveToSubstitute, moveSession, teacherOf, type ClassFields} from '../../mock/changes';
 
 /** Director screens, part 1: dashboard, calendar (month and weekly plan), payments. Ana Torres, Colibrí. */
 
@@ -40,25 +41,32 @@ export function Dashboard() {
     const [picked, setPicked] = useQueryIndex('pick', today.length, Math.max(now, 0));
     // Each to-do lasts until it's dealt with: screenshots reviewed, the fee marked paid, the student's
     // file opened (what's only to know), the adult registration done, every student's acceptance.
-    const pendingProofs = PROOFS.filter(proof => proof.state === 'uploaded' && proof.method !== 'totalpass' && !REVIEWED.has(proof.id));
-    const newOnes = STUDENTS.filter(s => s.newEnrollment && !SEEN.has(`new:${s.id}`));
-    const lastClosed = periodsOf(payRule('colibri')).find(period => !period.current);
-    const payStates = lastClosed ? TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes('colibri') && teacherPay(teacher.id, 'colibri', lastClosed).amount > 0)
-        .map(teacher => ({teacher, state: paymentState(teacher.id, 'colibri', lastClosed.from)})) : [];
+    const pendingProofs = PROOFS.filter(proof => proof.school === currentSchool() && proof.state === 'uploaded' && !isPass(proof.method) && !REVIEWED.has(proof.id));
+    const colibri = currentSchool() === 'colibri';
+    const here = studentsHere();
+    const newOnes = here.filter(s => s.newEnrollment && !SEEN.has(`new:${s.id}`));
+    const feesOwed = here.filter(s => s.feeOwed && s.status === 'active' && !FEES_DONE.has(s.id));
+    const fee = pricesHere().find(price => price.kind === 'fee')?.amount ?? 0;
+    const lastClosed = periodsOf(payRule(currentSchool())).find(period => !period.current);
+    const payStates = lastClosed ? TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool()) && teacherPay(teacher.id, currentSchool(), lastClosed).amount > 0)
+        .map(teacher => ({teacher, state: paymentState(teacher.id, currentSchool(), lastClosed.from)})) : [];
     const flaggedPay = payStates.filter(row => row.state === 'flagged');
     const unpaidPay = payStates.filter(row => row.state === 'unpaid');
     const todos: { title: string; sub: string; to: string; chip?: JSX.Element }[] = [
         ...(pendingProofs.length ? [{title: t('todo.proofs', {n: pendingProofs.length}), sub: [...new Set(pendingProofs.map(proof => personName(studentById(proof.student).name)))].join(' · '), to: `/d/payments/review/${pendingProofs[0].id}`, chip: <span className="chip chip-uploaded">{pendingProofs.length}</span>}] : []),
         ...(flaggedPay.length ? [{title: t('todo.payFlagged', {n: flaggedPay.length}), sub: flaggedPay.map(row => personName(row.teacher.name)).join(' · '), to: `/d/teachers/${flaggedPay[0].teacher.id}/pay?period=${lastClosed?.from}`}] : []),
         ...(unpaidPay.length ? [{title: t('todo.payTeachers', {n: unpaidPay.length}), sub: lastClosed ? t('pay.periodPaid', {from: Number(lastClosed.from.slice(8)), to: dayMonth(lastClosed.to), payday: dayMonth(lastClosed.payday)}) : '', to: '/d/teacher-payments'}] : []),
-        ...(FEES_DONE.has('hector') ? [] : [{title: t('todo.fee', {n: 1}), sub: `Héctor Navarro · ${money(800)}`, to: '/d/payments?tab=fees'}]),
-        ...(SEEN.has('over:regina') ? [] : [{title: t('todo.overPlan', {n: 1}), sub: t('todo.overPlanSub', {name: 'Regina Flores', count: '5 / 4'}), to: '/d/students/regina'}]),
-        ...(SEEN.has('card:sofia') ? [] : [{title: t('todo.cardChanged', {n: 1}), sub: t('todo.cardChangedSub', {name: 'Sofía Ramírez', when: dayMonth('2026-11-24')}), to: '/d/students/sofia?tab=log'}]),
+        ...(!colibri || FEES_DONE.has('hector') ? [] : [{title: t('todo.fee', {n: 1}), sub: `Héctor Navarro · ${money(800)}`, to: '/d/payments?tab=fees'}]),
+        ...(!colibri || SEEN.has('over:regina') ? [] : [{title: t('todo.overPlan', {n: 1}), sub: t('todo.overPlanSub', {name: 'Regina Flores', count: '5 / 4'}), to: '/d/students/regina'}]),
+        // The other schools' to-dos come from their own records.
+        ...(!colibri && feesOwed.length ? [{title: t('todo.fee', {n: feesOwed.length}), sub: `${feesOwed.map(s => personName(s.name)).join(' · ')} · ${money(fee)}`, to: '/d/payments?tab=fees'}] : []),
+        ...(colibri ? [] : here.filter(s => s.overPlan && !SEEN.has(`over:${s.id}`)).map(s => ({title: t('todo.overPlan', {n: 1}), sub: t('todo.overPlanSub', {name: personName(s.name), count: s.overPlan ?? ''}), to: `/d/students/${s.id}`}))),
+        ...(!colibri || SEEN.has('card:sofia') ? [] : [{title: t('todo.cardChanged', {n: 1}), sub: t('todo.cardChangedSub', {name: 'Sofía Ramírez', when: dayMonth('2026-11-24')}), to: '/d/students/sofia?tab=log'}]),
         ...[...GROWN].map(id => ({title: t('todo.deleteMinor', {name: personName(studentById(id).name)}), sub: t('todo.deleteMinorSub'), to: `/d/students/${id}/delete`})),
-        ...(GROWN.has('emilio') ? [] : [{title: t('todo.turns18', {n: 1}), sub: t('todo.turns18Sub', {name: 'Emilio Sánchez', when: dayMonth('2026-11-29')}), to: '/d/students/emilio'}]),
+        ...(!colibri || GROWN.has('emilio') ? [] : [{title: t('todo.turns18', {n: 1}), sub: t('todo.turns18Sub', {name: 'Emilio Sánchez', when: dayMonth('2026-11-29')}), to: '/d/students/emilio'}]),
         ...(newOnes.length ? [{title: t('todo.newEnrollments', {n: newOnes.length}), sub: t('todo.newEnrollmentsSub', {names: newOnes.map(s => `${personName(s.name)} (${s.newEnrollment?.what})`).join(' · ')}), to: '/d/students?new=1'}] : []),
-        ...(TERMS_STATE.waiting.length ? [{title: t('todo.terms', {n: TERMS_STATE.version}), sub: t('todo.termsSub', {done: TERMS_STATE.accepted, of: TERMS_STATE.students}), to: '/d/terms', chip: <span className="chip chip-terms">{TERMS_STATE.waiting.length}</span>}] : []),
-        ...(STRESS ? STUDENTS.filter(student => student.id.startsWith('st')).filter(student => !SEEN.has(`${Number(student.id.slice(2)) % 2 ? 'card' : 'new'}:${student.id}`)).map(student => Number(student.id.slice(2)) % 2
+        ...(termsState().waiting.length ? [{title: t('todo.terms', {n: termsState().version}), sub: t('todo.termsSub', {done: termsState().accepted, of: termsState().students}), to: '/d/terms', chip: <span className="chip chip-terms">{termsState().waiting.length}</span>}] : []),
+        ...(STRESS && colibri ? STUDENTS.filter(student => student.id.startsWith('st')).filter(student => !SEEN.has(`${Number(student.id.slice(2)) % 2 ? 'card' : 'new'}:${student.id}`)).map(student => Number(student.id.slice(2)) % 2
             ? {title: t('todo.cardChanged', {n: 1}), sub: t('todo.cardChangedSub', {name: personName(student.name), when: dayMonth('2026-11-25')}), to: `/d/students/${student.id}?tab=log`}
             : {title: t('todo.newEnrollments', {n: 1}), sub: t('todo.newEnrollmentsSub', {names: personName(student.name)}), to: `/d/students/${student.id}`}) : []),
     ];
@@ -67,7 +75,7 @@ export function Dashboard() {
     const FEW = 6;
     const view = router.query.get('view') === 'summary' ? 'summary' : 'today';
     return (
-        <Screen title={t('dash.title')} subtitle={[SCHOOLS.colibri.name, dayLong(TODAY)]}>
+        <Screen title={t('dash.title')} subtitle={[SCHOOLS[currentSchool()].name, dayLong(TODAY)]}>
             <Segmented label={t('dash.title')} value={view} onChange={value => router.replace(router.withQuery('view', value === 'today' ? null : value))}
                        options={[{value: 'today', label: t('dash.viewToday')}, {value: 'summary', label: t('dash.viewSummary')}]}/>
             {view === 'summary' ? <SummaryView/> : (
@@ -126,7 +134,7 @@ export function Setup() {
     const done = steps.filter(step => step.done).length;
     const next = steps.findIndex(step => !step.done);
     return (
-        <Screen title={t('setup.title')} subtitle={fresh ? 'Taller del Sur' : SCHOOLS.colibri.name} back="/d/home" nav={false}
+        <Screen title={t('setup.title')} subtitle={fresh ? 'Estudio Aéreo del Sur' : SCHOOLS[currentSchool()].name} back="/d/home" nav={false}
                 footer={next >= 0
                     ? <button type="button" className="btn btn-lg" onClick={() => router.navigate(steps[next].to)}>{t('setup.next', {step: steps[next].title})}</button>
                     : <button type="button" className="btn btn-lg" onClick={() => router.back('/d/home')}>{t('setup.toDashboard')}</button>}>
@@ -153,7 +161,7 @@ export function Calendar() {
     const router = useRouter();
     const tab = router.query.get('tab') === 'plan' ? 'plan' : 'month';
     return (
-        <Screen title={t('cal.title')} subtitle={SCHOOLS.colibri.name}
+        <Screen title={t('cal.title')} subtitle={SCHOOLS[currentSchool()].name}
                 footer={tab === 'plan' ? (
                     <div className="btn-row">
                         <button type="button" className="btn btn-secondary btn-lg" onClick={() => router.navigate('/d/activity/new?kind=free')}>
@@ -179,8 +187,8 @@ function MonthView() {
     const router = useRouter();
     const day = router.query.get('day') ?? TODAY;
     const onlyMine = router.query.get('mine') === '1';
-    // The director (Ana) teaches too: her own sessions, or ones she covers.
-    const isMine = (session: Session) => teacherOf(session) === 'ana' || session.substitute === 'ana';
+    // A director who teaches: their own sessions, or ones they cover.
+    const isMine = (session: Session) => teacherOf(session) === STAFF_ME.d || session.substitute === STAFF_ME.d;
     const on = (date: string) => sessionsOn(date).filter(session => !onlyMine || isMine(session));
     const sheet = useSheetRoute('session');
     const first = `${day.slice(0, 7)}-01`;
@@ -194,11 +202,11 @@ function MonthView() {
         <>
             <div className="row">
                 <span className="month-nav">
-                    <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={first <= '2026-11-01'}
-                            onClick={() => goMonth('2026-11-01')}><Icon name="back"/></button>
+                    <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={first <= monthRange().min}
+                            onClick={() => goMonth(shiftMonth(first, -1))}><Icon name="back"/></button>
                     <span className="big">{monthYear(first)}</span>
-                    <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={first >= '2026-12-01'}
-                            onClick={() => goMonth('2026-12-01')}><Icon name="chevron"/></button>
+                    <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={first >= monthRange().max}
+                            onClick={() => goMonth(shiftMonth(first, 1))}><Icon name="chevron"/></button>
                 </span>
                 <button type="button" className="chip-toggle" aria-pressed={onlyMine}
                         onClick={() => router.replace(router.withQuery('mine', onlyMine ? null : '1'))}>
@@ -287,13 +295,13 @@ function MonthView() {
 function PlanView() {
     const router = useRouter();
     const [query, setQuery] = useState('');
-    const ours = CLASSES.filter(item => item.kind === 'weekly' && schoolOfClass(item) === 'colibri');
+    const ours = CLASSES.filter(item => item.kind === 'weekly' && schoolOfClass(item) === currentSchool());
     const matches = (item: typeof ours[number]) => [item.name, teacherName(item.teacher), ...item.slots.map(slot => roomName(slot.room))]
         .some(text => text.toLowerCase().includes(query.trim().toLowerCase()));
     const weekly = ours.filter(matches);
     const many = ours.length > 15;
     const onlyDay = Number(router.query.get('wd')) || 0;
-    const free = SESSIONS.filter(session => classById(session.classId).kind === 'free' && schoolOfSession(session) === 'colibri');
+    const free = SESSIONS.filter(session => classById(session.classId).kind === 'free' && schoolOfSession(session) === currentSchool());
     return (
         <>
             <p className="small">{t('plan.intro')}</p>
@@ -325,7 +333,7 @@ function PlanView() {
                             const overCapacity = weekday === 6 && slot.room === 's1' && item.id === 'retrato';
                             return (
                                 <div key={item.id + slot.start} className="card">
-                                    <button type="button" className="list-row" style={{padding: 0, minHeight: 0}}
+                                    <button type="button" className="list-row list-row-bare" 
                                             onClick={() => router.navigate(`/d/activity/${item.id}`)}>
                                         <span className="grow">
                                             <span className="big">{item.name}</span>
@@ -348,8 +356,7 @@ function PlanView() {
                                         {item.monthly && <span className="chip">{t('classes.monthly', {amount: money(item.monthly.price)})}</span>}
                                         {item.perVisit && <span className="chip">{t('classes.perVisit')}</span>}
                                     </span>
-                                    <button type="button" className="btn btn-ghost btn-sm"
-                                            style={{alignSelf: 'flex-start'}}
+                                    <button type="button" className="btn btn-ghost btn-sm self-start"
                                             onClick={() => router.navigate(`/d/activity/new?from=${item.id}`)}>
                                         <Icon name="copy" size={18}/>{t('plan.duplicate')}
                                     </button>
@@ -450,7 +457,7 @@ export function ActivityForm({id}: { id: string }) {
             )}
             <TextField id="ac-name" label={t('activity.name')} value={name} onChange={event => setName(event.target.value)}/>
             <SelectField id="ac-teacher" label={t('activity.teacher')} value={teacher} onChange={setTeacher} placeholder={t('common.pick')}
-                         options={TEACHERS.filter(item => item.status === 'active' && (item.schools ?? ['colibri']).includes('colibri')).map(item => ({value: item.id, label: item.name}))}/>
+                         options={TEACHERS.filter(item => item.status === 'active' && (item.schools ?? ['colibri']).includes(currentSchool())).map(item => ({value: item.id, label: item.name}))}/>
             {kind === 'weekly' ? (
                 <>
                     <div className="field">
@@ -483,11 +490,11 @@ export function ActivityForm({id}: { id: string }) {
                 <TimeField id="ac-end" label={t('activity.end')} value={end} onChange={setEnd}/>
             </div>
             <SelectField id="ac-room" label={t('activity.room')} value={room} onChange={setRoom} placeholder={t('common.pick')}
-                         options={ROOMS.filter(r => !r.archived && !r.school).map(r => ({value: r.id, label: r.name}))}/>
+                         options={roomsHere().filter(r => !r.archived).map(r => ({value: r.id, label: r.name}))}/>
             {capacity && (
                 <div className="banner banner-warning" role="status">
                     <span className="strong row-start"><Icon name="alert" size={18}/>{t('activity.capacityTitle')}</span>
-                    <span>{t('activity.capacityBody', {room: 'Salón 1', n: 32, max: 30, other: 'Retrato'})}</span>
+                    <span>{t('activity.capacityBody', {room: 'Sala aérea 1', n: 32, max: 30, other: 'Pole dance'})}</span>
                     <span className="small">{t('activity.capacityCan')}</span>
                 </div>
             )}
@@ -523,7 +530,7 @@ function datesOf(item: SchoolClass, since: string, count = 16): string[] {
     return out;
 }
 
-const ourRooms = () => ROOMS.filter(r => !r.archived && !r.school).map(r => ({value: r.id, label: r.name}));
+const ourRooms = () => roomsHere().filter(r => !r.archived).map(r => ({value: r.id, label: r.name}));
 
 /**
  * Moving a session to another day, time or room: in the data, a cancellation with its replacement
@@ -617,7 +624,7 @@ export function Substitute({id}: { id: string }) {
     // This session's own teacher (it may differ from the class's now, after a change of teacher).
     const regular = all ? item.teacher : teacherOf(session);
     const others = TEACHERS.filter(teacher => teacher.status === 'active' && teacher.id !== regular && teacher.id !== session.substitute
-        && (teacher.schools ?? ['colibri']).includes('colibri')).map(teacher => ({value: teacher.id, label: personName(teacher.name)}));
+        && (teacher.schools ?? ['colibri']).includes(currentSchool())).map(teacher => ({value: teacher.id, label: personName(teacher.name)}));
     // Already given to a substitute: the session's teacher is offered first, to take it back.
     const options = !all && session.substitute ? [{value: regular, label: t('sub.backTo', {name: teacherName(regular)})}, ...others] : others;
     return (
@@ -681,7 +688,7 @@ export function EndClass({id}: { id: string }) {
             <SelectField id="end-last" label={t('end.last')} value={last} onChange={setLast} placeholder={t('common.pick')}
                          options={dates.map(date => ({value: date, label: dayLong(date)}))}/>
             <h2 className="section-title">{t('end.what')}</h2>
-            <ul className="stack" style={{paddingLeft: 20, margin: 0}}>
+            <ul className="stack plain-list" >
                 <li>{t('end.enrollments', {n: item.students})}</li>
                 {item.inPackages && <li>{t('end.packages')}</li>}
                 <li>{t('end.board')}</li>
@@ -718,11 +725,12 @@ export function DirectorPayments() {
     const toast = useToast();
     const confirm = useConfirm();
     const tab = router.query.get('tab') ?? 'review';
-    const pending = PROOFS.filter(proof => proof.state === 'uploaded' && proof.method !== 'totalpass' && !REVIEWED.has(proof.id));
+    const pending = PROOFS.filter(proof => proof.school === currentSchool() && proof.state === 'uploaded' && !isPass(proof.method) && !REVIEWED.has(proof.id));
     const [, redraw] = useState(0);
     const feeDone = FEES_DONE.has('hector');
+    const colibri = currentSchool() === 'colibri';
     return (
-        <Screen title={t('dpay.title')} subtitle={SCHOOLS.colibri.name}
+        <Screen title={t('dpay.title')} subtitle={SCHOOLS[currentSchool()].name}
 >
             <Segmented label={t('dpay.title')} value={tab}
                        onChange={value => router.replace(router.withQuery('tab', value === 'review' ? null : value))}
@@ -745,7 +753,8 @@ export function DirectorPayments() {
                     <p className="hint">{t('dpay.totalpassHint')}</p>
                 </>
             )}
-            {tab === 'fees' && (
+            {!colibri && tab !== 'review' && <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>}
+            {tab === 'fees' && colibri && (
                 <ul className="list">
                     <ListRow left={<Avatar name="Héctor Navarro"/>} title="Héctor Navarro"
                              sub={t('dpay.feeSub', {amount: money(800)})}
@@ -764,7 +773,7 @@ export function DirectorPayments() {
                                  }}>{t('dpay.markDone')}</button>}/>
                 </ul>
             )}
-            {tab === 'due' && (
+            {tab === 'due' && colibri && (
                 <>
                     <h2 className="section-title">{t('dpay.dueOn', {when: dayMonth('2026-11-30')})}</h2>
                     <ul className="list">
@@ -788,6 +797,72 @@ export function DirectorPayments() {
     );
 }
 
+/** Fees owed and this month's plan payments, from the school's own records (every school but the sample's Colibrí). */
+function SchoolDues({tab, redraw}: { tab: string; redraw: () => void }) {
+    const router = useRouter();
+    const toast = useToast();
+    const confirm = useConfirm();
+    const here = studentsHere().filter(student => student.status === 'active');
+    if (tab === 'fees') {
+        const fee = pricesHere().find(price => price.kind === 'fee')?.amount ?? 0;
+        const owing = here.filter(student => student.feeOwed);
+        if (owing.length === 0) return <Empty>{t('dpay.noFees')}</Empty>;
+        return (
+            <ul className="list">
+                {owing.map(student => (
+                    <ListRow key={student.id} left={<Avatar name={student.name}/>} title={personName(student.name)}
+                             sub={student.since && student.since >= addDays(TODAY, -31) ? t('dpay.feeNewSub', {when: dayMonth(student.since), amount: money(fee)}) : t('dpay.feeSub', {amount: money(fee)})}
+                             right={FEES_DONE.has(student.id)
+                                 ? <span className="chip chip-confirmed">{t('dpay.feeDone')}</span>
+                                 : <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
+                                     if (await confirm({title: t('dpay.feeConfirm', {name: personName(student.name)}), body: t('dpay.feeConfirmBody'), confirm: t('dpay.markDone')})) {
+                                         FEES_DONE.add(student.id);
+                                         live.markFeeDone(student.id);
+                                         redraw();
+                                         toast(t('dpay.feeSaved'));
+                                     }
+                                 }}>{t('dpay.markDone')}</button>}/>
+                ))}
+            </ul>
+        );
+    }
+    // Who pays monthly, and where this month's payment stands.
+    const month = TODAY.slice(0, 7);
+    const dueOf = (student: Student) => `${month}-${student.paymentDay === 15 ? '15' : '30'}`;
+    const stateOf = (student: Student) => PROOFS.filter(proof => proof.student === student.id && proof.covers.endsWith(`· ${month}`))
+        .sort((a, b) => (b.sent + b.sentAt).localeCompare(a.sent + a.sentAt))[0]?.state;
+    const monthly = here.filter(student => (student.plan === 'package' || student.plan === 'monthly' || student.passExtra) && (student.since ?? '') <= dueOf(student) && stateOf(student) !== 'confirmed');
+    const upcoming = monthly.filter(student => dueOf(student) >= TODAY);
+    const overdue = monthly.filter(student => dueOf(student) < TODAY && stateOf(student) !== 'uploaded');
+    const row = (student: Student, right: JSX.Element) => (
+        <ListRow key={student.id} left={<Avatar name={student.name}/>} title={personName(student.name)} sub={planText(student)} right={right}
+                 onClick={() => router.navigate(`/d/students/${student.id}?tab=pay`)}/>
+    );
+    const days = (student: Student) => Math.round((Date.parse(TODAY) - Date.parse(dueOf(student))) / 86400000);
+    return (
+        <>
+            {[...new Set(upcoming.map(dueOf))].sort().map(due => (
+                <section key={due} className="stack">
+                    <h2 className="section-title">{t('dpay.dueOn', {when: dayMonth(due)})}</h2>
+                    <ul className="list">
+                        {upcoming.filter(student => dueOf(student) === due).map(student => {
+                            const state = stateOf(student);
+                            return row(student, state ? <ProofChip state={state}/> : <span className="chip">{t('dpay.nothingYet')}</span>);
+                        })}
+                    </ul>
+                </section>
+            ))}
+            <h2 className="section-title">{t('dpay.overdue')}</h2>
+            {overdue.length === 0 ? <Empty>{t('dpay.noOverdue')}</Empty> : (
+                <ul className="list">
+                    {overdue.map(student => row(student, stateOf(student) === 'rejected' ? <ProofChip state="rejected"/>
+                        : <span className="chip chip-rejected">{t('dpay.daysLate', {n: days(student)})}</span>))}
+                </ul>
+            )}
+        </>
+    );
+}
+
 const REASONS = ['review.reasonBlurry', 'review.reasonAmount', 'review.reasonMonth'] as const;
 
 /**
@@ -801,7 +876,7 @@ export function Review({id}: { id: string }) {
     const rejectSheet = useSheetRoute('reject');
     const [reason, setReason] = useState('');
     const proof = PROOFS.find(item => item.id === id) ?? PROOFS[0];
-    const queue = PROOFS.filter(item => (item.state === 'uploaded' || REVIEWED.has(item.id)) && item.method !== 'totalpass');
+    const queue = PROOFS.filter(item => item.school === currentSchool() && (item.state === 'uploaded' || REVIEWED.has(item.id)) && !isPass(item.method));
     const left = queue.filter(item => !REVIEWED.has(item.id));
     const position = queue.findIndex(item => item.id === id) + 1;
     const student = studentById(proof.student);
@@ -871,18 +946,10 @@ export function Review({id}: { id: string }) {
                                        done(t('review.rejected'), true);
                                    }}>{t('review.rejectSend')}</button>
                    </>}>
-                <div className="wrap">
-                    {REASONS.filter(key => key !== 'review.reasonAmount' || mismatch).map(key => (
-                        <button key={key} type="button" className="btn btn-secondary btn-sm"
-                                onClick={() => setReason(t(key))}>{t(key)}</button>
-                    ))}
-                </div>
-                <div className="field">
-                    <label className="label" htmlFor="rej-reason">{t('review.reason')}</label>
-                    <textarea id="rej-reason" className="input" rows={3} value={reason}
-                              onChange={event => setReason(event.target.value)}/>
-                    <span className="hint">{t(student.minor ? 'review.reasonHintGuardian' : 'review.reasonHint')}</span>
-                </div>
+                {/* The usual reasons, or "Other…" to write one; what's picked is what the student reads. */}
+                <SelectField id="rej-reason" label={t('review.reason')} value={reason} onChange={setReason} other placeholder={t('common.pick')}
+                             hint={t(student.minor ? 'review.reasonHintGuardian' : 'review.reasonHint')}
+                             options={REASONS.filter(key => key !== 'review.reasonAmount' || mismatch).map(key => ({value: t(key), label: t(key)}))}/>
             </Sheet>
         </Screen>
     );

@@ -1,3 +1,5 @@
+import {classSlots} from '../shared/pieces';
+import {monthRange, pickedMonth, shiftMonth} from '../../lib/months';
 import {useState} from 'react';
 import {Icon} from '../../ui/Icon';
 import {useRouter} from '../../lib/router';
@@ -18,7 +20,7 @@ import {
     teacherName,
     TODAY,
     TRIALS_TAKEN,
-    type SchoolClass,
+    type SchoolClass, SOFIA_SCHOOLS,
 } from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Empty, ListRow, MenuText, Segmented, SelectField, TextField} from '../../ui/Fields';
@@ -36,7 +38,7 @@ import {ENDED_ENROLLMENTS} from '../../mock/changes';
 
 const TRIAL_PRICE = PRICES.find(price => price.id === 'trial')?.amount ?? 200;
 
-const slots = (item: SchoolClass) => item.slots.map(slot => `${weekdayShort(slot.weekday)} ${timeRange(slot.start, slot.end)}`).join(' · ');
+const slots = classSlots;
 const placesLeft = (item: SchoolClass) => Math.max(0, (item.max ?? 99) - item.students);
 
 function enrolledIn(student: string) {
@@ -74,14 +76,16 @@ export function Classes() {
     // The school keeps to one school's classes in both views; kept in the URL, so back finds it.
     const school = router.query.get('school') ?? 'all';
     const setSchool = (value: string) => router.replace(router.withQuery('school', value === 'all' ? null : value));
-    const offered = CLASSES.filter(item => item.kind === 'weekly' && !item.ending && Boolean(item.forKids) === guardian
+    // Their schools: the ones they study at (a guardian, their children's).
+    const memberOf = new Set<string>([...(guardian ? ['colibri'] : SOFIA_SCHOOLS), ...classesOf(student).map(id => schoolOfClass(classById(id)))]);
+    const offered = CLASSES.filter(item => item.kind === 'weekly' && !item.ending && Boolean(item.forKids) === guardian && memberOf.has(schoolOfClass(item))
         && !mineAll.some(enrollment => enrollment.classId === item.id) && !packageCovers(student, item.id));
     const schools = [...new Set(offered.map(schoolOfClass))];
     const rank = (item: SchoolClass) => placesLeft(item) === 0 ? 2 : clashOf(student, item) ? 1 : 0;
     const catalogue = offered
         .filter(item => (!day || item.slots.some(slot => slot.weekday === day)) && (school === 'all' || schoolOfClass(item) === school))
         .filter(item => [item.name, teacherName(item.teacher), SCHOOLS[schoolOfClass(item)].short]
-            .some(text => text.toLowerCase().includes(query.trim().toLowerCase())))
+            .some(text => text.toLowerCase().includes((school === 'all' ? query : '').trim().toLowerCase())))
         .sort((a, b) => rank(a) - rank(b) || (a.slots[0]?.weekday ?? 0) - (b.slots[0]?.weekday ?? 0) || (a.slots[0]?.start ?? '').localeCompare(b.slots[0]?.start ?? ''));
     const mine = mineAll.filter(enrollment => school === 'all' || (enrollment.classId ? schoolOfClass(classById(enrollment.classId)) : 'colibri') === school);
     const many = offered.length > 8;
@@ -93,15 +97,14 @@ export function Classes() {
         : classById(enrollment.classId ?? '').name;
 
     return (
-        <Screen title={t('classes.title')}>
+        <Screen title={t('classes.title')} titleLine={allSchools.length > 1 && (
+            <span className="title-school">{school !== 'all' && <SchoolLogo school={school}/>}<MenuText id="cl-school" label={t('classes.school')} value={school} onChange={setSchool}
+                options={[{value: 'all', label: t('classes.allSchools', {n: allSchools.length})}, ...allSchools.map(id => ({value: id, label: SCHOOLS[id].name}))]}/></span>
+        )}>
             {guardian && (
                 <div className="heading-pick">{t('classes.forWhomPick')}<MenuText id="cl-kid" label={t('classes.forWhom')} value={student}
                              onChange={kid => router.replace(router.withQuery('kid', kid))}
                              options={KIDS.map(kid => ({value: kid.id, label: personName(kid.name)}))}/></div>
-            )}
-            {allSchools.length > 1 && (
-                <div className="heading-pick">{school !== 'all' && <SchoolLogo school={school}/>}{t('classes.schoolPick')}<MenuText id="cl-school" label={t('classes.school')} value={school} onChange={setSchool}
-                    options={[{value: 'all', label: t('classes.allSchools', {n: allSchools.length})}, ...allSchools.map(id => ({value: id, label: SCHOOLS[id].name}))]}/></div>
             )}
             <Segmented label={t('classes.view')} value={view} onChange={value => router.replace(router.withQuery('view', value === 'list' ? null : value))}
                        options={[{value: 'list', label: t('classes.viewList')}, {value: 'cal', label: t('classes.viewCalendar')}]}/>
@@ -135,7 +138,8 @@ export function Classes() {
                        options={[{value: 'classes', label: t('classes.tabClasses')}, {value: 'packages', label: t('classes.packages')}, {value: 'free', label: t('plan.freeHours')}]}/>
             {join === 'classes' && (
                 <>
-                    {many && (
+                    {/* One school picked: its classes are few enough for the day row alone. */}
+                    {many && school === 'all' && (
                         <TextField id="cl-search" label={t('classes.search')} type="search" value={query} onChange={event => setQuery(event.target.value)}/>
                     )}
                     {many && (
@@ -172,7 +176,7 @@ export function Classes() {
             )}
             {join === 'packages' && (school === 'all' || school === 'colibri') && (
                 <ul className="list">
-                    {PACKAGES.map(pack => (
+                    {PACKAGES.filter(pack => !pack.school && !pack.retired).map(pack => (
                         <ListRow key={pack.id}
                                  title={t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2')}
                                  sub={`${pack.classes.map(id => classById(id).name).join(' · ')} · ${money(pack.price)}`}
@@ -184,7 +188,7 @@ export function Classes() {
             )}
             {join === 'free' && (school === 'all' || school === 'colibri') && (
                 <ul className="list">
-                    <ListRow title="Taller libre de grabado"
+                    <ListRow title="Práctica libre en aparatos"
                              sub={`${dayShort('2026-11-27')} · ${timeRange('18:00', '20:00')} · Fernanda Gil`}
                              chips={<span className="chip">{t('classes.placesLeft', {n: 1})}</span>}
                              onClick={() => router.navigate(`${base}/classes/libre${guardian ? `?kid=${student}` : ''}`)}/>
@@ -211,7 +215,7 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
     onJoin: (id: string, date: string) => void;
 }) {
     const router = useRouter();
-    const month = router.query.get('month') === '12' ? '2026-12-01' : '2026-11-01';
+    const month = pickedMonth(router.query.get('month'));
     const day = router.query.get('day') ?? (month === TODAY.slice(0, 7) + '-01' ? TODAY : month);
     const all = router.query.get('all') === '1';
     const takes = new Set(classesOf(student));
@@ -227,11 +231,11 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
     return (
         <>
             <div className="row">
-                <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={month === '2026-11-01'}
-                        onClick={() => router.replace(router.withQuery('month', null))}><Icon name="back"/></button>
+                <button type="button" className="icon-btn" aria-label={t('schedule.prevMonth')} disabled={month <= monthRange().min}
+                        onClick={() => router.replace(router.withQuery('month', shiftMonth(month, -1)))}><Icon name="back"/></button>
                 <span className="big">{monthYear(month)}</span>
-                <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={month === '2026-12-01'}
-                        onClick={() => router.replace(router.withQuery('month', '12'))}><Icon name="chevron"/></button>
+                <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={month >= monthRange().max}
+                        onClick={() => router.replace(router.withQuery('month', shiftMonth(month, 1)))}><Icon name="chevron"/></button>
             </div>
             <div className="month" role="group" aria-label={monthYear(month)}>
                 {[1, 2, 3, 4, 5, 6, 7].map(w => <span key={w} className="month-head" aria-hidden="true">{weekdayShort(w).slice(0, 2)}</span>)}
@@ -310,7 +314,7 @@ export function ClassDetail({id}: { id: string }) {
     const covered = item ? packageCovers(student, item.id) : false;
     const trialTaken = item ? (TRIALS_TAKEN[student] ?? []).includes(item.id) : true;
     const back = `${base}/classes${guardian ? `?kid=${student}` : ''}`;
-    const name = pack ? t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2') : free ? 'Taller libre de grabado' : item?.name ?? '';
+    const name = pack ? t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2') : free ? 'Práctica libre en aparatos' : item?.name ?? '';
     const payDay = studentById(student).paymentDay;
 
     const howOptions = item ? [
@@ -396,13 +400,13 @@ export function ClassDetail({id}: { id: string }) {
                 <div className="card">
                     <span className="big num">{money(pack.price)} {t('detail.perMonth')}</span>
                     <span className="small">{t('detail.packageBody', {n: pack.perWeek})}</span>
-                    <ul className="small" style={{margin: 0, paddingLeft: 18}}>{pack.classes.map(c => <li
+                    <ul className="small plain-list" >{pack.classes.map(c => <li
                         key={c}>{classById(c).name} · {slots(classById(c))}</li>)}</ul>
                 </div>
             )}
             {free && (
                 <div className="card">
-                    <span className="small">{dayShort('2026-11-27')} · {timeRange('18:00', '20:00')} · Salón 1 · Fernanda Gil</span>
+                    <span className="small">{dayShort('2026-11-27')} · {timeRange('18:00', '20:00')} · Sala aérea 1 · Fernanda Gil</span>
                     <span className="small">{t('detail.freeBody', {amount: money(300), n: 4})}</span>
                     <span className="chip">{t('plan.booked', {n: 3, of: 4})}</span>
                 </div>
@@ -443,7 +447,7 @@ export function ClassDone() {
     const kind = router.query.get('kind') ?? 'enroll';
     const id = router.query.get('c') ?? '';
     const pack = PACKAGES.find(item => item.id === id);
-    const name = pack ? t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2') : id === 'libre' ? 'Taller libre de grabado' : classById(id).name;
+    const name = pack ? t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2') : id === 'libre' ? 'Práctica libre en aparatos' : classById(id).name;
     const kid = router.query.get('kid');
     return (
         <Screen title={t('classes.title')} nav={false} back={`${base}/classes`}

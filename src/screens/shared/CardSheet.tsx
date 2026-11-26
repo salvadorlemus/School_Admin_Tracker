@@ -30,7 +30,7 @@ export function CardSheet({role, open, onClose}: { role: Role; open: boolean; on
                                    onClick={() => router.navigate(`/${role}/my-card`)}>
                        <Icon name="edit"/>{t('card.edit')}
                    </button>}>
-                <div className="row-start" style={{alignItems: 'center'}}>
+                <div className="row-start align-center" >
                     <PhotoPicker name={teacher.name} label={t('form.photo')}
                                  onPicked={() => toast(t('card.photoSaved'))}/>
                     <div className="grow">

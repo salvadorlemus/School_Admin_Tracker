@@ -151,7 +151,7 @@ function PersonSheet({person, kind, minor, kids, mode, onClose, onSave}: {
                    }}>{person ? t('form.saveChanges') : t('people.save')}</button>
                </>}>
             {picksUp && (
-                <div className="row-start" style={{alignItems: 'center'}}>
+                <div className="row-start align-center" >
                     <PhotoPicker size="sm" name={draft.name} onPicked={() => set({photo: true})}
                                  label={t('form.pickupPhoto', {name: draft.name || t('form.pickupPerson')})}/>
                     <span className="hint">{draft.photo ? t('people.photoDone') : t('people.photoHint')}</span>
@@ -273,7 +273,7 @@ export function useCardForm({
 
     const body = (
         <>
-            <div className="row-start" style={{alignItems: 'center', gap: 16}}>
+            <div className="row-start align-center gap-lg" >
                 <PhotoPicker name={name} label={t('form.photo')}/>
                 <p className="hint">{t(mode === 'edit' ? 'form.photoHint' : 'form.photoOptional')}</p>
             </div>

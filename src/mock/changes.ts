@@ -1,3 +1,5 @@
+import {live} from '../live/actions';
+import {currentSchool} from '../state/school';
 import {addDays, money, timeRange, weekdayOf, weekdayShort} from '../lib/format';
 import {
     BOARD,
@@ -10,10 +12,14 @@ import {
     PRICES,
     PROOFS,
     ROOMS,
+    PACKAGES,
+    ENROLLMENTS,
     roomName,
     sessionById,
     SESSIONS,
     STUDENTS,
+    studentById,
+    studentsOf,
     teacherName,
     TEACHERS,
     TERMS_WAITING,
@@ -34,7 +40,7 @@ let posted = 0;
 
 function post(notice: Omit<Notice, 'id' | 'school' | 'date' | 'unread'>) {
     posted += 1;
-    BOARD.unshift({id: `change-${posted}`, school: 'colibri', date: TODAY, unread: true, ...notice});
+    BOARD.unshift({id: `change-${posted}`, school: currentSchool(), date: TODAY, unread: true, ...notice});
 }
 
 /** A schedule change's heading: the class, and the session (written in the reader's language when shown). */
@@ -85,6 +91,7 @@ function handOver(item: SchoolClass, teacher: string, since: string) {
 
 /** Moving is a cancellation with its replacement linked to it (rule 17). */
 export function moveSession(id: string, to: { date: string; start: string; end: string; room: string }) {
+    live.moveSession(id, to);
     const session = sessionById(id);
     const newId = `${session.classId}-${to.date}-${to.start}-moved`;
     session.status = 'cancelled';
@@ -108,6 +115,7 @@ export function moveSession(id: string, to: { date: string; start: string; end: 
 }
 
 export function cancelSession(id: string) {
+    live.cancelSession(id);
     const session = sessionById(id);
     session.status = 'cancelled';
     post({kind: 'cancelled', classId: session.classId, title: sessionTitle(session), at: sessionAt(session), text: 'notice.cancelledOnly'});
@@ -116,6 +124,7 @@ export function cancelSession(id: string) {
 /** Picking the session's own teacher again takes the substitute away. */
 export function giveToSubstitute(id: string, teacher: string) {
     const session = sessionById(id);
+    live.setSubstitute(id, teacher === teacherOf(session) ? null : teacher);
     if (teacher === teacherOf(session)) {
         session.substitute = undefined;
         post({kind: 'teacher', classId: session.classId, title: sessionTitle(session), at: sessionAt(session), text: 'notice.noSubstitute', vars: {name: teacherName(teacher)}});
@@ -132,6 +141,7 @@ export function giveToSubstitute(id: string, teacher: string) {
 }
 
 export function changeTeacher(classId: string, teacher: string, since: string) {
+    live.changeTeacher(classId, teacher, since);
     const item = classById(classId);
     handOver(item, teacher, since);
     post({
@@ -172,6 +182,7 @@ export function editClass(classId: string, fields: ClassFields, since: string) {
 
 /** Ending a class on one of its sessions: the later ones go; its enrollments end with it. */
 export function endClass(classId: string, last: string) {
+    live.endClass(classId, last);
     const item = classById(classId);
     item.until = last;
     item.ending = true;
@@ -243,12 +254,14 @@ export function endEnrollment(student: string, what: string, until: string) {
 }
 
 export function setStudentStatus(id: string, status: 'active' | 'inactive') {
-    const student = STUDENTS.find(item => item.id === id);
-    if (student) student.status = status;
+    live.setStudentStatus(id, status);
+    const student = studentById(id);
+    if (student.id === id) student.status = status;
 }
 
 /** A new price from a date: the current one stays until then (never edited), posted as important. */
 export function schedulePrice(id: string, amount: number, from: string) {
+    live.schedulePrice(id, amount, from);
     const price = PRICES.find(item => item.id === id);
     if (!price) return;
     price.next = {amount, from};
@@ -266,44 +279,61 @@ const ROSTER: string[] = (() => {
 })();
 
 /**
- * The school's terms: who hasn't accepted the current version, by name. Publishing a version makes
- * every current student accept it again.
+ * Each school's terms: who hasn't accepted the current version, by name. Publishing a version makes
+ * every current student accept it again. Students who were deactivated don't count: they no longer
+ * use the school.
  */
-/** Students who were deactivated don't count: they no longer use the school. */
-const current = (names: string[]) => {
-    const gone = new Set(STUDENTS.filter(student => student.status === 'inactive').map(student => student.name));
-    return names.filter(name => !gone.has(name));
+function termsOf(version: number, uploaded: string, pending: string[], earlier: { version: number; uploaded: string }[], roster: () => string[], gone: () => Set<string>) {
+    return {
+        version, uploaded, pending, earlier, roster,
+        get students() {
+            const left = gone();
+            return roster().filter(name => !left.has(name)).length;
+        },
+        get waiting() {
+            const left = gone();
+            return this.pending.filter(name => !left.has(name));
+        },
+        get accepted() {
+            return this.students - this.waiting.length;
+        },
+    };
+}
+
+const goneFrom = (school: string) => () => new Set(studentsOf(school).filter(student => student.status === 'inactive').map(student => student.name));
+
+const TERMS = {
+    colibri: termsOf(3, '2026-11-20', [...STUDENTS.filter(student => student.termsPending).map(student => student.name), ...TERMS_WAITING],
+        [{version: 2, uploaded: '2026-03-02'}, {version: 1, uploaded: '2025-08-15'}], () => ROSTER, goneFrom('colibri')),
+    helios: termsOf(1, '2026-08-01', studentsOf('helios').filter(student => student.termsPending).map(student => student.name), [],
+        () => studentsOf('helios').filter(student => student.status === 'active').map(student => student.name), goneFrom('helios')),
 };
 
-export const TERMS_STATE = {
-    version: 3, uploaded: '2026-11-20',
-    /** Who hasn't accepted the current version, deactivated students included (they may come back). */
-    pending: [...STUDENTS.filter(student => student.termsPending).map(student => student.name), ...TERMS_WAITING],
-    earlier: [{version: 2, uploaded: '2026-03-02'}, {version: 1, uploaded: '2025-08-15'}],
-    get students() {
-        return current(ROSTER).length;
-    },
-    get waiting() {
-        return current(this.pending);
-    },
-    get accepted() {
-        return this.students - this.waiting.length;
-    },
-};
+/** The terms of the school a director is working in (Colibrí's for students: the sample's). */
+/** The live app's terms, by school (from the database). */
+export const LIVE_TERMS: Record<string, ReturnType<typeof termsOf>> = {};
+export function setLiveTerms(school: string, version: number, uploaded: string, pending: string[], earlier: { version: number; uploaded: string }[], roster: string[]) {
+    LIVE_TERMS[school] = termsOf(version, uploaded, pending, earlier, () => roster, () => new Set());
+}
+
+export const termsState = () => LIVE_TERMS[currentSchool()] ?? (currentSchool() === 'helios' ? TERMS.helios : TERMS.colibri);
+export const TERMS_STATE = TERMS.colibri;
 
 export function publishTerms() {
-    TERMS_STATE.earlier.unshift({version: TERMS_STATE.version, uploaded: TERMS_STATE.uploaded});
-    TERMS_STATE.version += 1;
-    TERMS_STATE.uploaded = TODAY;
-    TERMS_STATE.pending = [...ROSTER];
+    const terms = termsState();
+    terms.earlier.unshift({version: terms.version, uploaded: terms.uploaded});
+    terms.version += 1;
+    terms.uploaded = TODAY;
+    terms.pending = [...terms.roster()];
 }
 
 export function acceptTerms(name: string) {
-    TERMS_STATE.pending = TERMS_STATE.pending.filter(other => other !== name);
+    TERMS.colibri.pending = TERMS.colibri.pending.filter(other => other !== name);
 }
 
 /** A director's decision on a screenshot; the student (or guardian) gets a personal notice (rule 10). */
 export function decideProof(id: string, state: 'confirmed' | 'rejected', reason: string) {
+    live.decideProof(id, state === 'confirmed', reason);
     const proof = PROOFS.find(item => item.id === id);
     if (!proof) return;
     proof.state = state;
@@ -326,3 +356,44 @@ export const SEEN = new Set<string>();
 
 /** Registration fees the director has marked as paid. */
 export const FEES_DONE = new Set<string>();
+
+// ---- Packages: the director creates and changes them; one nobody has can be deleted, one in use stops being offered ----
+
+/** Who has a package now: their enrollment in it, or (Helios) their plan. */
+export const packageHolders = (id: string) => [...new Set([
+    ...ENROLLMENTS.filter(enrollment => enrollment.packageId === id).map(enrollment => enrollment.student),
+    ...studentsOf(currentSchool()).filter(student => student.packageId === id && student.status === 'active').map(student => student.id),
+])].filter(student => !ENDED_ENROLLMENTS.has(`${student}:${id}`));
+
+export function savePackage(fields: { label: string; perWeek: number; classes: string[] }, id?: string, amount?: number): string {
+    const pack = id ? PACKAGES.find(item => item.id === id) : undefined;
+    const price = id ? PRICES.find(item => item.id === id) : undefined;
+    if (pack && price) {
+        Object.assign(pack, {perWeek: fields.perWeek, classes: fields.classes});
+        price.label = fields.label;
+        return pack.id;
+    }
+    const school = currentSchool();
+    const newId = `pk-${school}-${PACKAGES.length + 1}`;
+    PACKAGES.push({id: newId, school: school === 'colibri' ? undefined : school, perWeek: fields.perWeek, classes: fields.classes, price: amount ?? 0});
+    PRICES.push({id: newId, school: school === 'colibri' ? undefined : school, kind: 'package', label: fields.label, amount: amount ?? 0, from: TODAY, history: []});
+    post({kind: 'price', title: fields.label, priceId: newId, text: 'notice.newPackage', vars: {amount: money(amount ?? 0), n: String(fields.perWeek)}});
+    return newId;
+}
+
+export function removePackage(id: string) {
+    const pack = PACKAGES.find(item => item.id === id);
+    if (!pack) return;
+    if (packageHolders(id).length) {
+        pack.retired = true;
+        return;
+    }
+    PACKAGES.splice(PACKAGES.indexOf(pack), 1);
+    const price = PRICES.findIndex(item => item.id === id);
+    if (price >= 0) PRICES.splice(price, 1);
+}
+
+export function offerPackageAgain(id: string) {
+    const pack = PACKAGES.find(item => item.id === id);
+    if (pack) pack.retired = false;
+}
