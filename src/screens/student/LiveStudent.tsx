@@ -412,3 +412,10 @@ export function CheckInLink() {
     }, []);
     return null;
 }
+
+/** A child's class today, for the guardian's "who's here" popup (empty when none). */
+export function todayLine(student: string): string {
+    const classes = usualClasses(student);
+    const session = SESSIONS.find(x => x.date === TODAY && x.status !== 'cancelled' && classes.includes(x.classId));
+    return session ? `${classById(session.classId).name} · ${time(session.start)}` : '';
+}

@@ -1,7 +1,7 @@
 import {supabase} from '../../lib/supabase';
 import {saveCardEdit, saveOwnDetails} from '../../live/cards';
 import {LIVE} from '../../live/state';
-import {LiveCheckIn, LiveCheckInResult, LiveGuardianHome, LiveStudentHome, livePlans, uploadProof} from './LiveStudent';
+import {LiveCheckIn, LiveCheckInResult, LiveGuardianHome, LiveStudentHome, livePlans, uploadProof, todayLine} from './LiveStudent';
 import {useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayLong, dayMonth, dayShort, listOf, money, personName, time, timeRange} from '../../lib/format';
@@ -61,9 +61,9 @@ export function Home() {
                        footer={<button type="button" className="btn btn-lg" disabled={picked.length === 0}
                                        onClick={() => router.navigate(`${base}/checkin/scan?kids=${picked.join(',')}${router.query.get('code') ? `&code=${router.query.get('code')}` : ''}`)}>
                            <Icon name="scan"/>{t('checkin.scanNow')}</button>}>
-                    <p>{t('checkin.whoBody')}</p>
+                    <p>{t(KIDS.length > 1 ? 'checkin.whoBody' : 'checkin.whoBodyOne')}</p>
                     {KIDS.map(kid => (
-                        <Option key={kid.id} id={`kid-${kid.id}`} label={personName(kid.name)} hint={`Aéreo infantil · ${time('16:00')}`}
+                        <Option key={kid.id} id={`kid-${kid.id}`} label={personName(kid.name)} hint={LIVE.on ? todayLine(kid.id) || t('checkin.noClassToday') : `Aéreo infantil · ${time('16:00')}`}
                                 checked={picked.includes(kid.id)} onChange={value => setKid(kid.id, value)}/>
                     ))}
                 </Sheet>

@@ -1533,6 +1533,8 @@
   "legal.contact.title": "Contact",
   "legal.contact.body": "For any question about your data or these terms, write to {owner}:",
   "legal.alsoRead": "How Lyra looks after your data:",
+  "checkin.whoBodyOne": "Tick your child if they’re in class, then scan their teacher’s QR.",
+  "checkin.noClassToday": "No class today",
   "students.classGroup": "{name} · {n}",
   "payments.paidNote": "This month is paid: the school confirmed your screenshot.",
   "payments.sentNote": "You've sent this month's screenshot; the school is checking it."

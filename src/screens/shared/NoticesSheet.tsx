@@ -59,7 +59,7 @@ export function NoticesSheet({role, open, onClose, keepNav}: {
                        </button>
                    )}
                </>}>
-            <h3 className="section-title">{t('notices.forYou')}</h3>
+            {personal.length > 0 && <h3 className="section-title">{t('notices.forYou')}</h3>}
             <ul className="list">
                 {personal.map(item => (
                     <li key={item.id} className="list-row">
@@ -116,7 +116,7 @@ export function BoardPost({notice, showSchool, mine}: { notice: Notice; showScho
         schedule: <span className="chip">{t('notices.scheduleChange')}</span>,
         ended: <span className="chip chip-cancelled">{t('notices.ended')}</span>,
         teacher: <span className="chip">{t('notices.teacherChange')}</span>,
-        note: <span className="chip chip-outline">{t('notices.noteBy', {name: shortName(notice.author ?? '')})}</span>,
+        note: <span className="chip chip-outline">{t('notices.noteBy', {name: notice.author ? shortName(notice.author) : SCHOOLS[notice.school ?? 'colibri']?.short ?? ''})}</span>,
     }[notice.kind];
     const item = notice.classId ? classById(notice.classId) : undefined;
     const everyone = !item && notice.kind === 'note';

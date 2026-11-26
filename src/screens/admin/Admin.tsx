@@ -411,7 +411,7 @@ export function AdminSchoolEdit({id}: { id: string }) {
     const [trialEnd, setTrialEnd] = useState(details.trialEnd);
     const [tax, setTax] = useState(details.tax);
     const [notes, setNotes] = useState(details.notes);
-    const missing = [name.trim().length < 2 && t('admin.schoolName'), !Number(fee) && t('admin.fee'),
+    const missing = [name.trim().length < 2 && t('admin.schoolName'), (fee === '' || Number.isNaN(Number(fee))) && t('admin.fee'),
         !(Number(day) >= 1 && Number(day) <= 28) && t('admin.billingDay')].filter(Boolean) as string[];
     return (
         <Screen title={t('admin.editDetails')} subtitle={school.name} back={`/a/schools/${school.id}`} nav={false}
