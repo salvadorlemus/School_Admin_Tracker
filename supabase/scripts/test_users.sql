@@ -4,16 +4,16 @@
 --
 -- First create the five logins in Supabase → Authentication → Users → Add user → Create new user,
 -- with "Auto Confirm User" on and the passwords from .env.test.local:
---   prueba.plataforma@example.com   platform admin          (TEST_PLATFORM_PASSWORD)
---   prueba.admin@example.com        Helios's director       (TEST_ADMIN_PASSWORD)
---   prueba.maestra@example.com      a teacher at Helios     (TEST_TEACHER_PASSWORD)
---   prueba.alumna@example.com       an adult student        (TEST_STUDENT_PASSWORD)
---   prueba.tutor@example.com        a guardian, with a child (TEST_TUTOR_PASSWORD)
--- example.com never receives mail, so these logins are made here instead of by invitation.
+--   prueba.plataforma@kokoasoft.com   platform admin          (TEST_PLATFORM_PASSWORD)
+--   prueba.admin@kokoasoft.com        Helios's director       (TEST_ADMIN_PASSWORD)
+--   prueba.maestra@kokoasoft.com      a teacher at Helios     (TEST_TEACHER_PASSWORD)
+--   prueba.alumna@kokoasoft.com       an adult student        (TEST_STUDENT_PASSWORD)
+--   prueba.tutor@kokoasoft.com        a guardian, with a child (TEST_TUTOR_PASSWORD)
+-- These addresses have no mailbox (docs/test-accounts.md), so the logins are made here instead of by invitation.
 -- Running it again changes nothing.
 
 insert into platform_admin (user_id)
-select id from auth.users where email = 'prueba.plataforma@example.com'
+select id from auth.users where email = 'prueba.plataforma@kokoasoft.com'
 on conflict do nothing;
 
 do $$
@@ -35,31 +35,31 @@ begin
 
     insert into person (user_id, full_name)
     select id, case email
-        when 'prueba.admin@example.com' then 'Prueba Dirección'
-        when 'prueba.maestra@example.com' then 'Prueba Maestra'
-        when 'prueba.alumna@example.com' then 'Prueba Alumna'
+        when 'prueba.admin@kokoasoft.com' then 'Prueba Dirección'
+        when 'prueba.maestra@kokoasoft.com' then 'Prueba Maestra'
+        when 'prueba.alumna@kokoasoft.com' then 'Prueba Alumna'
         else 'Prueba Tutora' end
     from auth.users
-    where email in ('prueba.admin@example.com', 'prueba.maestra@example.com', 'prueba.alumna@example.com', 'prueba.tutor@example.com')
+    where email in ('prueba.admin@kokoasoft.com', 'prueba.maestra@kokoasoft.com', 'prueba.alumna@kokoasoft.com', 'prueba.tutor@kokoasoft.com')
     on conflict (user_id) do nothing;
 
     -- Staff are active at once. The director also teaches (a director who teaches holds both roles).
     insert into membership (school_id, person_id, role, status)
     select helios, p.id, r.role, 'active'
     from person p join auth.users u on u.id = p.user_id
-    cross join lateral (select unnest(case u.email when 'prueba.admin@example.com' then array['director', 'teacher']::member_role[]
+    cross join lateral (select unnest(case u.email when 'prueba.admin@kokoasoft.com' then array['director', 'teacher']::member_role[]
                                                    else array['teacher']::member_role[] end) as role) r
-    where u.email in ('prueba.admin@example.com', 'prueba.maestra@example.com')
+    where u.email in ('prueba.admin@kokoasoft.com', 'prueba.maestra@kokoasoft.com')
     on conflict (school_id, person_id, role) do nothing;
 
     -- The student and the guardian start as invited, like anyone registered by a director: their first
     -- sign-in walks through the card and the terms, and that makes them active (rule 14).
     insert into membership (school_id, person_id, role, status, payment_day)
     select helios, p.id, 'student', 'invited', 15
-    from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.alumna@example.com'
+    from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.alumna@kokoasoft.com'
     on conflict (school_id, person_id, role) do nothing;
 
-    select p.id into tutor from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.tutor@example.com';
+    select p.id into tutor from person p join auth.users u on u.id = p.user_id where u.email = 'prueba.tutor@kokoasoft.com';
     if tutor is not null then
         insert into membership (school_id, person_id, role, status) values (helios, tutor, 'guardian', 'invited')
         on conflict (school_id, person_id, role) do nothing;
@@ -80,11 +80,11 @@ from auth.users u
 left join person p on p.user_id = u.id
 left join membership m on m.person_id = p.id
 left join school s on s.id = m.school_id
-where u.email like 'prueba.%@example.com'
+where u.email like 'prueba.%@kokoasoft.com'
 group by u.email, s.name, u.id
 union all
 select '  └ child of prueba.tutor', s.name, string_agg(m.role::text || ' ' || m.status::text || case when m.minor then ' (minor)' else '' end, ', '), false
-from guardian_link g join person t on t.id = g.guardian_id join auth.users u on u.id = t.user_id and u.email = 'prueba.tutor@example.com'
+from guardian_link g join person t on t.id = g.guardian_id join auth.users u on u.id = t.user_id and u.email = 'prueba.tutor@kokoasoft.com'
 join membership m on m.person_id = g.student_id and m.school_id = g.school_id join school s on s.id = g.school_id
 group by s.name
 order by 1;

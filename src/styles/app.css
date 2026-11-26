@@ -996,7 +996,8 @@ select.input { appearance: auto; }
     overflow: hidden;
 }
 
-.camera-frame { width: 62%; aspect-ratio: 1; border: 4px solid var(--fixed-paper); border-radius: 22px; box-shadow: 0 0 0 999px var(--fixed-shade); }
+.camera-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.camera-frame { position: relative; width: 62%; aspect-ratio: 1; border: 4px solid var(--fixed-paper); border-radius: 22px; box-shadow: 0 0 0 999px var(--fixed-shade); }
 .camera p { position: absolute; bottom: 14px; left: 0; right: 0; color: var(--fixed-paper); text-align: center; font-size: var(--fs-ui); }
 
 .pdf {

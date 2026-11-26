@@ -84,8 +84,7 @@ export function SignIn() {
                 setBusy(true);
                 const problem = await signIn(String(form.get('email') ?? ''), String(form.get('password') ?? ''));
                 setBusy(false);
-                if (problem) setError(t(problem === 'signIn.unavailable' ? 'signIn.unavailable' : 'signIn.wrong'));
-                else if (homePath() === '/') setError(t(onAdminHost() ? 'signIn.notAdmin' : 'signIn.noSchool'));
+                if (problem) setError(t(problem));
                 // A check-in link opened while signed out goes on to check-in.
                 else router.replace(/^\/(checkin\?|delete-data\/)/.test(router.query.get('next') ?? '') ? router.query.get('next') ?? homePath() : homePath());
             }}>

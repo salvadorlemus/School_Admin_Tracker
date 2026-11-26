@@ -713,7 +713,8 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
   substitute, change teacher, end a class), prices, deactivating students, attendance by hand, posts,
   fees marked paid, teacher payments and their answers; the invitation link (`#/invite/{token}`). The
   student's and guardian's screens, registration (card and terms), check-in, uploads and the admin
-  panel still show the prototype's data. Helios's data is `supabase/seed.sql`.
+  panel still show the prototype's data. Helios's data is `supabase/seed.sql`; on a Helios that already has its setup,
+  `supabase/scripts/helios_sample.sql` adds the students and two months of history (`docs/test-accounts.md`).
 - **The prototype** runs in this app with invented data from `src/mock/` (an aerial dance studio,
   Estudio Aéreo Colibrí, and its sister schools, plus Helios in `src/mock/helios.ts`: a real
   studio's schedule, prices and teacher pay, with invented students whose two months of attendance and

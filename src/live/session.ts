@@ -3,6 +3,7 @@ import {onAdminHost, onAppHost} from '../lib/hosts';
 import type {User} from '@supabase/supabase-js';
 import {supabase, supabaseReady} from '../lib/supabase';
 import {LIVE} from './state';
+import type {TextKey} from '../lib/texts';
 import {loadLive} from './load';
 
 /**
@@ -72,14 +73,36 @@ async function identify(user: User): Promise<void> {
             status: string
         }[]).some(m => m.role === key && m.status !== 'inactive');
     }
+    // A guardian whose children have all left (deleted from the school) has nothing to act for: no guardian screens.
+    if (ROLES.guardian && !PENDING.registration) {
+        const {count} = await supabase.from('guardian_link').select('student_id', {count: 'exact', head: true}).eq('guardian_id', LIVE.person);
+        ROLES.guardian = Boolean(count);
+    }
+}
+
+/** Loads what the person may see; the screens redraw (and start fresh) once it's in. */
+async function load(): Promise<void> {
     await loadLive();
     if (LIVE.admin) await loadAdmin();
+}
+
+/**
+ * A login with nowhere to land here (a director on the admin panel's address, or no school yet) is
+ * signed out again before anything loads: loading redraws the sign-in screen, which would lose its
+ * message and leave the person signed in on it. The message's key, or null when they can go on.
+ */
+function nowhereToGo(): TextKey | null {
+    if (homePath() !== '/') return null;
+    return onAdminHost() ? 'signIn.notAdmin' : 'signIn.noSchool';
 }
 
 /** After registering: the memberships changed, so who they are is read again. */
 export async function refreshSession(): Promise<void> {
     const {data} = await supabase.auth.getUser();
-    if (data.user) await identify(data.user);
+    if (data.user) {
+        await identify(data.user);
+        await load();
+    }
 }
 
 /** On opening the page: a saved session goes straight to the live app. */
@@ -88,15 +111,26 @@ export async function restoreSession(): Promise<boolean> {
     const {data} = await supabase.auth.getSession();
     if (!data.session) return false;
     await identify(data.session.user);
+    if (nowhereToGo()) {
+        await supabase.auth.signOut({scope: 'local'});
+        return false;
+    }
+    await load();
     return true;
 }
 
 /** Returns an error key, or null once signed in and loaded. */
-export async function signIn(email: string, password: string): Promise<string | null> {
+export async function signIn(email: string, password: string): Promise<TextKey | null> {
     if (!supabaseReady) return 'signIn.unavailable';
     const {data, error} = await supabase.auth.signInWithPassword({email: email.trim(), password});
     if (error || !data.user) return 'signIn.wrong';
     await identify(data.user);
+    const nowhere = nowhereToGo();
+    if (nowhere) {
+        await supabase.auth.signOut({scope: 'local'});
+        return nowhere;
+    }
+    await load();
     return null;
 }
 

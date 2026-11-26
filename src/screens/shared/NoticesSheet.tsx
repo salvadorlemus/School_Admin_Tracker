@@ -49,7 +49,7 @@ export function NoticesSheet({role, open, onClose, keepNav}: {
 
     return (
         <Sheet open={open} onClose={onClose} title={t('notices.title')} tall keepNav={keepNav}
-               subtitle={several ? t('notices.schools', {n: schools.length}) : SCHOOLS[schools[0]].name}
+               subtitle={several ? t('notices.schools', {n: schools.length}) : SCHOOLS[schools[0]]?.name ?? ''}
                footer={<>
                    <p className="hint center">{t(canPost ? 'notices.lifeHint' : 'notices.boardHint')}</p>
                    {canPost && (

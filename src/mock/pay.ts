@@ -71,7 +71,10 @@ export const PAY_RULES: Record<SchoolId, PayRule> = {
     },
 };
 
-export const payRule = (school: SchoolId): PayRule => PAY_RULES[school] ?? PAY_RULES.colibri;
+/** A school that hasn't set how it pays yet (the live app has no prototype rule to fall back on): nothing is owed. */
+const NO_RULE: PayRule = {days: 'half', scheme: 'perSession', perSession: {}, defaultPerSession: 0, percent: 70, totalpassValue: 0, tiers: [], emptyPay: 0};
+
+export const payRule = (school: SchoolId): PayRule => PAY_RULES[school] ?? PAY_RULES.colibri ?? NO_RULE;
 
 /** The rule a period was paid by. */
 export function ruleFor(school: SchoolId, period: Period): PayRule {
