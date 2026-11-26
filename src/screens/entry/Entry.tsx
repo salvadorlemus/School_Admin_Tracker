@@ -81,7 +81,7 @@ export function SignIn() {
                 setBusy(true);
                 const problem = await signIn(String(form.get('email') ?? ''), String(form.get('password') ?? ''));
                 setBusy(false);
-                if (problem) setError(t('signIn.wrong'));
+                if (problem) setError(t(problem === 'signIn.unavailable' ? 'signIn.unavailable' : 'signIn.wrong'));
                 else if (homePath() === '/') setError(t(onAdminHost() ? 'signIn.notAdmin' : 'signIn.noSchool'));
                 else router.replace(homePath());
             }}>

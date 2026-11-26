@@ -57,7 +57,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   apart (`src/lib/hosts.ts`): the admin's address shows only the admin panel and the sign-in, the
   app's never shows the panel; unset (locally) both share one address. Invitations always open the app.
 - The version (`package.json`) shows at the end of the sign-in screen; each release bumps it and is
-  tagged (`V1.1.0`).
+  tagged (`V1.2.0`).
 - Never put the secret / service_role key in the app.
 
 ## Data model (draft)
@@ -645,7 +645,10 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
   dic 2026", "17:00"), whatever language the phone is in, with the phone's own picker opening on
   tap (`DateField`, `TimeField`).
 - **Phones first, for every role**: directors too mostly use the app on their phone. Design every
-  screen at 390px wide first; wider screens only give it more room. Keep content clear of the
+  screen at 390px wide first; wider screens only give it more room. On the web (600px and up) the app fills the window: the
+  content is one centred column (`--content-max`), popups open as dialogs in the middle, and from 900px
+  the bottom bar becomes a side menu with the app's name. `?frame` shows the phone outline on a laptop,
+  to review the phone layout. Keep content clear of the
   notch and home bar (safe areas); the page itself never scrolls (iOS Safari would drag the bars with it), only one scroll area between the top bar and the bottom bar (a long list of people under a search
   field scrolls in its own box instead, so the field stays and the list ends above the bottom bar); prefer
   cards that scroll sideways, or tabs, to very long pages.

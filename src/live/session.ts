@@ -1,6 +1,6 @@
 import {onAdminHost, onAppHost} from '../lib/hosts';
 import type {User} from '@supabase/supabase-js';
-import {supabase} from '../lib/supabase';
+import {supabase, supabaseReady} from '../lib/supabase';
 import {LIVE} from './state';
 import {loadLive} from './load';
 
@@ -33,6 +33,7 @@ async function identify(user: User): Promise<void> {
 
 /** On opening the page: a saved session goes straight to the live app. */
 export async function restoreSession(): Promise<boolean> {
+    if (!supabaseReady) return false;
     const {data} = await supabase.auth.getSession();
     if (!data.session) return false;
     await identify(data.session.user);
@@ -41,6 +42,7 @@ export async function restoreSession(): Promise<boolean> {
 
 /** Returns an error key, or null once signed in and loaded. */
 export async function signIn(email: string, password: string): Promise<string | null> {
+    if (!supabaseReady) return 'signIn.unavailable';
     const {data, error} = await supabase.auth.signInWithPassword({email: email.trim(), password});
     if (error || !data.user) return 'signIn.wrong';
     await identify(data.user);

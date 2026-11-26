@@ -8,8 +8,11 @@ import {createClient} from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-if (!url || !key) {
-    throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY: copy .env.example to .env.local.');
+/** Whether the build has the project's settings; without them only the prototype runs (nobody can sign in). */
+export const supabaseReady = Boolean(url && key);
+
+if (!supabaseReady) {
+    console.error('Lyra: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are missing from this build. Locally, copy .env.example to .env.local; on Render, add them to the environment and redeploy.');
 }
 
-export const supabase = createClient(url, key);
+export const supabase = createClient(url || 'http://localhost:54321', key || 'missing');
