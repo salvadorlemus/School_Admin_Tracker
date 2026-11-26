@@ -7,6 +7,8 @@ The `kokoasoft.com` mailboxes are what people write to. `mail.kokoasoft.com` is 
 verified in Resend: apps **send** from it and nobody writes to it. One sender serves every product;
 the display name says which product it is (`Lyra <no-reply@mail.kokoasoft.com>`).
 
+How they reach your Gmail and how you send from them: [`kokoasoft-email-setup.md`](kokoasoft-email-setup.md).
+
 ## In use
 
 | Address | What it's for | Used by | Mailbox needed |

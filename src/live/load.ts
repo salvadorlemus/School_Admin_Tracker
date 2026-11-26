@@ -29,12 +29,13 @@ const replace = <T, >(list: T[], items: T[]) => list.splice(0, list.length, ...i
 export async function loadLive(): Promise<void> {
     const me = LIVE.person;
     const [schools, memberships, persons, rooms, classes, schedules, offers, offerClasses, prices, enrollments, packages, cards, contacts, links,
-        fees, terms, acceptances, proofs, announcements, notifications, rules, tiers, rates, payments, staffContacts, staffCards] = await Promise.all([
+        fees, terms, acceptances, proofs, announcements, notifications, rules, tiers, rates, payments, staffContacts, staffCards, family, familyKids] = await Promise.all([
         rows('school'), rows('membership'), rows('person', 'id, full_name, phone'), rows('room'), rows('class'), rows('schedule'),
         rows('package_offer'), rows('package_offer_class'), rows('price'), rows('enrollment'), rows('student_package'), rows('student_card'),
         rows('emergency_contact'), rows('guardian_link'), rows('registration_fee'), rows('terms'), rows('terms_acceptance'),
         rows('payment_proof'), rows('announcement'), rows('notification', '*', q => q.order('created_at', {ascending: false}).limit(100)),
         rows('teacher_pay_rule'), rows('teacher_pay_tier'), rows('teacher_pay_rate'), rows('teacher_payment'), rows('staff_emergency_contact'), rows('staff_card'),
+        rows('family_person'), rows('family_person_child'),
     ]);
     const since = new Date(Date.now() - 70 * 86400000).toISOString();
     const until = new Date(Date.now() + 75 * 86400000).toISOString();
@@ -241,6 +242,9 @@ export async function loadLive(): Promise<void> {
         const n = new Date(`${today}T12:00:00`);
         return n.getFullYear() - b.getFullYear() - (n < new Date(n.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0);
     };
+    // A minor's people: their guardian's family list, the ones marked for them.
+    const familyOf = (student: string, school: string) => family.filter(p => p.school_id === school
+        && familyKids.some(k => k.family_person_id === p.id && k.student_id === student));
     replace<Student>(LIVE_STUDENTS, memberships.filter(m => m.role === 'student').map(m => {
         const id = str(m.person_id);
         const school = str(m.school_id);
@@ -270,11 +274,14 @@ export async function loadLive(): Promise<void> {
             health: str(card?.health_notes) || undefined,
             photo: str(card?.photo_path) || undefined,
             birth: str(card?.birth_date) || undefined,
-            emergency: contacts.filter(c => c.card_id === card?.id).map(c => ({
-                name: str(c.name),
-                relation: str(c.relation),
-                phone: str(c.phone)
-            })),
+            emergency: m.minor
+                ? familyOf(id, school).filter(p => p.is_emergency).map(p => ({name: str(p.name), relation: str(p.relation), phone: str(p.phone)}))
+                : contacts.filter(c => c.card_id === card?.id).map(c => ({
+                    name: str(c.name),
+                    relation: str(c.relation),
+                    phone: str(c.phone)
+                })),
+            pickup: m.minor ? familyOf(id, school).filter(p => p.can_pick_up).map(p => str(p.name)) : undefined,
         };
     }).sort((a, b) => a.name.localeCompare(b.name)));
 
