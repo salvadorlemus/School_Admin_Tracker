@@ -1,9 +1,14 @@
+import {Legal} from './screens/entry/Legal';
+import {LiveDeleteData} from './screens/entry/Entry';
+import {NewPassword} from './screens/entry/NewPassword';
+import {CheckInLink} from './screens/student/LiveStudent';
 import {ErrorBoundary} from './ui/ErrorBoundary';
 import {LiveRegister, LiveRegisterDone} from './screens/entry/LiveRegister';
 import {leaveForOwnHost} from './lib/hosts';
 import {useEffect, useState} from 'react';
 import {LIVE, useLiveVersion} from './live/state';
 import {homePath, restoreSession} from './live/session';
+import {isPrototypePath, isPublicPath, onProductionHost} from './lib/hosts';
 import {onLiveError} from './live/actions';
 import {t} from './lib/texts';
 import {useCurrentSchool} from './state/school';
@@ -161,6 +166,10 @@ const ROUTES: Route[] = [
     ['/a/account', AdminAccount],
     ['/register', LiveRegister],
     ['/register/done', LiveRegisterDone],
+    ['/legal', Legal],
+    ['/password/new', NewPassword],
+    ['/delete-data/:token', ({token}) => <LiveDeleteData token={token}/>],
+    ['/checkin', CheckInLink],
     ['/invite/:token', ({token}) => <JoinWithLink token={token}/>],
 ];
 
@@ -197,6 +206,12 @@ export default function App() {
     const {Screen, params} = found ?? {Screen: SignIn, params: {}};
     // The admin panel and the app each live on their own address.
     if (leaveForOwnHost(path)) return null;
+    // The real site: signed out, only the public pages; never the prototype's sample flows.
+    const blocked = onProductionHost() && ready && (isPrototypePath(path) || (!LIVE.on && !isPublicPath(path)));
+    if (blocked) {
+        window.setTimeout(() => router.replace(LIVE.on ? homePath() : '/'));
+        return null;
+    }
     // Keyed by path (and the staff's school, and each reload of the live data): a new screen starts fresh, while a popup opening (?sheet=) keeps the screen as it is.
     const school = useCurrentSchool();
     if (!ready) return <Device><div className="boot" aria-busy="true">{t('app.name')}</div></Device>;

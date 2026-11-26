@@ -1,3 +1,5 @@
+import {LIVE} from '../../live/state';
+import {saveCardPhoto, saveStaffPhoto} from '../../live/files';
 import {useState} from 'react';
 import {personName} from '../../lib/format';
 import {t} from '../../lib/texts';
@@ -31,8 +33,8 @@ export function CardSheet({role, open, onClose}: { role: Role; open: boolean; on
                        <Icon name="edit"/>{t('card.edit')}
                    </button>}>
                 <div className="row-start align-center" >
-                    <PhotoPicker name={teacher.name} label={t('form.photo')}
-                                 onPicked={() => toast(t('card.photoSaved'))}/>
+                    <PhotoPicker name={teacher.name} label={t('form.photo')} photo={teacher.photo}
+                                 onPicked={async (_, file) => toast(LIVE.on && await saveStaffPhoto(file) ? t('upload.failed') : t('card.photoSaved'))}/>
                     <div className="grow">
                         <span className="big">{teacher.name}</span>
                         <span className="hint">{t('form.photoHint')}</span>
@@ -60,10 +62,10 @@ export function CardSheet({role, open, onClose}: { role: Role; open: boolean; on
                                onClick={() => router.navigate(`/${role}/card/${student.id}${guardian ? '' : `?school=${school}`}`)}>
                    <Icon name="edit"/>{t('card.edit')}
                </button>}>
-            <StudentCardView key={student.id} student={student} photo onPhoto={() => toast(t('card.photoSaved'))}/>
+            <StudentCardView key={student.id} student={student} photo
+                             onPhoto={async file => toast(LIVE.on && await saveCardPhoto(student.school ?? school, student.id, file) ? t('upload.failed') : t('card.photoSaved'))}/>
             {!guardian && (
-                <DetailsCard own title={t('account.profile')} name="Sofía Ramírez Castro" phone="55 1029 3847"
-                             email="sofia.ramirez@correo.mx"/>
+                <DetailsCard own title={t('account.profile')} name={ME.fullName} phone={ME.phone} email={ME.email}/>
             )}
             <p className="hint">{t('card.whoSees')}</p>
         </Sheet>

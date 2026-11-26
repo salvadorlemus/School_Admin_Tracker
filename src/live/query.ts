@@ -14,6 +14,8 @@ export interface Query {
     order(column: string, options: { ascending: boolean }): Query;
 
     limit(count: number): Query;
+
+    eq(column: string, value: string): Query;
 }
 
 /** Every row of a table the signed-in person may read (the policies decide), page by page: the API returns at most 1000 a request. */

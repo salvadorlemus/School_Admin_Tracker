@@ -1,3 +1,4 @@
+import {supabase} from './lib/supabase';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App';
@@ -7,6 +8,11 @@ import {applyTheme, storedTheme} from './state/theme';
 import './styles/app.css';
 
 applyTheme(storedTheme());
+
+// The password email's link signs the person in (Supabase reads the link's tokens); they choose the new password next.
+supabase.auth.onAuthStateChange(event => {
+    if (event === 'PASSWORD_RECOVERY') window.location.replace('#/password/new');
+});
 
 // The keyboard's height (what the visual viewport loses at the bottom), for the layout to end above it.
 const viewport = window.visualViewport;

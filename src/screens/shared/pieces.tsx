@@ -5,7 +5,7 @@ import {classById, FAMILY, type ProofState, roomName, SCHOOL_LOGOS, type SchoolC
 import {teacherOf} from '../../mock/changes';
 import {Icon} from '../../ui/Icon';
 import {relationText} from './labels';
-import {Confetti, PhotoPicker} from '../../ui/Fields';
+import {Confetti, PhotoPicker, Avatar} from '../../ui/Fields';
 
 /** Pieces several roles' screens share: a session card, a student card, state chips, the finished screen. */
 
@@ -126,7 +126,7 @@ export function StudentCardView({student, compact, photo, onPhoto}: {
     student: Student;
     compact?: boolean;
     photo?: boolean;
-    onPhoto?: () => void;
+    onPhoto?: (file: File) => void;
 }) {
     const people = cardPeople(student);
     return (
@@ -134,8 +134,8 @@ export function StudentCardView({student, compact, photo, onPhoto}: {
             {!compact && (
                 <div className="row-start align-center" >
                     {photo
-                        ? <PhotoPicker name={student.name} label={t('form.photo')} onPicked={onPhoto}/>
-                        : <span className="avatar avatar-lg" aria-hidden="true">{initials(student.name)}</span>}
+                        ? <PhotoPicker name={student.name} label={t('form.photo')} photo={student.photo} onPicked={(_, file) => onPhoto?.(file)}/>
+                        : <Avatar large name={student.name} photo={student.photo}/>}
                     <div className="grow">
                         <span className="big">{student.name}</span>
                         <span

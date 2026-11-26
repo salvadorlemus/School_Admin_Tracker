@@ -1,3 +1,4 @@
+import {setup} from '../live/actions';
 import {live} from '../live/actions';
 import {attendanceOf, classById, guestsOf, NOW, PACKAGES, PRICES, type SchoolId, schoolOfClass, schoolOfSession, type Session, SESSIONS, studentById, TEACHERS, TODAY} from './data';
 import {teacherOf} from './changes';
@@ -81,6 +82,7 @@ export function ruleFor(school: SchoolId, period: Period): PayRule {
 
 /** Saving the director's rule: it applies from the period going on today. */
 export function saveRule(school: SchoolId, rule: PayRule) {
+    setup.savePayRule(school, rule);
     const current = payRule(school);
     const since = periodsOf(current)[0].from;
     PAY_RULES[school] = {...rule, since, before: current.since === since ? current.before : current};

@@ -1,4 +1,5 @@
-import {live} from '../live/actions';
+import {createClassLive, editClassLive, live, liveProblem, setup} from '../live/actions';
+import {LIVE} from '../live/state';
 import {currentSchool} from '../state/school';
 import {addDays, money, timeRange, weekdayOf, weekdayShort} from '../lib/format';
 import {
@@ -158,6 +159,7 @@ export type ClassFields = Pick<SchoolClass, 'name' | 'teacher' | 'slots' | 'from
 /** Editing a weekly class from one of its sessions on: those sessions are made again, earlier ones stay (rule: past sessions never change). */
 export function editClass(classId: string, fields: ClassFields, since: string) {
     const item = classById(classId);
+    if (LIVE.on) void editClassLive(classId, {...item}, fields, since).then(problem => problem && liveProblem(problem));
     const timesChanged = slotsText(item.slots) !== slotsText(fields.slots);
     const teacherChanged = fields.teacher !== item.teacher;
     handOver(item, fields.teacher, since);
@@ -195,6 +197,7 @@ export function endClass(classId: string, last: string) {
  * personal notice about it (they enroll themselves, rule 4).
  */
 export function createClass(fields: ClassFields, replaces?: string): SchoolClass {
+    if (LIVE.on) void createClassLive(currentSchool(), fields).then(problem => problem && liveProblem(problem));
     const item: SchoolClass = {id: `new-${CLASSES.length}`, kind: 'weekly', students: 0, ...fields};
     CLASSES.push(item);
     generate(item, item.from);
@@ -234,6 +237,7 @@ export function reassignTeacher(from: string, to: Record<string, string>, since:
 }
 
 export function deactivateTeacher(id: string) {
+    setup.deactivateTeacher(id);
     const teacher = TEACHERS.find(item => item.id === id);
     if (teacher) teacher.status = 'inactive';
 }
@@ -242,6 +246,7 @@ export function deactivateTeacher(id: string) {
 export const futureSessionsIn = (room: string) => SESSIONS.filter(session => session.room === room && session.date >= TODAY && session.status === 'scheduled');
 
 export function archiveRoom(id: string) {
+    setup.archiveRoom(id);
     const room = ROOMS.find(item => item.id === id);
     if (room) room.archived = true;
 }
@@ -249,7 +254,8 @@ export function archiveRoom(id: string) {
 /** Enrollments that were ended, by student and what they're in: the date they end (the end of the month paid). */
 export const ENDED_ENROLLMENTS = new Map<string, string>();
 
-export function endEnrollment(student: string, what: string, until: string) {
+export function endEnrollment(student: string, what: string, until: string, byStudent = false) {
+    setup.endEnrollment(student, what, until, byStudent);
     ENDED_ENROLLMENTS.set(`${student}:${what}`, until);
 }
 
@@ -366,6 +372,7 @@ export const packageHolders = (id: string) => [...new Set([
 ])].filter(student => !ENDED_ENROLLMENTS.has(`${student}:${id}`));
 
 export function savePackage(fields: { label: string; perWeek: number; classes: string[] }, id?: string, amount?: number): string {
+    setup.savePackage(fields, id, amount);
     const pack = id ? PACKAGES.find(item => item.id === id) : undefined;
     const price = id ? PRICES.find(item => item.id === id) : undefined;
     if (pack && price) {
@@ -384,6 +391,7 @@ export function savePackage(fields: { label: string; perWeek: number; classes: s
 export function removePackage(id: string) {
     const pack = PACKAGES.find(item => item.id === id);
     if (!pack) return;
+    setup.removePackage(id, packageHolders(id).length > 0);
     if (packageHolders(id).length) {
         pack.retired = true;
         return;
@@ -394,6 +402,7 @@ export function removePackage(id: string) {
 }
 
 export function offerPackageAgain(id: string) {
+    setup.offerPackageAgain(id);
     const pack = PACKAGES.find(item => item.id === id);
     if (pack) pack.retired = false;
 }

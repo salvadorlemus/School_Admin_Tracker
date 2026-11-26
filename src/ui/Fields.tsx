@@ -1,3 +1,4 @@
+import {useFileUrl} from '../live/files';
 import {Children, Fragment, isValidElement, useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode} from 'react';
 import {t} from '../lib/texts';
 import {dayField, initials, time} from '../lib/format';
@@ -351,15 +352,19 @@ export function Segmented<T extends string>({label, value, options, onChange}: {
  * A round photo with a camera badge: tapping it opens the camera (or the gallery). The picked
  * image shows at once; in the real app it's compressed on the phone before uploading.
  */
-export function PhotoPicker({name, size = 'md', label, onPicked}: {
+export function PhotoPicker({name, size = 'md', label, onPicked, photo}: {
     name: string;
     size?: 'sm' | 'md';
     label: string;
-    /** Called with the picked photo (an object URL the prototype keeps in memory). */
-    onPicked?: (url?: string) => void;
+    /** Called with the picked photo: an object URL to show it, and the file to send. */
+    onPicked?: (url: string, file: File) => void;
+    /** The photo already saved (its path in the bucket). */
+    photo?: string;
 }) {
     const input = useRef<HTMLInputElement>(null);
-    const [url, setUrl] = useState<string | null>(null);
+    const [picked, setUrl] = useState<string | null>(null);
+    const saved = useFileUrl(photo);
+    const url = picked ?? (saved || null);
     return (
         <>
             <button type="button" className={size === 'sm' ? 'photo-picker photo-picker-sm' : 'photo-picker'}
@@ -374,15 +379,16 @@ export function PhotoPicker({name, size = 'md', label, onPicked}: {
                        if (file) {
                            const next = URL.createObjectURL(file);
                            setUrl(next);
-                           onPicked?.(next);
+                           onPicked?.(next, file);
                        }
                    }}/>
         </>
     );
 }
 
-export function Avatar({name, large}: { name: string; large?: boolean }) {
-    return <span className={large ? 'avatar avatar-lg' : 'avatar'} aria-hidden="true">{initials(name)}</span>;
+export function Avatar({name, large, photo}: { name: string; large?: boolean; photo?: string }) {
+    const url = useFileUrl(photo);
+    return <span className={large ? 'avatar avatar-lg' : 'avatar'} aria-hidden="true">{url ? <img src={url} alt=""/> : initials(name)}</span>;
 }
 
 /** A row in a list: a button when it opens something, plain otherwise. `fixed` keeps every row one height. */

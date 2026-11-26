@@ -1,3 +1,4 @@
+import {sendPasswordLink} from '../../live/cards';
 import {LIVE} from '../../live/state';
 import {signOut} from '../../live/session';
 import {LANGUAGES, t} from '../../lib/texts';
@@ -57,7 +58,10 @@ export function PasswordRow({email}: { email: string }) {
                     title: t('password.confirmTitle'),
                     body: t('password.confirmBody', {email}),
                     confirm: t('password.send'),
-                })) toast(t('password.sent'));
+                })) {
+                    const problem = LIVE.on ? await sendPasswordLink(email) : null;
+                    toast(problem ? t('live.refused', {reason: problem}) : t('password.sent'));
+                }
             }}>
                 <span className="muted"><Icon name="mail"/></span>
                 <span className="grow">
@@ -94,4 +98,9 @@ export function NavRow({label, sub, to, icon}: { label: string; sub?: string; to
             </button>
         </li>
     );
+}
+
+/** Lyra's terms and privacy notice, from every Account. */
+export function LegalRow() {
+    return <ul className="list"><NavRow label={t('legal.link')} sub={t('legal.rowSub')} to="/legal" icon="file"/></ul>;
 }

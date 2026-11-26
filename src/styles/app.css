@@ -1559,3 +1559,6 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
     .device { bottom: var(--keyboard, 0px); }
     html[data-keyboard] .nav { display: none; }
 }
+
+/* The check-in code under the QR, to type it when the camera can't read the QR. */
+.qr-code-text { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: 0.12em; color: var(--qr-ink); margin: 0; }

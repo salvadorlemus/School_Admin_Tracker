@@ -1,10 +1,12 @@
+import {Check} from '../../ui/Fields';
+import {compressPhoto, familyPhotoPath, saveCardPhoto, uploadFile} from '../../live/files';
 import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {useRouter} from '../../lib/router';
 import {supabase} from '../../lib/supabase';
 import {GUARDIAN_KIDS, ME, SCHOOLS} from '../../mock/data';
 import {LIVE} from '../../live/state';
-import {homePath, refreshSession} from '../../live/session';
+import {homePath, PENDING, refreshSession} from '../../live/session';
 import {BareScreen} from '../../ui/Screen';
 import {Icon} from '../../ui/Icon';
 import {useToast} from '../../ui/Layers';
@@ -24,6 +26,8 @@ interface Pending {
     /** Already saved, when they come back to finish: the family list (guardians), and whose cards. */
     familyDone: boolean;
     cardsDone: string[];
+    /** Only the school's new terms, for someone registered already. */
+    renewal?: boolean;
 }
 
 /** What's still to register: the first invited membership (a student's or a guardian's). */
@@ -33,7 +37,8 @@ async function pending(): Promise<Pending | null> {
     const own = rows.find(m => m.role === 'student');
     if (own) return withProgress({school: own.school_id, students: [{id: LIVE.person, name: ME.name}], guardian: false, familyDone: true, cardsDone: []});
     const guardian = rows.find(m => m.role === 'guardian');
-    if (!guardian) return null;
+    // Registered already, with a school's new terms to accept: straight to the reader.
+    if (!guardian) return PENDING.terms ? {...PENDING.terms, guardian: false, familyDone: true, cardsDone: PENDING.terms.students.map(s => s.id), renewal: true} : null;
     const {data: links} = await supabase.from('guardian_link').select('student_id').eq('school_id', guardian.school_id).eq('guardian_id', LIVE.person);
     const ids = ((links ?? []) as { student_id: string }[]).map(l => l.student_id);
     const {data: people} = ids.length ? await supabase.from('person').select('id, full_name').in('id', ids) : {data: []};
@@ -67,6 +72,7 @@ export function LiveRegister() {
     const [step, setStep] = useState<Step>({kind: 'card', index: 0});
     const [people, setPeople] = useState<Person[]>([]);
     const [busy, setBusy] = useState(false);
+    const [consent, setConsent] = useState(false);
 
     useEffect(() => {
         void pending().then(found => {
@@ -113,6 +119,8 @@ export function LiveRegister() {
             }
             if (values.phone.trim()) await supabase.from('person').update({phone: values.phone.trim()}).eq('id', LIVE.person);
         }
+        // The photo is optional: a card saved without it can get one later from the card.
+        if (values.photo) await saveCardPhoto(todo.school, student, values.photo);
         setBusy(false);
         return true;
     };
@@ -122,15 +130,20 @@ export function LiveRegister() {
         if (!todo) return false;
         setBusy(true);
         for (const person of people) {
+            // A pickup person needs their photo and the guardian's consent to share it (asked on the form).
+            const photo = person.file ? familyPhotoPath(todo.school) : null;
             const {data, error} = await supabase.from('family_person').insert({
                 school_id: todo.school,
                 guardian_id: LIVE.person,
                 name: person.name,
                 relation: person.relation,
                 phone: person.phone || null,
+                photo_path: photo,
                 is_emergency: person.emergency,
-                can_pick_up: false,
+                can_pick_up: Boolean(photo) && person.pickup,
+                consent_at: photo && person.pickup ? new Date().toISOString() : null,
             }).select('id').single();
+            if (photo && person.file && !error) await uploadFile(photo, await compressPhoto(person.file));
             if (error) {
                 fail(error.message);
                 return false;
@@ -156,10 +169,12 @@ export function LiveRegister() {
     const at = step.kind === 'family' ? 1 : step.kind === 'card' ? (todo.guardian ? step.index + 2 : 1) : total;
 
     if (step.kind === 'family') {
-        const ready = people.some(p => p.emergency && p.phone);
+        // Pickup people need a photo, and the guardian's consent to share it (rule 18).
+        const pickup = people.some(p => p.pickup);
+        const ready = people.some(p => p.emergency && p.phone) && people.every(p => !p.pickup || p.file) && (!pickup || consent);
         return (
             <BareScreen footer={<>
-                {!ready && <p className="hint center">{t('register.needContact')}</p>}
+                {!ready && <p className="hint center">{t(people.some(p => p.pickup && !p.file) ? 'register.needPhoto' : pickup && !consent ? 'register.needConsent' : 'register.needContact')}</p>}
                 <button type="button" className="btn btn-lg" disabled={!ready || busy} onClick={async () => {
                     if (await saveFamily()) setStep({kind: 'card', index: 0});
                 }}>{t('common.continue')}</button>
@@ -168,7 +183,7 @@ export function LiveRegister() {
                 <h1 className="huge">{t('register.familyTitle')}</h1>
                 <p className="muted">{t('register.familyBody')}</p>
                 <PeopleEditor people={people} setPeople={setPeople} minor kids={todo.students} mode="register"/>
-                <p className="hint">{t('register.pickupLater')}</p>
+                {pickup && <Check id="family-consent" label={t('form.pickupConsent')} checked={consent} onChange={setConsent}/>}
             </BareScreen>
         );
     }
@@ -187,8 +202,8 @@ export function LiveRegister() {
                          }}/>;
     }
 
-    return <TermsStep school={todo.school} schoolName={school} step={t('invite.step', {at, of: total})}
-                      names={todo.guardian ? todo.students.map(s => s.name) : []}
+    return <TermsStep school={todo.school} schoolName={school} step={todo.renewal ? undefined : t('invite.step', {at, of: total})}
+                      names={todo.guardian || todo.students.some(s => s.id !== LIVE.person) ? todo.students.map(s => s.name) : []}
                       onAccept={async termsId => {
                           setBusy(true);
                           const {error} = await supabase.from('terms_acceptance').insert(todo.students.map(s => ({
@@ -199,7 +214,8 @@ export function LiveRegister() {
                           if (error) return fail(error.message);
                           await refreshSession();
                           setBusy(false);
-                          router.replace('/register/done');
+                          // New terms accepted: on to the app (or the next school's new terms).
+                          router.replace(todo.renewal ? homePath() : '/register/done');
                       }}/>;
 }
 
@@ -302,6 +318,7 @@ export function TermsStep({school, schoolName, step, names, onAccept}: {
                 </div>
             </header>
             <div className="stack-sm reader-head">
+                <p className="small muted">{t('legal.alsoRead')} <a href="#/legal">{t('legal.link')}</a></p>
                 {names.length > 1 &&
                     <p className="small">{t('terms.forKids', {names: names.map(n => n.split(' ')[0]).join(', ')})}</p>}
                 <div className="progress" role="progressbar" aria-label={t('terms.progress')} aria-valuemin={0}

@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayMonth, dayShort, money, personName, time} from '../../lib/format';
 import {useRouter} from '../../lib/router';
@@ -21,7 +21,7 @@ import {
     type SchoolId,
     type Session,
 } from '../../mock/data';
-import {LIVE_FEES} from '../../live/state';
+import {LIVE, LIVE_FEES} from '../../live/state';
 import {loadLive} from '../../live/load';
 import {Carousel, Empty, TextField, useQueryIndex} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -398,4 +398,17 @@ export async function liveJoin(request: {
             : await supabase.from('booking').insert({school_id: school, student_id: request.student, session_id: request.sessionId, kind: request.kind === 'trial' ? 'trial' : 'free'});
     await loadLive().catch(() => undefined);
     return result.error ? result.error.message : null;
+}
+
+/** Where the QR's link lands: a guardian picks which children are there; a student checks in with the code already filled. */
+export function CheckInLink() {
+    const router = useRouter();
+    const code = router.query.get('code') ?? '';
+    useEffect(() => {
+        // Signed out: the sign-in comes first, then back here.
+        if (!LIVE.on) router.replace(`/?next=${encodeURIComponent(`/checkin?code=${code}`)}`);
+        else if (GUARDIAN_KIDS.length && !ME.student) router.replace(`/g/home?sheet=who&code=${encodeURIComponent(code)}`);
+        else router.replace(`/s/checkin?code=${encodeURIComponent(code)}`);
+    }, []);
+    return null;
 }

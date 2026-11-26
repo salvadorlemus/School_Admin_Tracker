@@ -5,8 +5,9 @@
 enrollments, QR check-in, payments and payment screenshots, teacher pay, and a notices board.
 Several schools share one app, and each sees only its own people and records.
 
-**Status — v1.3.0: the database is live (Supabase), with Helios as the first school; the director's and
-teacher's screens read and change it. The rest of the screens are still the clickable prototype.** Every screen, for every role, is built and works with
+**Status — v1.4.0: every role works on the live database (Supabase), with Helios as the first school:
+registration, check-in by QR, uploads, invitations, the director's setup and the admin panel. Away from
+the real site, the same screens also run as a clickable prototype.** Every screen, for every role, is built and works with
 invented sample data. Changes made while clicking around stay in memory until the page reloads.
 The backend (Supabase database, auth, storage, emails) is the next step; its data model and rules
 are written down in [`CLAUDE.md`](CLAUDE.md).

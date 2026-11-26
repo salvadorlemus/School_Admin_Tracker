@@ -29,12 +29,12 @@ const replace = <T, >(list: T[], items: T[]) => list.splice(0, list.length, ...i
 export async function loadLive(): Promise<void> {
     const me = LIVE.person;
     const [schools, memberships, persons, rooms, classes, schedules, offers, offerClasses, prices, enrollments, packages, cards, contacts, links,
-        fees, terms, acceptances, proofs, announcements, notifications, rules, tiers, rates, payments, staffContacts] = await Promise.all([
+        fees, terms, acceptances, proofs, announcements, notifications, rules, tiers, rates, payments, staffContacts, staffCards] = await Promise.all([
         rows('school'), rows('membership'), rows('person', 'id, full_name, phone'), rows('room'), rows('class'), rows('schedule'),
         rows('package_offer'), rows('package_offer_class'), rows('price'), rows('enrollment'), rows('student_package'), rows('student_card'),
         rows('emergency_contact'), rows('guardian_link'), rows('registration_fee'), rows('terms'), rows('terms_acceptance'),
         rows('payment_proof'), rows('announcement'), rows('notification', '*', q => q.order('created_at', {ascending: false}).limit(100)),
-        rows('teacher_pay_rule'), rows('teacher_pay_tier'), rows('teacher_pay_rate'), rows('teacher_payment'), rows('staff_emergency_contact'),
+        rows('teacher_pay_rule'), rows('teacher_pay_tier'), rows('teacher_pay_rate'), rows('teacher_payment'), rows('staff_emergency_contact'), rows('staff_card'),
     ]);
     const since = new Date(Date.now() - 70 * 86400000).toISOString();
     const until = new Date(Date.now() + 75 * 86400000).toISOString();
@@ -90,6 +90,7 @@ export async function loadLive(): Promise<void> {
             phone: str(persons.find(p => p.id === id)?.phone),
             status: 'active' as const,
             futureSessions: futureByTeacher.get(id) ?? 0,
+            photo: str(staffCards.find(c => c.person_id === id)?.photo_path) || undefined,
             emergency: staffContacts.filter(c => c.person_id === id).map(c => ({
                 name: str(c.name),
                 relation: str(c.relation),
@@ -267,6 +268,8 @@ export async function loadLive(): Promise<void> {
             termsPending: latest && acceptances.length ? !acceptances.some(a => a.terms_id === latest.id && a.student_id === id) || undefined : undefined,
             feeOwed: fees.some(f => f.student_id === id && f.school_id === school && !f.done_at) || undefined,
             health: str(card?.health_notes) || undefined,
+            photo: str(card?.photo_path) || undefined,
+            birth: str(card?.birth_date) || undefined,
             emergency: contacts.filter(c => c.card_id === card?.id).map(c => ({
                 name: str(c.name),
                 relation: str(c.relation),
@@ -457,6 +460,14 @@ export async function loadLive(): Promise<void> {
     const myName = nameOf.get(me) ?? '';
     ME.student = mine.some(m => m.role === 'student') ? me : '';
     ME.name = myName.split(' ')[0] ?? '';
+    ME.fullName = myName;
+    ME.phone = str(persons.find(p => p.id === me)?.phone);
+    ME.email = LIVE.email;
+    ME.accepted = [...new Set(acceptances.map(a => str(a.school_id)))].flatMap(school => {
+        const mineThere = acceptances.filter(a => a.school_id === school && a.accepted_by === me);
+        const best = mineThere.map(a => ({a, version: num(terms.find(x => x.id === a.terms_id)?.version)})).sort((x, y) => y.version - x.version)[0];
+        return best ? [{school, version: best.version, when: str(best.a.accepted_at).slice(0, 10)}] : [];
+    });
     ME.guardianName = ME.name;
     replace(SOFIA_SCHOOLS, mine.filter(m => m.role === 'student').map(m => str(m.school_id)));
     const kids = links.filter(l => l.guardian_id === me);

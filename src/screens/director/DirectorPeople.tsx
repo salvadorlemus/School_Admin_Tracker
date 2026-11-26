@@ -1,3 +1,6 @@
+import {invitePerson, resendInvite, setup} from '../../live/actions';
+import {live} from '../../live/actions';
+import {LIVE} from '../../live/state';
 import {currentSchool} from '../../state/school';
 import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
@@ -5,7 +8,7 @@ import {dayMonth, dayMonthYear, dayShort, money, personName, time, weekdayShort}
 import {useRouter} from '../../lib/router';
 import {classById, CLASSES, schoolOfClass, TODAY, PRICES, PROOFS, ROOMS, roomName, SCHOOLS, studentById, TEACHERS, teacherSchools, type Price, type Room, roomsHere, studentsHere, pricesHere, packageLabel, PACKAGES, teacherName} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
-import {Avatar, Check, DateField, EmailField, Empty, ListRow, MoneyField, NumberField, PhoneField, SearchField, Segmented, SelectField, TextField} from '../../ui/Fields';
+import {Avatar, Check, DateField, EmailField, Empty, ListRow, MoneyField, NumberField, SearchField, Segmented, SelectField, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DetailsCard, ProofChip, StudentCardView, TermsChip, classWhen} from '../shared/pieces';
@@ -260,15 +263,34 @@ export function Register() {
     const adult = router.query.get('adult');
     const grown = adult ? studentById(adult) : null;
     const [who, setWho] = useState<string>(adult ? 'adult' : 'minor');
-    const [kids, setKids] = useState<string[]>(['Lucas Medina Paz', 'Emma Medina Paz']);
+    const [kids, setKids] = useState<string[]>(LIVE.on ? [''] : ['Lucas Medina Paz', 'Emma Medina Paz']);
     const [day, setDay] = useState(grown ? String(grown.paymentDay) : '');
+    const [guardianName, setGuardianName] = useState(LIVE.on ? '' : 'Rosa Paz');
+    const [guardianEmail, setGuardianEmail] = useState(LIVE.on ? '' : 'rosa.paz@correo.mx');
+    const [adultName, setAdultName] = useState(grown ? grown.name : LIVE.on ? '' : 'Iván Cruz');
+    const [adultEmail, setAdultEmail] = useState(LIVE.on ? '' : adult ? 'emilio.sanchez@correo.mx' : 'ivan.cruz@correo.mx');
+    const [busy, setBusy] = useState(false);
+    const toast = useToast();
+    const minorForm = who === 'minor';
+    const name = minorForm ? guardianName : adultName;
+    const email = minorForm ? guardianEmail : adultEmail;
+    const filled = Boolean(day) && name.trim().length > 1 && /^\S+@\S+\.\S+$/.test(email.trim()) && (!minorForm || kids.some(kid => kid.trim().length > 1));
     return (
         <Screen title={t('reg.title')} back="/d/students" nav={false} note={day ? t('reg.termsNote') : t('reg.pickDay')}
-                footer={<button type="button" className="btn btn-lg" disabled={!day}
-                                onClick={() => {
+                footer={<button type="button" className="btn btn-lg" disabled={!filled || busy}
+                                onClick={async () => {
+                                    if (LIVE.on) {
+                                        setBusy(true);
+                                        const problem = await invitePerson({school: currentSchool(), role: minorForm ? 'guardian' : 'student', email, fullName: name,
+                                            paymentDay: day === '15' ? 15 : 30, children: minorForm ? kids : []});
+                                        setBusy(false);
+                                        if (problem) return toast(t('live.refused', {reason: problem}));
+                                    }
                                     if (adult) GROWN.add(adult);
-                                    router.replace(`/d/register/sent?who=${who}${adult ? `&adult=${adult}` : ''}`);
-                                }}>{t('reg.send')}</button>}>
+                                    const sent = new URLSearchParams({who, email: email.trim(), name: name.trim()});
+                                    if (adult) sent.set('adult', adult);
+                                    router.replace(`/d/register/sent?${sent}`);
+                                }}>{t(busy ? 'upload.sending' : 'reg.send')}</button>}>
             {grown && <div className="banner">{t('reg.grownNote', {name: grown.name, when: dayMonth(grown.turns18 ?? TODAY)})}</div>}
             {!grown && <SelectField id="rg-who" label={t('reg.who')} value={who} onChange={setWho}
                          options={[{value: 'minor', label: t('reg.minor'), hint: t('reg.minorHint')}, {
@@ -301,17 +323,14 @@ export function Register() {
                     <button type="button" className="btn btn-secondary" onClick={() => setKids(list => [...list, ''])}>
                         <Icon name="plus"/>{t('reg.addChild')}</button>
                     <h2 className="section-title">{t('reg.guardian')}</h2>
-                    <TextField id="rg-gname" label={t('form.name')} defaultValue="Rosa Paz" autoComplete="off"/>
-                    <EmailField id="rg-gemail" label={t('signIn.email')} defaultValue="rosa.paz@correo.mx"/>
-                    <PhoneField id="rg-gphone" label={t('form.phone')} defaultValue="55 3030 4040"/>
+                    <TextField id="rg-gname" label={t('form.name')} value={guardianName} onChange={event => setGuardianName(event.target.value)} autoComplete="off"/>
+                    <EmailField id="rg-gemail" label={t('signIn.email')} value={guardianEmail} onChange={event => setGuardianEmail(event.target.value)}/>
                     <p className="hint">{t('reg.familyOnce')}</p>
                 </>
             ) : (
                 <>
-                    <TextField id="rg-aname" label={t('form.name')}
-                               defaultValue={adult ? 'Emilio Sánchez' : 'Iván Cruz'} autoComplete="off"/>
-                    <EmailField id="rg-aemail" label={t('signIn.email')}
-                                defaultValue={adult ? 'emilio.sanchez@correo.mx' : 'ivan.cruz@correo.mx'}/>
+                    <TextField id="rg-aname" label={t('form.name')} value={adultName} onChange={event => setAdultName(event.target.value)} autoComplete="off"/>
+                    <EmailField id="rg-aemail" label={t('signIn.email')} value={adultEmail} onChange={event => setAdultEmail(event.target.value)}/>
                 </>
             )}
             <p className="hint">{t('reg.selfEnroll')}</p>
@@ -330,7 +349,10 @@ export function RegisterSent() {
                 footer={
                     <div className="btn-row">
                         <button type="button" className="btn btn-secondary btn-lg"
-                                onClick={() => toast(t('regSent.resent'))}><Icon name="repeat"/>{t('regSent.resend')}
+                                onClick={async () => {
+                                    const problem = LIVE.on ? await resendInvite(currentSchool(), minor ? 'guardian' : 'student', router.query.get('name') ?? '') : null;
+                                    toast(problem ? t('live.refused', {reason: problem}) : t('regSent.resent'));
+                                }}><Icon name="repeat"/>{t('regSent.resend')}
                         </button>
                         <button type="button" className="btn btn-lg"
                                 onClick={() => router.back('/d/students')}>{t('common.done')}</button>
@@ -338,7 +360,7 @@ export function RegisterSent() {
                 }>
             <div className="done">
                 <span className="avatar avatar-lg"><Icon name="mail" size={40}/></span>
-                <p className="big">{t(minor ? 'regSent.bodyMinor' : 'regSent.body', {email: minor ? 'rosa.paz@correo.mx' : grown ? 'emilio.sanchez@correo.mx' : 'ivan.cruz@correo.mx'})}</p>
+                <p className="big">{t(minor ? 'regSent.bodyMinor' : 'regSent.body', {email: router.query.get('email') ?? ''})}</p>
                 <p className="muted">{t('regSent.same')}</p>
                 <p className="muted">{t('regSent.next')}</p>
             </div>
@@ -429,6 +451,7 @@ export function RoomScreen({id}: { id: string }) {
                 footer={<>
                     <button type="button" className="btn btn-lg" disabled={!named} onClick={() => {
                         const fields = {name: name.trim(), classesAtOnce: Number(classes) || undefined, students: Number(students) || undefined};
+                        setup.saveRoom(room?.id, fields);
                         if (room) Object.assign(room, fields);
                         else ROOMS.push({id: `room-${ROOMS.length + 1}`, school: currentSchool() === 'colibri' ? undefined : currentSchool(), futureSessions: 0, ...fields});
                         toast(t('form.saved'));
@@ -510,7 +533,9 @@ export function Teachers() {
             <Sheet open={invite.open} onClose={invite.close} title={t('teachers.invite')}
                    footer={<>
                        {!ready && <p className="hint center">{t('teachers.inviteNeed')}</p>}
-                       <button type="button" className="btn btn-lg" disabled={!ready} onClick={() => {
+                       <button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
+                           const problem = LIVE.on ? await invitePerson({school: currentSchool(), role: 'teacher', email, fullName: name}) : null;
+                           if (problem) return toast(t('live.refused', {reason: problem}));
                            toast(t('teachers.inviteSent'));
                            setName('');
                            setEmail('');
@@ -841,14 +866,16 @@ export function Terms() {
                 <span className="small">{t('todo.termsSub', {done: termsState().accepted, of: termsState().students})}</span>
             </div>
             <input ref={input} type="file" accept="application/pdf" hidden onChange={async event => {
-                if (!event.target.files?.[0]) return;
+                const file = event.target.files?.[0];
+                if (!file) return;
                 const ok = await confirm({
                     title: t('dterms.confirmTitle'),
-                    body: t('dterms.confirmBodyFile', {n: termsState().students, file: event.target.files[0].name, version: termsState().version + 1}),
+                    body: t('dterms.confirmBodyFile', {n: termsState().students, file: file.name, version: termsState().version + 1}),
                     confirm: t('dterms.confirmButton')
                 });
                 event.target.value = '';
                 if (ok) {
+                    if (LIVE.on) live.publishTerms(currentSchool(), file);
                     publishTerms();
                     redraw(n => n + 1);
                     toast(t('dterms.uploadedToast', {n: termsState().version}));
