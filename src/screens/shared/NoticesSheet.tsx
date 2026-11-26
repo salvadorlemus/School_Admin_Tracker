@@ -2,19 +2,7 @@ import {useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayMonth, listOf, shortName} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {
-    BOARD_READERS,
-    boardFor,
-    classById,
-    classesOf,
-    PERSONAL,
-    SCHOOLS,
-    SOFIA_SCHOOLS,
-    studentById,
-    teacherName,
-    type Notice,
-    type SchoolId
-} from '../../mock/data';
+import {BOARD_READERS, boardFor, classById, classesOf, PERSONAL, SCHOOLS, SOFIA_SCHOOLS, studentById, teacherName, type Notice, type SchoolId, GUARDIAN_SCHOOLS} from '../../mock/data';
 import {Sheet} from '../../ui/Layers';
 import {Icon} from '../../ui/Icon';
 import {MenuText} from '../../ui/Fields';
@@ -45,7 +33,7 @@ export function NoticesSheet({role, open, onClose, keepNav}: {
     if (role === 'a') return null;
     const personal = [...(role === 'd' ? payReminders(current) : []), ...PERSONAL[role].filter(item => role === 's' || role === 'g' || item.school === current)].sort((a, b) => Number(Boolean(b.unread)) - Number(Boolean(a.unread)));
     // Students see all their schools' boards; guardians their children's school; staff the school they're working in.
-    const schools: SchoolId[] = role === 's' ? SOFIA_SCHOOLS : [role === 'g' ? 'colibri' : current];
+    const schools: SchoolId[] = role === 's' ? SOFIA_SCHOOLS : role === 'g' ? GUARDIAN_SCHOOLS : [current];
     const canPost = role === 't' || role === 'd';
     const several = schools.length > 1;
     const readers = BOARD_READERS[role] ?? [];

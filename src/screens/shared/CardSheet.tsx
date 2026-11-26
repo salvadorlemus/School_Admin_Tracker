@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {personName} from '../../lib/format';
 import {t} from '../../lib/texts';
 import {useRouter} from '../../lib/router';
-import {GUARDIAN_KIDS, type SchoolId, SCHOOLS, SOFIA_SCHOOLS, STAFF_ME, studentById, TEACHERS, teacherSchools} from '../../mock/data';
+import {GUARDIAN_KIDS, type SchoolId, SCHOOLS, SOFIA_SCHOOLS, STAFF_ME, studentById, TEACHERS, teacherSchools, ME, GUARDIAN_SCHOOLS} from '../../mock/data';
 import {Sheet, useToast} from '../../ui/Layers';
 import {MenuText, PhotoPicker} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -21,7 +21,7 @@ export function CardSheet({role, open, onClose}: { role: Role; open: boolean; on
     const guardian = role === 'g';
     const [kid, setKid] = useState('mateo');
     // A card belongs to one school (it's never copied across): Sofía, in two schools, has one in each.
-    const [school, setSchool] = useState<SchoolId>('colibri');
+    const [school, setSchool] = useState<SchoolId>((guardian ? GUARDIAN_SCHOOLS[0] : SOFIA_SCHOOLS[0]) ?? 'colibri');
     if (role === 't' || role === 'd') {
         const teacher = TEACHERS.find(item => item.id === STAFF_ME[role]) ?? TEACHERS[0];
         return (
@@ -46,7 +46,7 @@ export function CardSheet({role, open, onClose}: { role: Role; open: boolean; on
             </Sheet>
         );
     }
-    const student = studentById(guardian ? kid : 'sofia');
+    const student = studentById(guardian ? kid : ME.student);
     return (
         <Sheet open={open} onClose={onClose} title={t(guardian ? 'card.titleGuardian' : 'card.title')} tall
                subtitle={guardian

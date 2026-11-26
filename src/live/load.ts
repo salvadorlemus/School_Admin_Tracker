@@ -1,39 +1,12 @@
 import {num, rows, type Row, str} from './query';
 import {money} from '../lib/format';
 import {DEFAULT_ZONE, localParts} from '../lib/zone';
-import {
-    BOARD,
-    CLASSES,
-    ENROLLMENTS,
-    HISTORY,
-    PACKAGES,
-    PERSONAL,
-    PRICES,
-    PROOFS,
-    ROOMS,
-    SCHOOLS,
-    SESSIONS,
-    STAFF_ME,
-    TEACHERS,
-    setClock,
-    type Enrollment,
-    type Notice,
-    type Package,
-    type Personal,
-    type PlanKind,
-    type Price,
-    type Proof,
-    type Room,
-    type SchoolClass,
-    type Session,
-    type Student,
-    type Teacher,
-} from '../mock/data';
+import {BOARD, CLASSES, ENROLLMENTS, HISTORY, PACKAGES, PERSONAL, PRICES, PROOFS, ROOMS, SCHOOLS, SESSIONS, STAFF_ME, TEACHERS, setClock, type Enrollment, type Notice, type Package, type Personal, type PlanKind, type Price, type Proof, type Room, type SchoolClass, type Session, type Student, type Teacher, ME, GUARDIAN_KIDS, GUARDIAN_SCHOOLS, SOFIA_SCHOOLS, BOARD_READERS} from '../mock/data';
 import type {Attendance} from '../mock/helios';
 import {PAY_RULES, setTeacherPayments, type TeacherPayment} from '../mock/pay';
 import {setLiveTerms} from '../mock/changes';
 import {currentSchool, setCurrentSchool} from '../state/school';
-import {LIVE, LIVE_STUDENTS, liveChanged} from './state';
+import {LIVE, LIVE_STUDENTS, liveChanged, LIVE_FEES} from './state';
 import type {TextKey} from '../lib/texts';
 
 /**
@@ -130,6 +103,10 @@ export async function loadLive(): Promise<void> {
         }
         teacher.status = m.status === 'active' || teacher.status === 'active' && m.status !== 'invited' ? (m.status as Teacher['status']) : teacher.status;
         staff.set(id, teacher);
+    }
+    for (const c of classes) {
+        const id = str(c.teacher_id);
+        if (!staff.has(id) && nameOf.has(id)) staff.set(id, {id, schools: [str(c.school_id)], name: nameOf.get(id) ?? '', email: '', phone: '', status: 'active', futureSessions: 0, emergency: []});
     }
     replace<Teacher>(TEACHERS, [...staff.values()].sort((a, b) => a.name.localeCompare(b.name)));
     STAFF_ME.t = me;
@@ -474,6 +451,20 @@ export async function loadLive(): Promise<void> {
                 uploaded: str(v.uploaded_at).slice(0, 10)
             })), current.map(st => st.name));
     }
+
+
+    // ---- Who the student screens are for: the signed-in student, or the guardian's children ----
+    const myName = nameOf.get(me) ?? '';
+    ME.student = mine.some(m => m.role === 'student') ? me : '';
+    ME.name = myName.split(' ')[0] ?? '';
+    ME.guardianName = ME.name;
+    replace(SOFIA_SCHOOLS, mine.filter(m => m.role === 'student').map(m => str(m.school_id)));
+    const kids = links.filter(l => l.guardian_id === me);
+    replace(GUARDIAN_KIDS, kids.map(l => ({id: str(l.student_id), name: LIVE_STUDENTS.find(st => st.id === l.student_id)?.name ?? nameOf.get(str(l.student_id)) ?? ''})));
+    replace(GUARDIAN_SCHOOLS, [...new Set(kids.map(l => str(l.school_id)))]);
+    BOARD_READERS.s = ME.student ? [ME.student] : [];
+    BOARD_READERS.g = GUARDIAN_KIDS.map(kid => kid.id);
+    replace(LIVE_FEES, fees.filter(fee => !fee.done_at).map(fee => ({id: str(fee.id), student: str(fee.student_id), school: str(fee.school_id), amount: num(fee.amount)})));
 
     LIVE.on = true;
     liveChanged();

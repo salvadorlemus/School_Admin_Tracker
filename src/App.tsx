@@ -1,3 +1,5 @@
+import {ErrorBoundary} from './ui/ErrorBoundary';
+import {LiveRegister, LiveRegisterDone} from './screens/entry/LiveRegister';
 import {leaveForOwnHost} from './lib/hosts';
 import {useEffect, useState} from 'react';
 import {LIVE, useLiveVersion} from './live/state';
@@ -157,6 +159,8 @@ const ROUTES: Route[] = [
     ['/a/payments/new', AdminPaymentNew],
     ['/a/log', AdminLog],
     ['/a/account', AdminAccount],
+    ['/register', LiveRegister],
+    ['/register/done', LiveRegisterDone],
     ['/invite/:token', ({token}) => <JoinWithLink token={token}/>],
 ];
 
@@ -198,7 +202,9 @@ export default function App() {
     if (!ready) return <Device><div className="boot" aria-busy="true">{t('app.name')}</div></Device>;
     return (
         <Device>
-            <Screen key={`${path}@${school}#${version}`} {...params}/>
+            <ErrorBoundary resetKey={path}>
+                <Screen key={`${path}@${school}#${version}`} {...params}/>
+            </ErrorBoundary>
             {problem && (
                 <div className="live-problem" role="alert">
                     <span>{t('live.refused', {reason: problem})}</span>

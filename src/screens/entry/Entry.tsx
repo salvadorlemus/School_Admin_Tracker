@@ -6,7 +6,7 @@ import {LANGUAGES, t, type TextKey} from '../../lib/texts';
 import {useRouter} from '../../lib/router';
 import {acceptTerms, TERMS_STATE} from '../../mock/changes';
 import {useLanguage} from '../../state/LanguageProvider';
-import {SCHOOLS, studentById} from '../../mock/data';
+import {SCHOOLS, studentById, ME} from '../../mock/data';
 import {BareScreen} from '../../ui/Screen';
 import {Check, EmailField, Segmented, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -312,7 +312,7 @@ export function TermsReader({mode}: { mode: 'invite' | 'invite-minor' | 'new' })
                 {!reached && <p className="hint center">{t('terms.readFirst')}</p>}
                 <button type="button" className="btn btn-lg" disabled={!reached} onClick={() => {
                     // Sofía, for the new version; a new student's acceptance counts once they're registered.
-                    if (mode === 'new') acceptTerms(studentById('sofia').name);
+                    if (mode === 'new') acceptTerms(studentById(ME.student).name);
                     router.replace(next);
                 }}>
                     {t('terms.accept')}

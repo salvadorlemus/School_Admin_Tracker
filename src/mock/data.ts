@@ -685,6 +685,12 @@ export const STUDENTS: Student[] = [
 ];
 
 /** Daniela's children: two, or seven with stress data. */
+/** Who the student screens are for: the signed-in student (the prototype: Sofía) and the guardian's name. */
+export const ME = {student: 'sofia', name: 'Sofía', guardianName: 'Daniela'};
+
+/** The guardian's children's schools (the prototype: Colibrí). */
+export const GUARDIAN_SCHOOLS: SchoolId[] = ['colibri'];
+
 export const GUARDIAN_KIDS: { id: string; name: string }[] = [{id: 'mateo', name: 'Mateo López Vega'}, {id: 'valentina', name: 'Valentina López Vega'}];
 
 if (STRESS) {
@@ -1023,7 +1029,7 @@ export const PERSONAL: Record<'s' | 'g' | 't' | 'd', Personal[]> = {
 };
 
 /** Whose classes the board is read for: Sofía's own, each of Daniela's children's, or Mariana's (she teaches). */
-export const BOARD_READERS: Record<string, string[]> = {s: ['sofia'], g: GUARDIAN_KIDS.map(kid => kid.id)};
+export const BOARD_READERS: Record<string, string[]> = {s: [ME.student], g: GUARDIAN_KIDS.map(kid => kid.id)};
 
 /**
  * The posts a person sees on a school's board: the ones for the whole school (a director's note, a

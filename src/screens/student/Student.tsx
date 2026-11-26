@@ -1,24 +1,10 @@
+import {LIVE} from '../../live/state';
+import {LiveCheckIn, LiveCheckInResult, LiveGuardianHome, LiveStudentHome, livePlans, uploadProof} from './LiveStudent';
 import {useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayLong, dayMonth, dayShort, listOf, money, personName, time, timeRange} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {
-    classById,
-    classesOf,
-    FAMILY,
-    PRICES,
-    PROOFS,
-    SCHOOLS,
-    schoolOfClass,
-    sessionById,
-    SESSIONS,
-    SOFIA_SCHOOLS,
-    studentById,
-    TODAY,
-    GUARDIAN_KIDS,
-    type Proof,
-    type SchoolId,
-} from '../../mock/data';
+import {classById, classesOf, FAMILY, PRICES, PROOFS, SCHOOLS, schoolOfClass, sessionById, SESSIONS, SOFIA_SCHOOLS, studentById, TODAY, GUARDIAN_KIDS, type Proof, type SchoolId, ME, GUARDIAN_SCHOOLS} from '../../mock/data';
 import {Screen, roleOf} from '../../ui/Screen';
 import {Carousel, Check, EmailField, MenuText, Option, PhoneField, SelectField, Skeleton, TextField, useBriefLoading, useQueryIndex} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -54,7 +40,7 @@ export function Home() {
     const picked = kidsParam === null ? KIDS.map(kid => kid.id) : kidsParam.split(',').filter(Boolean);
     const setKid = (id: string, on: boolean) => router.replace(router.withQuery('kids', KIDS.map(kid => kid.id).filter(other => other === id ? on : picked.includes(other)).join(',')));
     return (
-        <Screen title={t('home.hello', {name: guardian ? 'Daniela' : 'Sofía'})} subtitle={dayLong(TODAY)}
+        <Screen title={t('home.hello', {name: guardian ? ME.guardianName : ME.name})} subtitle={dayLong(TODAY)}
                 footer={
                     <button type="button" className="btn btn-lg btn-block btn-checkin"
                             onClick={() => guardian ? who.show() : router.navigate(`${base}/checkin`)}>
@@ -62,15 +48,12 @@ export function Home() {
                         <span className="stack-sm">
                             <span>{t(guardian ? 'home.checkInKids' : 'home.checkIn')}</span>
                             <span className="small">
-                                {guardian ? t('home.checkInKidsOpen', {time: time('15:50')}) : t('home.checkInOpen', {
-                                    class: 'Telas aéreas intermedio',
-                                    time: time('10:30')
-                                })}
+                                {LIVE.on ? t('home.checkInHow') : guardian ? t('home.checkInKidsOpen', {time: time('15:50')}) : t('home.checkInOpen', {class: 'Telas aéreas intermedio', time: time('10:30')})}
                             </span>
                         </span>
                     </button>
                 }>
-            {guardian ? <GuardianHomeBody/> : <StudentHomeBody/>}
+            {LIVE.on ? (guardian ? <LiveGuardianHome/> : <LiveStudentHome/>) : guardian ? <GuardianHomeBody/> : <StudentHomeBody/>}
             {guardian && (
                 <Sheet open={who.open} onClose={who.close} title={t('checkin.whoTitle')}
                        footer={<button type="button" className="btn btn-lg" disabled={picked.length === 0}
@@ -195,6 +178,7 @@ function GuardianHomeBody() {
  * there (?kids=), so back from the camera returns to that popup.
  */
 export function CheckIn() {
+    if (LIVE.on) return <LiveCheckIn/>;
     const {base, router} = useWho();
     const kids = router.query.get('kids');
 
@@ -222,6 +206,7 @@ export function CheckIn() {
 }
 
 export function CheckInResult() {
+    if (LIVE.on) return <LiveCheckInResult/>;
     const {base, router, guardian} = useWho();
     const result = router.query.get('r') ?? 'ok';
     const ok = result === 'ok';
@@ -273,7 +258,7 @@ export function CheckInResult() {
 
 type PayKind = 'monthly' | 'package' | 'trial' | 'visit' | 'fee';
 
-interface Plan {
+export interface Plan {
     key: string;
     kind: PayKind;
     title: string;
@@ -286,12 +271,15 @@ interface Plan {
     /** The registration fee, while it's owed. */
     owed?: boolean;
     proofs: (proof: Proof) => boolean;
+    /** The live app: what a screenshot for it covers. */
+    ref?: { student: string; enrollmentId?: string; packageId?: string; month?: string; feeId?: string; sessionId?: string };
 }
 
-/** How each kind of payment can be made (rule 4): per visit is TotalPass, Wellhub or cash. */
+/** How each kind of payment can be made (rule 4): Wellhub and TotalPass pay classes and plans (a screenshot of the token), never the registration fee. */
 const METHODS: Record<PayKind, Proof['method'][]> = {
-    monthly: ['transfer', 'card', 'cash'],
-    package: ['transfer', 'card', 'cash'],
+    // A student who comes with Wellhub or TotalPass is enrolled too: their token's screenshot is the payment.
+    monthly: ['transfer', 'card', 'cash', 'totalpass', 'wellhub'],
+    package: ['transfer', 'card', 'cash', 'totalpass', 'wellhub'],
     fee: ['transfer', 'card', 'cash'],
     trial: ['totalpass', 'wellhub', 'cash'],
     visit: ['totalpass', 'wellhub', 'cash'],
@@ -303,6 +291,7 @@ const METHODS: Record<PayKind, Proof['method'][]> = {
  * Upload.
  */
 export function plansFor(guardian: boolean): Plan[] {
+    if (LIVE.on) return livePlans(guardian);
     if (guardian) {
         return [
             ...KIDS.map((kid): Plan => ({
@@ -400,11 +389,13 @@ export function Payments() {
     // The picked plan is kept in the URL, so coming back to Pagos finds it still picked.
     const [index, setPicked] = useQueryIndex('pick', plans.length);
     const picked = router.query.has('pick') ? index : start;
-    const plan = plans[picked];
-    const proofs = PROOFS.filter(plan.proofs);
+    const plan = plans[picked] as Plan | undefined;
+    const proofs = plan ? PROOFS.filter(plan.proofs) : [];
     // Needed while nothing valid covers it: a fee owed, nothing sent yet, or a rejected screenshot.
-    const needed = Boolean(plan.owed) || !plan.state || plan.state === 'rejected';
-    const loading = useBriefLoading('payments', plan.key);
+    const needed = plan ? Boolean(plan.owed) || !plan.state || plan.state === 'rejected' : false;
+    const loading = useBriefLoading('payments', plan?.key ?? '');
+    // Nothing to pay yet: a new student, before they choose a class.
+    if (!plan) return <Screen title={t('payments.title')}><p className="empty">{t('payments.nothing')}</p></Screen>;
     return (
         <Screen title={t('payments.title')}
                 note={!needed ? t(plan.state === 'confirmed' ? 'payments.paidNote' : 'payments.sentNote')
@@ -470,6 +461,8 @@ export function Upload() {
     const [planKey, setPlanKey] = useState(linked.key);
     const [method, setMethod] = useState('');
     const [file, setFile] = useState<string | null>(null);
+    const [photo, setPhoto] = useState<File | null>(null);
+    const [sending, setSending] = useState(false);
     const input = useRef<HTMLInputElement>(null);
     const plan = choices.find(item => item.key === planKey) ?? choices[0];
     const methods = METHODS[plan.kind];
@@ -477,10 +470,19 @@ export function Upload() {
     return (
         <Screen title={t('upload.title')} back={`${base}/payments`} nav={false}
                 note={ready ? t('upload.hint') : t('upload.need')}
-                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={() => {
+                footer={<button type="button" className="btn btn-lg" disabled={!ready || sending} onClick={async () => {
+                    if (LIVE.on && photo) {
+                        setSending(true);
+                        const problem = await uploadProof(plan, method, photo);
+                        setSending(false);
+                        if (problem) {
+                            toast(t('upload.failed'));
+                            return;
+                        }
+                    }
                     toast(t('upload.sent'));
                     router.back(`${base}/payments`);
-                }}>{t('upload.send')}</button>}>
+                }}>{t(sending ? 'upload.sending' : 'upload.send')}</button>}>
             {fixed ? (
                 <section className="card card-accent pay-what" aria-label={t('upload.what')}>
                     <span className="small muted">{t('upload.paying')}</span>
@@ -521,7 +523,10 @@ export function Upload() {
             </button>
             <input ref={input} type="file" accept="image/*" hidden onChange={event => {
                 const chosen = event.target.files?.[0];
-                if (chosen) setFile(URL.createObjectURL(chosen));
+                if (chosen) {
+                    setFile(URL.createObjectURL(chosen));
+                    setPhoto(chosen);
+                }
             }}/>
         </Screen>
     );
@@ -533,7 +538,7 @@ export function CardEdit({id}: { id: string }) {
     const toast = useToast();
     const student = studentById(id);
     // Each school has its own card: the one opened from the card popup.
-    const school: SchoolId = SOFIA_SCHOOLS.find(id => id === router.query.get('school')) ?? 'colibri';
+    const school: SchoolId = (guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS).find(id => id === router.query.get('school')) ?? (guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS)[0] ?? 'colibri';
     const [people, setPeople] = useState<Person[]>(() => initialPeople(student, guardian ? FAMILY : []));
     const form = useCardForm({
         student, minor: Boolean(student.minor), mode: 'edit', people, setPeople, kids: guardian ? KIDS : [],
@@ -562,7 +567,7 @@ export function Account() {
     const sheet = useSheetRoute('delete');
     const [school, setSchool] = useState('');
     const [sure, setSure] = useState(false);
-    const schools = (guardian ? ['colibri'] : SOFIA_SCHOOLS).map(id => ({value: id, label: SCHOOLS[id].name}));
+    const schools = (guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS).map(id => ({value: id, label: SCHOOLS[id].name}));
     const email = guardian ? 'daniela.vega@correo.mx' : 'sofia.ramirez@correo.mx';
     return (
         <Screen title={t('account.title')}

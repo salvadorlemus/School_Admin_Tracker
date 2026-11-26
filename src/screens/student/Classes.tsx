@@ -1,3 +1,5 @@
+import {LIVE} from '../../live/state';
+import {liveJoin} from './LiveStudent';
 import {classSlots} from '../shared/pieces';
 import {monthRange, pickedMonth, shiftMonth} from '../../lib/months';
 import {useState} from 'react';
@@ -5,26 +7,10 @@ import {Icon} from '../../ui/Icon';
 import {useRouter} from '../../lib/router';
 import {t} from '../../lib/texts';
 import {addDays, dayLong, dayMonth, dayShort, money, monthYear, personName, time, timeRange, weekdayLetter, weekdayLong, weekdayOf, weekdayShort} from '../../lib/format';
-import {
-    classById,
-    classesOf,
-    CLASSES,
-    ENROLLMENTS,
-    PACKAGES,
-    PRICES,
-    roomName,
-    schoolOfClass,
-    SCHOOLS,
-    SESSIONS,
-    studentById,
-    teacherName,
-    TODAY,
-    TRIALS_TAKEN,
-    type SchoolClass, SOFIA_SCHOOLS,
-} from '../../mock/data';
+import {classById, classesOf, CLASSES, ENROLLMENTS, PACKAGES, PRICES, roomName, schoolOfClass, SCHOOLS, SESSIONS, studentById, teacherName, TODAY, TRIALS_TAKEN, type SchoolClass, SOFIA_SCHOOLS, ME, GUARDIAN_SCHOOLS, packageLabel} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Empty, ListRow, MenuText, Segmented, SelectField, TextField} from '../../ui/Fields';
-import {useConfirm, useSheetRoute} from '../../ui/Layers';
+import {useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, SchoolChip, SchoolLogo, SessionCard} from '../shared/pieces';
 import {KIDS, useWho} from './Student';
 import {ClassSheet} from './ClassSheet';
@@ -62,8 +48,8 @@ export function clashOf(student: string, item: SchoolClass): string | undefined 
 
 function useStudent() {
     const who = useWho();
-    const kid = who.router.query.get('kid') ?? KIDS[0].id;
-    return {...who, student: who.guardian ? kid : 'sofia'};
+    const kid = who.router.query.get('kid') ?? KIDS[0]?.id ?? '';
+    return {...who, student: who.guardian ? kid : ME.student};
 }
 
 export function Classes() {
@@ -77,7 +63,7 @@ export function Classes() {
     const school = router.query.get('school') ?? 'all';
     const setSchool = (value: string) => router.replace(router.withQuery('school', value === 'all' ? null : value));
     // Their schools: the ones they study at (a guardian, their children's).
-    const memberOf = new Set<string>([...(guardian ? ['colibri'] : SOFIA_SCHOOLS), ...classesOf(student).map(id => schoolOfClass(classById(id)))]);
+    const memberOf = new Set<string>([...(guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS), ...classesOf(student).map(id => schoolOfClass(classById(id)))]);
     const offered = CLASSES.filter(item => item.kind === 'weekly' && !item.ending && Boolean(item.forKids) === guardian && memberOf.has(schoolOfClass(item))
         && !mineAll.some(enrollment => enrollment.classId === item.id) && !packageCovers(student, item.id));
     const schools = [...new Set(offered.map(schoolOfClass))];
@@ -87,7 +73,7 @@ export function Classes() {
         .filter(item => [item.name, teacherName(item.teacher), SCHOOLS[schoolOfClass(item)].short]
             .some(text => text.toLowerCase().includes((school === 'all' ? query : '').trim().toLowerCase())))
         .sort((a, b) => rank(a) - rank(b) || (a.slots[0]?.weekday ?? 0) - (b.slots[0]?.weekday ?? 0) || (a.slots[0]?.start ?? '').localeCompare(b.slots[0]?.start ?? ''));
-    const mine = mineAll.filter(enrollment => school === 'all' || (enrollment.classId ? schoolOfClass(classById(enrollment.classId)) : 'colibri') === school);
+    const mine = mineAll.filter(enrollment => school === 'all' || (enrollment.classId ? schoolOfClass(classById(enrollment.classId)) : PACKAGES.find(pack => pack.id === enrollment.packageId)?.school ?? 'colibri') === school);
     const many = offered.length > 8;
     const view = router.query.get('view') === 'cal' ? 'cal' : 'list';
     // Their own classes' schools and the ones they could join: the calendar filters by them too.
@@ -122,7 +108,7 @@ export function Classes() {
                                      ? PACKAGES.find(pack => pack.id === enrollment.packageId)?.classes.map(id => classById(id).name).join(' · ')
                                      : `${slots(classById(enrollment.classId ?? ''))} · ${t(enrollment.how === 'monthly' ? 'enroll.monthly' : 'enroll.visit')}`}
                                  chips={<>
-                                     <SchoolChip school={enrollment.classId ? schoolOfClass(classById(enrollment.classId)) : 'colibri'}/>
+                                     <SchoolChip school={enrollment.classId ? schoolOfClass(classById(enrollment.classId)) : PACKAGES.find(pack => pack.id === enrollment.packageId)?.school ?? 'colibri'}/>
                                      {ENDED_ENROLLMENTS.has(`${student}:${enrollment.id}`) &&
                                          <span className="chip">{t('dstu.endsOn', {when: dayMonth(ENDED_ENROLLMENTS.get(`${student}:${enrollment.id}`) ?? '')})}</span>}
                                  </>}
@@ -174,9 +160,9 @@ export function Classes() {
                     </ul>
                 </>
             )}
-            {join === 'packages' && (school === 'all' || school === 'colibri') && (
+            {join === 'packages' && (
                 <ul className="list">
-                    {PACKAGES.filter(pack => !pack.school && !pack.retired).map(pack => (
+                    {PACKAGES.filter(pack => !pack.retired && memberOf.has(pack.school ?? 'colibri') && (school === 'all' || (pack.school ?? 'colibri') === school)).map(pack => (
                         <ListRow key={pack.id}
                                  title={t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2')}
                                  sub={`${pack.classes.map(id => classById(id).name).join(' · ')} · ${money(pack.price)}`}
@@ -314,7 +300,16 @@ export function ClassDetail({id}: { id: string }) {
     const covered = item ? packageCovers(student, item.id) : false;
     const trialTaken = item ? (TRIALS_TAKEN[student] ?? []).includes(item.id) : true;
     const back = `${base}/classes${guardian ? `?kid=${student}` : ''}`;
-    const name = pack ? t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2') : free ? 'Práctica libre en aparatos' : item?.name ?? '';
+    const name = pack ? (pack.id === 'pk3' || pack.id === 'pk2' ? t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2') : packageLabel(pack.id)) : free ? 'Práctica libre en aparatos' : item?.name ?? '';
+    const visitPrice = PRICES.find(price => price.kind === 'visit' && (price.school ?? 'colibri') === (item ? schoolOfClass(item) : 'colibri'))?.amount ?? 250;
+    const toast = useToast();
+    /** In the live app, the database saves it (and may refuse: full, a clash, no price); the screen moves on once it's saved. */
+    const saved = async (kind: 'enroll' | 'package' | 'trial' | 'free') => {
+        if (!LIVE.on) return true;
+        const problem = await liveJoin({student, kind, classId: item?.id, packageId: pack?.id, how, sessionId: start});
+        if (problem) toast(t('live.refused', {reason: problem}));
+        return !problem;
+    };
     const payDay = studentById(student).paymentDay;
 
     const howOptions = item ? [
@@ -326,7 +321,7 @@ export function ClassDetail({id}: { id: string }) {
         ...(item.perVisit ? [{
             value: 'visit',
             label: t('enroll.visit'),
-            hint: t('enroll.visitHint', {amount: money(250)})
+            hint: t('enroll.visitHint', {amount: money(visitPrice)})
         }] : []),
     ] : [];
     const how = howOptions.length === 1 ? howOptions[0].value : chosen;
@@ -334,7 +329,7 @@ export function ClassDetail({id}: { id: string }) {
     const done = (kind: string) => router.replace(`${base}/classes/done?kind=${kind}&c=${id}${guardian ? `&kid=${student}` : ''}`);
 
     const enroll = async () => {
-        const price = pack ? money(pack.price) : free ? money(300) : how === 'monthly' && item?.monthly ? money(item.monthly.price) : money(250);
+        const price = pack ? money(pack.price) : free ? money(300) : how === 'monthly' && item?.monthly ? money(item.monthly.price) : money(visitPrice);
         if (await confirm({
             title: t('detail.confirmTitle', {name}),
             body: t(free ? 'detail.confirmFree' : how === 'visit' ? 'detail.confirmVisit' : 'detail.confirmMonthly', {
@@ -342,7 +337,7 @@ export function ClassDetail({id}: { id: string }) {
                 day: payDay
             }),
             confirm: t(free ? 'detail.book' : 'detail.enroll'),
-        })) done(free ? 'free' : 'enroll');
+        }) && await saved(pack ? 'package' : free ? 'free' : 'enroll')) done(free ? 'free' : 'enroll');
     };
 
     const trial = async () => {
@@ -354,7 +349,7 @@ export function ClassDetail({id}: { id: string }) {
                 when: session ? `${dayShort(session.date)} ${time(session.start)}` : ''
             }),
             confirm: t('detail.trialButton', {price: money(TRIAL_PRICE)}),
-        })) done('trial');
+        }) && await saved('trial')) done('trial');
     };
 
     // A student holds a package once: taking it again would charge twice for the same classes.

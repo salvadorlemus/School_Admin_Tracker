@@ -57,7 +57,7 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   apart (`src/lib/hosts.ts`): the admin's address shows only the admin panel and the sign-in, the
   app's never shows the panel; unset (locally) both share one address. Invitations always open the app.
 - The version (`package.json`) shows at the end of the sign-in screen; each release bumps it and is
-  tagged (`V1.2.0`).
+  tagged (`V1.3.0`).
 - Never put the secret / service_role key in the app.
 
 ## Data model (draft)

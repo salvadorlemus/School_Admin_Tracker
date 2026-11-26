@@ -12,6 +12,15 @@ const newId = () => `p${nextId++}`;
 
 export type Person = FamilyPerson;
 
+/** What the card form holds when it's saved. */
+export interface CardValues {
+    name: string;
+    birth: string;
+    health: string;
+    phone: string;
+    email: string;
+}
+
 export interface Kid {
     id: string;
     name: string;
@@ -223,7 +232,7 @@ export function useCardForm({
     student?: Student;
     minor: boolean;
     mode: 'register' | 'edit';
-    onSave: () => void;
+    onSave: (values: CardValues) => void;
     people: Person[];
     setPeople: (update: (list: Person[]) => Person[]) => void;
     kids: Kid[];
@@ -266,7 +275,7 @@ export function useCardForm({
             body: t('form.healthChangedBody'),
             confirm: t('form.saveChanges'),
         }))) return;
-        onSave();
+        onSave({name, birth, health, phone, email});
         // The new email works only once the person opens the link sent to it.
         if (ownEmail !== undefined && email.trim() !== ownEmail) toast(t('form.emailSent', {email: email.trim()}));
     };

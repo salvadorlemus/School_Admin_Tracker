@@ -10,6 +10,8 @@ import {loadLive} from './load';
  */
 
 export const ROLES = {director: false, teacher: false, student: false, guardian: false};
+/** A student's or guardian's registration still to finish (card and terms). */
+export const PENDING = {registration: false};
 
 async function identify(user: User): Promise<void> {
     LIVE.email = user.email ?? '';
@@ -22,6 +24,7 @@ async function identify(user: User): Promise<void> {
     const {data: roles} = LIVE.person
         ? await supabase.from('membership').select('role, status').eq('person_id', LIVE.person)
         : {data: []};
+    PENDING.registration = ((roles ?? []) as { role: string; status: string }[]).some(m => (m.role === 'student' || m.role === 'guardian') && m.status === 'invited');
     for (const key of Object.keys(ROLES) as (keyof typeof ROLES)[]) {
         ROLES[key] = ((roles ?? []) as {
             role: string;
@@ -29,6 +32,12 @@ async function identify(user: User): Promise<void> {
         }[]).some(m => m.role === key && m.status !== 'inactive');
     }
     await loadLive();
+}
+
+/** After registering: the memberships changed, so who they are is read again. */
+export async function refreshSession(): Promise<void> {
+    const {data} = await supabase.auth.getUser();
+    if (data.user) await identify(data.user);
 }
 
 /** On opening the page: a saved session goes straight to the live app. */
@@ -59,6 +68,7 @@ export async function signOut(): Promise<void> {
 export function homePath(): string {
     // The admin panel's address opens the panel; the app's never does.
     if (onAdminHost()) return LIVE.admin ? '/a/schools' : '/';
+    if (PENDING.registration && !ROLES.director && !ROLES.teacher) return '/register';
     if (ROLES.director) return '/d/home';
     if (ROLES.teacher) return '/t/schedule';
     if (ROLES.guardian) return '/g/home';
