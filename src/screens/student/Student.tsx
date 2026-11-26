@@ -1,24 +1,12 @@
+import {supabase} from '../../lib/supabase';
+import {saveCardEdit, saveOwnDetails} from '../../live/cards';
+import {LIVE} from '../../live/state';
+import {LiveCheckIn, LiveCheckInResult, LiveGuardianHome, LiveStudentHome, livePlans, uploadProof} from './LiveStudent';
 import {useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayLong, dayMonth, dayShort, listOf, money, personName, time, timeRange} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {
-    classById,
-    classesOf,
-    FAMILY,
-    PRICES,
-    PROOFS,
-    SCHOOLS,
-    schoolOfClass,
-    sessionById,
-    SESSIONS,
-    SOFIA_SCHOOLS,
-    studentById,
-    TODAY,
-    GUARDIAN_KIDS,
-    type Proof,
-    type SchoolId,
-} from '../../mock/data';
+import {classById, classesOf, FAMILY, PRICES, PROOFS, SCHOOLS, schoolOfClass, sessionById, SESSIONS, SOFIA_SCHOOLS, studentById, TODAY, GUARDIAN_KIDS, type Proof, type SchoolId, ME, GUARDIAN_SCHOOLS} from '../../mock/data';
 import {Screen, roleOf} from '../../ui/Screen';
 import {Carousel, Check, EmailField, MenuText, Option, PhoneField, SelectField, Skeleton, TextField, useBriefLoading, useQueryIndex} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -26,7 +14,7 @@ import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {ProofChip, SchoolChip, SessionBody, SessionCard} from '../shared/pieces';
 import {initialPeople, useCardForm, type Person} from '../shared/CardForm';
 import {ClassSheet} from './ClassSheet';
-import {LanguageRow, NavRow, PasswordRow, SignOutButton, ThemeRow} from '../shared/Common';
+import {LanguageRow, NavRow, PasswordRow, SignOutButton, ThemeRow, LegalRow} from '../shared/Common';
 import {coversText} from '../shared/labels';
 import {ListRow} from '../../ui/Fields';
 
@@ -54,7 +42,7 @@ export function Home() {
     const picked = kidsParam === null ? KIDS.map(kid => kid.id) : kidsParam.split(',').filter(Boolean);
     const setKid = (id: string, on: boolean) => router.replace(router.withQuery('kids', KIDS.map(kid => kid.id).filter(other => other === id ? on : picked.includes(other)).join(',')));
     return (
-        <Screen title={t('home.hello', {name: guardian ? 'Daniela' : 'Sofía'})} subtitle={dayLong(TODAY)}
+        <Screen title={t('home.hello', {name: guardian ? ME.guardianName : ME.name})} subtitle={dayLong(TODAY)}
                 footer={
                     <button type="button" className="btn btn-lg btn-block btn-checkin"
                             onClick={() => guardian ? who.show() : router.navigate(`${base}/checkin`)}>
@@ -62,19 +50,16 @@ export function Home() {
                         <span className="stack-sm">
                             <span>{t(guardian ? 'home.checkInKids' : 'home.checkIn')}</span>
                             <span className="small">
-                                {guardian ? t('home.checkInKidsOpen', {time: time('15:50')}) : t('home.checkInOpen', {
-                                    class: 'Telas aéreas intermedio',
-                                    time: time('10:30')
-                                })}
+                                {LIVE.on ? t('home.checkInHow') : guardian ? t('home.checkInKidsOpen', {time: time('15:50')}) : t('home.checkInOpen', {class: 'Telas aéreas intermedio', time: time('10:30')})}
                             </span>
                         </span>
                     </button>
                 }>
-            {guardian ? <GuardianHomeBody/> : <StudentHomeBody/>}
+            {LIVE.on ? (guardian ? <LiveGuardianHome/> : <LiveStudentHome/>) : guardian ? <GuardianHomeBody/> : <StudentHomeBody/>}
             {guardian && (
                 <Sheet open={who.open} onClose={who.close} title={t('checkin.whoTitle')}
                        footer={<button type="button" className="btn btn-lg" disabled={picked.length === 0}
-                                       onClick={() => router.navigate(`${base}/checkin/scan?kids=${picked.join(',')}`)}>
+                                       onClick={() => router.navigate(`${base}/checkin/scan?kids=${picked.join(',')}${router.query.get('code') ? `&code=${router.query.get('code')}` : ''}`)}>
                            <Icon name="scan"/>{t('checkin.scanNow')}</button>}>
                     <p>{t('checkin.whoBody')}</p>
                     {KIDS.map(kid => (
@@ -195,6 +180,7 @@ function GuardianHomeBody() {
  * there (?kids=), so back from the camera returns to that popup.
  */
 export function CheckIn() {
+    if (LIVE.on) return <LiveCheckIn/>;
     const {base, router} = useWho();
     const kids = router.query.get('kids');
 
@@ -222,6 +208,7 @@ export function CheckIn() {
 }
 
 export function CheckInResult() {
+    if (LIVE.on) return <LiveCheckInResult/>;
     const {base, router, guardian} = useWho();
     const result = router.query.get('r') ?? 'ok';
     const ok = result === 'ok';
@@ -273,7 +260,7 @@ export function CheckInResult() {
 
 type PayKind = 'monthly' | 'package' | 'trial' | 'visit' | 'fee';
 
-interface Plan {
+export interface Plan {
     key: string;
     kind: PayKind;
     title: string;
@@ -286,12 +273,15 @@ interface Plan {
     /** The registration fee, while it's owed. */
     owed?: boolean;
     proofs: (proof: Proof) => boolean;
+    /** The live app: what a screenshot for it covers. */
+    ref?: { student: string; enrollmentId?: string; packageId?: string; month?: string; feeId?: string; sessionId?: string };
 }
 
-/** How each kind of payment can be made (rule 4): per visit is TotalPass, Wellhub or cash. */
+/** How each kind of payment can be made (rule 4): Wellhub and TotalPass pay classes and plans (a screenshot of the token), never the registration fee. */
 const METHODS: Record<PayKind, Proof['method'][]> = {
-    monthly: ['transfer', 'card', 'cash'],
-    package: ['transfer', 'card', 'cash'],
+    // A student who comes with Wellhub or TotalPass is enrolled too: their token's screenshot is the payment.
+    monthly: ['transfer', 'card', 'cash', 'totalpass', 'wellhub'],
+    package: ['transfer', 'card', 'cash', 'totalpass', 'wellhub'],
     fee: ['transfer', 'card', 'cash'],
     trial: ['totalpass', 'wellhub', 'cash'],
     visit: ['totalpass', 'wellhub', 'cash'],
@@ -303,6 +293,7 @@ const METHODS: Record<PayKind, Proof['method'][]> = {
  * Upload.
  */
 export function plansFor(guardian: boolean): Plan[] {
+    if (LIVE.on) return livePlans(guardian);
     if (guardian) {
         return [
             ...KIDS.map((kid): Plan => ({
@@ -400,11 +391,13 @@ export function Payments() {
     // The picked plan is kept in the URL, so coming back to Pagos finds it still picked.
     const [index, setPicked] = useQueryIndex('pick', plans.length);
     const picked = router.query.has('pick') ? index : start;
-    const plan = plans[picked];
-    const proofs = PROOFS.filter(plan.proofs);
+    const plan = plans[picked] as Plan | undefined;
+    const proofs = plan ? PROOFS.filter(plan.proofs) : [];
     // Needed while nothing valid covers it: a fee owed, nothing sent yet, or a rejected screenshot.
-    const needed = Boolean(plan.owed) || !plan.state || plan.state === 'rejected';
-    const loading = useBriefLoading('payments', plan.key);
+    const needed = plan ? Boolean(plan.owed) || !plan.state || plan.state === 'rejected' : false;
+    const loading = useBriefLoading('payments', plan?.key ?? '');
+    // Nothing to pay yet: a new student, before they choose a class.
+    if (!plan) return <Screen title={t('payments.title')}><p className="empty">{t('payments.nothing')}</p></Screen>;
     return (
         <Screen title={t('payments.title')}
                 note={!needed ? t(plan.state === 'confirmed' ? 'payments.paidNote' : 'payments.sentNote')
@@ -470,6 +463,8 @@ export function Upload() {
     const [planKey, setPlanKey] = useState(linked.key);
     const [method, setMethod] = useState('');
     const [file, setFile] = useState<string | null>(null);
+    const [photo, setPhoto] = useState<File | null>(null);
+    const [sending, setSending] = useState(false);
     const input = useRef<HTMLInputElement>(null);
     const plan = choices.find(item => item.key === planKey) ?? choices[0];
     const methods = METHODS[plan.kind];
@@ -477,10 +472,19 @@ export function Upload() {
     return (
         <Screen title={t('upload.title')} back={`${base}/payments`} nav={false}
                 note={ready ? t('upload.hint') : t('upload.need')}
-                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={() => {
+                footer={<button type="button" className="btn btn-lg" disabled={!ready || sending} onClick={async () => {
+                    if (LIVE.on && photo) {
+                        setSending(true);
+                        const problem = await uploadProof(plan, method, photo);
+                        setSending(false);
+                        if (problem) {
+                            toast(t('upload.failed'));
+                            return;
+                        }
+                    }
                     toast(t('upload.sent'));
                     router.back(`${base}/payments`);
-                }}>{t('upload.send')}</button>}>
+                }}>{t(sending ? 'upload.sending' : 'upload.send')}</button>}>
             {fixed ? (
                 <section className="card card-accent pay-what" aria-label={t('upload.what')}>
                     <span className="small muted">{t('upload.paying')}</span>
@@ -521,7 +525,10 @@ export function Upload() {
             </button>
             <input ref={input} type="file" accept="image/*" hidden onChange={event => {
                 const chosen = event.target.files?.[0];
-                if (chosen) setFile(URL.createObjectURL(chosen));
+                if (chosen) {
+                    setFile(URL.createObjectURL(chosen));
+                    setPhoto(chosen);
+                }
             }}/>
         </Screen>
     );
@@ -533,13 +540,21 @@ export function CardEdit({id}: { id: string }) {
     const toast = useToast();
     const student = studentById(id);
     // Each school has its own card: the one opened from the card popup.
-    const school: SchoolId = SOFIA_SCHOOLS.find(id => id === router.query.get('school')) ?? 'colibri';
+    const school: SchoolId = (guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS).find(id => id === router.query.get('school')) ?? (guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS)[0] ?? 'colibri';
     const [people, setPeople] = useState<Person[]>(() => initialPeople(student, guardian ? FAMILY : []));
     const form = useCardForm({
         student, minor: Boolean(student.minor), mode: 'edit', people, setPeople, kids: guardian ? KIDS : [],
-        ownPhone: guardian ? undefined : '55 1029 3847',
-        ownEmail: guardian ? undefined : 'sofia.ramirez@correo.mx',
-        onSave: () => {
+        ownPhone: guardian ? undefined : ME.phone,
+        ownEmail: guardian ? undefined : ME.email,
+        onSave: async values => {
+            if (LIVE.on) {
+                // A minor's people are their guardian's family list, edited with it; an adult's contacts are their card's.
+                const problem = await saveCardEdit(student.school ?? school, student.id, {
+                    name: values.name, birth: values.birth, health: values.health, photo: values.photo,
+                    phone: guardian ? undefined : values.phone, email: guardian ? undefined : values.email,
+                }, student.minor ? null : people);
+                if (problem) return toast(t('live.refused', {reason: problem}));
+            }
             toast(t('form.saved'));
             router.back(`${base}/home`);
         },
@@ -559,11 +574,12 @@ export function CardEdit({id}: { id: string }) {
 export function Account() {
     const {base, router, guardian} = useWho();
     const confirm = useConfirm();
+    const toast = useToast();
     const sheet = useSheetRoute('delete');
     const [school, setSchool] = useState('');
     const [sure, setSure] = useState(false);
-    const schools = (guardian ? ['colibri'] : SOFIA_SCHOOLS).map(id => ({value: id, label: SCHOOLS[id].name}));
-    const email = guardian ? 'daniela.vega@correo.mx' : 'sofia.ramirez@correo.mx';
+    const schools = (guardian ? GUARDIAN_SCHOOLS : SOFIA_SCHOOLS).map(id => ({value: id, label: SCHOOLS[id].name}));
+    const email = LIVE.on ? ME.email : guardian ? 'daniela.vega@correo.mx' : 'sofia.ramirez@correo.mx';
     return (
         <Screen title={t('account.title')}
                 footer={<>
@@ -574,19 +590,20 @@ export function Account() {
                 </>}>
             <ul className="list">
                 {guardian &&
-                    <NavRow label={t('account.profile')} sub="Daniela Vega · 55 2222 3333" to={`${base}/profile`}
+                    <NavRow label={t('account.profile')} sub={LIVE.on ? [ME.fullName, ME.phone].filter(Boolean).join(' · ') : 'Daniela Vega · 55 2222 3333'} to={`${base}/profile`}
                             icon="user"/>}
                 <PasswordRow email={email}/>
             </ul>
             {!guardian && <p className="hint">{t('account.detailsInCard')}</p>}
             <LanguageRow/>
             <ThemeRow/>
+            <LegalRow/>
             <h2 className="section-title">{t('account.terms')}</h2>
             <ul className="list">
-                {schools.map(({value, label}, index) => (
-                    <ListRow key={value} title={label} sub={t('account.termsAccepted', index === 0
-                        ? {n: 3, when: dayMonth('2026-11-21')} : {n: 1, when: dayMonth('2026-09-02')})}/>
-                ))}
+                {schools.map(({value, label}, index) => {
+                    const accepted = LIVE.on ? ME.accepted.find(item => item.school === value) : {version: index === 0 ? 3 : 1, when: index === 0 ? '2026-11-21' : '2026-09-02'};
+                    return <ListRow key={value} title={label} sub={accepted ? t('account.termsAccepted', {n: accepted.version, when: dayMonth(accepted.when)}) : t('account.termsNotYet')}/>;
+                })}
             </ul>
             <Sheet open={sheet.open} onClose={sheet.close} title={t('account.yourData')}
                    footer={<>
@@ -599,7 +616,17 @@ export function Account() {
                                        body: t('account.deleteConfirmBody'),
                                        confirm: t('account.deleteConfirmButton'),
                                        danger: true,
-                                   })) router.replace(`${base}/delete-sent`);
+                                   })) {
+                                       if (LIVE.on) {
+                                           // A guardian asks for each of their children at that school; the link goes to their email.
+                                           const students = guardian ? KIDS.filter(kid => studentById(kid.id).school === school).map(kid => kid.id) : [ME.student];
+                                           for (const student of students) {
+                                               const {error} = await supabase.rpc('request_data_deletion', {school, student});
+                                               if (error) return toast(t('live.refused', {reason: error.message}));
+                                           }
+                                       }
+                                       router.replace(`${base}/delete-sent`);
+                                   }
                                }}>{t('account.deleteButton')}</button>
                    </>}>
                 <SelectField id="del-school" label={t('account.deleteFrom')} value={school}
@@ -616,16 +643,23 @@ export function Account() {
 export function Profile() {
     const {router} = useWho();
     const toast = useToast();
-    const [email, setEmail] = useState('daniela.vega@correo.mx');
+    const [email, setEmail] = useState(LIVE.on ? ME.email : 'daniela.vega@correo.mx');
+    const [name, setName] = useState(LIVE.on ? ME.fullName : 'Daniela Vega');
+    const [phone, setPhone] = useState(LIVE.on ? ME.phone : '55 2222 3333');
     return (
         <Screen title={t('account.profile')} back="/g/account" nav={false}
                 footer={<button type="button" className="btn btn-lg" disabled={!/\S+@\S+\.\S+/.test(email)}
-                                onClick={() => {
-                                    toast(email.trim() !== 'daniela.vega@correo.mx' ? t('form.emailSent', {email: email.trim()}) : t('form.saved'));
+                                onClick={async () => {
+                                    if (LIVE.on) {
+                                        const problem = await saveOwnDetails(name, phone, email);
+                                        if (problem) return toast(t('live.refused', {reason: problem}));
+                                    }
+                                    const was = LIVE.on ? LIVE.email : 'daniela.vega@correo.mx';
+                                    toast(email.trim().toLowerCase() !== was.toLowerCase() ? t('form.emailSent', {email: email.trim()}) : t('form.saved'));
                                     router.back('/g/account');
                                 }}>{t('form.saveChanges')}</button>}>
-            <TextField id="pf-name" label={t('form.name')} defaultValue="Daniela Vega" autoComplete="name"/>
-            <PhoneField id="pf-phone" label={t('form.phone')} defaultValue="55 2222 3333"/>
+            <TextField id="pf-name" label={t('form.name')} value={name} onChange={event => setName(event.target.value)} autoComplete="name"/>
+            <PhoneField id="pf-phone" label={t('form.phone')} value={phone} onChange={event => setPhone(event.target.value)}/>
             <EmailField id="pf-email" label={t('signIn.email')} value={email}
                         onChange={event => setEmail(event.target.value)}
                         hint={t('form.emailHint')}/>
@@ -638,11 +672,11 @@ export function DeleteSent() {
     const {base, router, guardian} = useWho();
     return (
         <Screen title={t('deleteSent.title')} back={`${base}/account`} nav={false} note={t('deleteSent.expires')}
-                footer={<button type="button" className="btn btn-secondary btn-lg"
+                footer={LIVE.on ? undefined : <button type="button" className="btn btn-secondary btn-lg"
                                 onClick={() => router.navigate('/delete-link')}>{t('proto.openEmailLink')}</button>}>
             <div className="done">
                 <span className="avatar avatar-lg"><Icon name="mail" size={40}/></span>
-                <p className="big">{t('deleteSent.body', {email: guardian ? 'daniela.vega@correo.mx' : 'sofia.ramirez@correo.mx'})}</p>
+                <p className="big">{t('deleteSent.body', {email: LIVE.on ? ME.email : guardian ? 'daniela.vega@correo.mx' : 'sofia.ramirez@correo.mx'})}</p>
             </div>
         </Screen>
     );

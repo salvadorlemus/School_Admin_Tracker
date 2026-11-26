@@ -45,7 +45,7 @@ export function ClassSheet({id, student, open, onClose}: {
             confirm: t('classes.leave'),
             danger: true,
         })) {
-            if (direct) endEnrollment(student, direct.id, until);
+            if (direct) endEnrollment(student, direct.id, until, true);
             toast(t('classes.left'));
             onClose();
         }

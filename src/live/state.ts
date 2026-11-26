@@ -32,3 +32,6 @@ export function useLiveVersion(): number {
         return () => listeners.delete(listener);
     }, () => version);
 }
+
+/** Registration fees still owed, for the student's (or guardian's) Payments. */
+export const LIVE_FEES: { id: string; student: string; school: string; amount: number }[] = [];

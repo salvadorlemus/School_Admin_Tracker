@@ -1,12 +1,14 @@
-import {isAdminPath, onAdminHost, onAppHost} from '../../lib/hosts';
-import {homePath, signIn} from '../../live/session';
+import {LIVE} from '../../live/state';
+import {sendPasswordLink} from '../../live/cards';
+import {isAdminPath, onAdminHost, onAppHost, onProductionHost} from '../../lib/hosts';
+import {homePath, PENDING, refreshSession, signIn, signOut} from '../../live/session';
 import {useEffect, useState} from 'react';
 import {supabase} from '../../lib/supabase';
 import {LANGUAGES, t, type TextKey} from '../../lib/texts';
 import {useRouter} from '../../lib/router';
 import {acceptTerms, TERMS_STATE} from '../../mock/changes';
 import {useLanguage} from '../../state/LanguageProvider';
-import {SCHOOLS, studentById} from '../../mock/data';
+import {SCHOOLS, studentById, ME} from '../../mock/data';
 import {BareScreen} from '../../ui/Screen';
 import {Check, EmailField, Segmented, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -42,6 +44,7 @@ export function SignIn() {
     const router = useRouter();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
+    const [note, setNote] = useState('');
     const shortcuts: [string, string, string][] = [
         ['/s/home', 'Sofía Ramírez', t('proto.student')],
         ['/g/home', 'Daniela Vega', t('proto.guardian')],
@@ -83,20 +86,33 @@ export function SignIn() {
                 setBusy(false);
                 if (problem) setError(t(problem === 'signIn.unavailable' ? 'signIn.unavailable' : 'signIn.wrong'));
                 else if (homePath() === '/') setError(t(onAdminHost() ? 'signIn.notAdmin' : 'signIn.noSchool'));
-                else router.replace(homePath());
+                // A check-in link opened while signed out goes on to check-in.
+                else router.replace(/^\/(checkin\?|delete-data\/)/.test(router.query.get('next') ?? '') ? router.query.get('next') ?? homePath() : homePath());
             }}>
                 <EmailField id="signin-email" name="email" label={t('signIn.email')}/>
                 <TextField id="signin-password" name="password" label={t('signIn.password')} type="password" autoComplete="current-password"/>
                 {error && <div className="banner banner-error small" role="alert">{error}</div>}
+                {note && !error && <div className="banner small" role="status">{note}</div>}
                 <button type="submit" className="btn btn-lg" disabled={busy}>{t(busy ? 'signIn.busy' : 'signIn.submit')}</button>
-                <button type="button" className="btn btn-ghost">{t('signIn.forgot')}</button>
+                <button type="button" className="btn btn-ghost" onClick={async event => {
+                    const typed = String(new FormData(event.currentTarget.form ?? undefined).get('email') ?? '').trim();
+                    if (!/^\S+@\S+\.\S+$/.test(typed)) return setError(t('signIn.forgotNeedEmail'));
+                    const problem = await sendPasswordLink(typed);
+                    setError(problem ? t('live.refused', {reason: problem}) : '');
+                    setNote(problem ? '' : t('signIn.forgotSent', {email: typed}));
+                }}>{t('signIn.forgot')}</button>
             </form>
-            <p className="hint">{t('proto.liveHint')}</p>
-            <h2 className="section-title">{t('proto.shortcuts')}</h2>
-            <ul className="list">{shortcuts.filter(([path]) => onAdminHost() ? isAdminPath(path) : !onAppHost() || !isAdminPath(path)).map(row)}</ul>
-            <h2 className="section-title">{t('proto.flows')}</h2>
-            <ul className="list">{flows.map(([path, label]) => row([path, label, '']))}</ul>
-            <p className="hint">{t('proto.note')}</p>
+            {!onProductionHost() && (
+                <>
+                    <p className="hint">{t('proto.liveHint')}</p>
+                    <h2 className="section-title">{t('proto.shortcuts')}</h2>
+                    <ul className="list">{shortcuts.filter(([path]) => onAdminHost() ? isAdminPath(path) : !onAppHost() || !isAdminPath(path)).map(row)}</ul>
+                    <h2 className="section-title">{t('proto.flows')}</h2>
+                    <ul className="list">{flows.map(([path, label]) => row([path, label, '']))}</ul>
+                    <p className="hint">{t('proto.note')}</p>
+                </>
+            )}
+            <button type="button" className="btn btn-ghost btn-sm self-center" onClick={() => router.navigate('/legal')}>{t('legal.link')}</button>
             <p className="version">{t('app.version', {version: __APP_VERSION__})}</p>
         </BareScreen>
     );
@@ -312,7 +328,7 @@ export function TermsReader({mode}: { mode: 'invite' | 'invite-minor' | 'new' })
                 {!reached && <p className="hint center">{t('terms.readFirst')}</p>}
                 <button type="button" className="btn btn-lg" disabled={!reached} onClick={() => {
                     // Sofía, for the new version; a new student's acceptance counts once they're registered.
-                    if (mode === 'new') acceptTerms(studentById('sofia').name);
+                    if (mode === 'new') acceptTerms(studentById(ME.student).name);
                     router.replace(next);
                 }}>
                     {t('terms.accept')}
@@ -351,11 +367,11 @@ export function SchoolDisabled() {
     const router = useRouter();
     return (
         <BareScreen footer={<button type="button" className="btn btn-secondary btn-lg"
-                                    onClick={() => router.navigate('/')}>{t('account.signOut')}</button>}>
+                                    onClick={() => LIVE.on ? void signOut() : router.navigate('/')}>{t('account.signOut')}</button>}>
             <div className="done">
                 <span className="avatar avatar-lg"><Icon name="school" size={40}/></span>
                 <h1 className="huge">{t('disabled.title')}</h1>
-                <p>{t('disabled.body', {school: 'Casa Pirueta'})}</p>
+                <p>{t('disabled.body', {school: LIVE.on ? PENDING.disabled.join(', ') : 'Casa Pirueta'})}</p>
             </div>
         </BareScreen>
     );
@@ -476,6 +492,56 @@ export function JoinWithLink({token}: { token: string }) {
                     <button type="submit" className="btn btn-lg" disabled={busy || password.length < 8}>{t(busy ? 'signIn.busy' : 'join.continue')}</button>
                 </form>
             )}
+        </BareScreen>
+    );
+}
+
+/**
+ * The deletion email's link on the real data (rule 20): what goes and what stays, a box to tick, and
+ * once confirmed, the database deletes the student's data at that school. Signed out, the sign-in
+ * comes first and brings them back here.
+ */
+export function LiveDeleteData({token}: { token: string }) {
+    const router = useRouter();
+    const confirm = useConfirm();
+    const [sure, setSure] = useState(false);
+    const [done, setDone] = useState(false);
+    const [problem, setProblem] = useState('');
+    useEffect(() => {
+        if (!LIVE.on) router.replace(`/?next=${encodeURIComponent(`/delete-data/${token}`)}`);
+    }, []);
+    if (done) {
+        return (
+            <BareScreen footer={<button type="button" className="btn btn-lg" onClick={() => router.replace(homePath())}>{t('common.done')}</button>}>
+                <DoneMessage icon="heart" title={t('delete.doneTitle')} body={t('delete.doneBodyLive')}/>
+            </BareScreen>
+        );
+    }
+    return (
+        <BareScreen note={sure ? undefined : t('delete.tickFirst')} footer={
+            <button type="button" className="btn btn-danger btn-lg" disabled={!sure} onClick={async () => {
+                if (!(await confirm({title: t('delete.confirmTitleLive'), body: t('delete.confirmBody'), confirm: t('delete.confirmButton'), danger: true}))) return;
+                const {error} = await supabase.rpc('confirm_data_deletion', {token});
+                if (error) return setProblem(error.message);
+                await refreshSession();
+                setDone(true);
+            }}>{t('delete.button')}</button>
+        }>
+            <h1 className="huge">{t('delete.panelTitle')}</h1>
+            <div className="card">
+                <span className="strong">{t('delete.goes')}</span>
+                <ul className="small plain-list">
+                    <li>{t('delete.goes1')}</li>
+                    <li>{t('delete.goes2')}</li>
+                    <li>{t('delete.goes3')}</li>
+                </ul>
+            </div>
+            <div className="card">
+                <span className="strong">{t('delete.stays')}</span>
+                <p className="small">{t('delete.staysBody')}</p>
+            </div>
+            <Check id="del-sure" label={t('delete.checkLive')} checked={sure} onChange={setSure}/>
+            {problem && <div className="banner banner-error small" role="alert">{t('delete.linkProblem')}</div>}
         </BareScreen>
     );
 }

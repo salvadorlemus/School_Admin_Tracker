@@ -3,9 +3,11 @@
 **Lyra** (`lyra.kokoasoft.com`) is an app for art schools, starting with aerial dance studios (silks,
 hoop, trapeze, pole): register students and teachers, define classes and their schedules, link
 students to the classes they take, and track attendance and payments. Several schools share one app;
-each sees only its own people and records. **Status (v1.0.0)**: every screen is built as a clickable
-prototype with invented data (`src/mock/`); the Supabase database, auth, storage and emails are
-not built yet. The data model and rules below are what the backend must implement.
+each sees only its own people and records. **Status (v1.4.0)**: every role's screens run on the live
+Supabase database (`src/live/`), with Helios as the first school; on any other address the same
+screens still run as the clickable prototype with invented data (`src/mock/`), which the real site
+(`VITE_APP_HOST`, `VITE_ADMIN_HOST`) never shows. The data model and rules below are what the
+database implements.
 
 ## Words used here
 
@@ -46,6 +48,8 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
 
 - Vite + React + TypeScript (strict) + `@supabase/supabase-js`. Node / npm.
 - `pdfjs-dist` (approved) for the in-app terms reader, which must know when the last page is reached.
+- `qrcode` (approved) draws the check-in QR: a link to `/#/checkin?code=…`, so a student's own camera
+  app opens it in Lyra; the code also shows in letters to type it.
 - Supabase: Postgres with RLS, Auth (a login per person), Storage (a private bucket for payment
   screenshots, card photos and terms PDFs), Edge Functions for anything that needs the service key
   (invites, emails, data deletion, deleting a school's files), `pg_cron` for reminders.
@@ -57,7 +61,9 @@ Same as VetClinicTracker (`../VetClinicTracker`), which is the reference for pat
   apart (`src/lib/hosts.ts`): the admin's address shows only the admin panel and the sign-in, the
   app's never shows the panel; unset (locally) both share one address. Invitations always open the app.
 - The version (`package.json`) shows at the end of the sign-in screen; each release bumps it and is
-  tagged (`V1.2.0`).
+  tagged (`V1.3.0`).
+- Kokoasoft's email addresses (the admin sign-in, privacy, the no-reply sender…) are listed once in
+  `docs/kokoasoft-emails.md`: reuse them, in English, and add a row there before using a new one.
 - Never put the secret / service_role key in the app.
 
 ## Data model (draft)
@@ -377,6 +383,8 @@ not only in the screens, so a tampered client can't skip them.
 What each person sees after the one sign-in screen. A screen only shows what the database lets that
 role read; hiding a menu never protects anything. The mockup brief for these is
 `docs/design/claude-design-brief.md`.
+
+**Terms and privacy notice** (`#/legal`, open to anyone, signed in or not; linked from the sign-in, every Account and the terms reader): Lyra's own terms of use and LFPDPPP privacy notice (the school is responsible for its people's data, Kokoasoft processes it for the school; health data as sensitive data with express consent; providers; keeping and deleting; ARCO rights). Who runs it, the contact email and the address are in `src/lib/legal.ts`.
 
 **Before the app opens** (everyone, in this order when they apply):
 - **Registration** (invited students and guardians), numbered steps: the account (the invite page),
@@ -715,7 +723,7 @@ Modelled on VetClinicTracker's Plataforma (`docs/platform-admin-plan.md` there):
   rejecting screenshots, the teacher pay rule and teacher payments), a teacher confirming or
   disputing a payment, a student leaving a class and the admin enabling, disabling or deleting a school
   apply to that data until the page reloads, and post on the
-  board as the database would (`src/mock/changes.ts`). Opening it as `/?stress#/...` adds stress data (7 schools, a teacher and a student in
+  board as the database would (`src/mock/changes.ts`). On the real site the prototype's shortcuts, sample flows and invented screens are off (`onProductionHost`). Opening it as `/?stress#/...` (never on the real site) adds stress data (7 schools, a teacher and a student in
   all of them, a guardian with 7 children (one in four schools, another in three), 50 more students, very long names and texts) to test that
   screens hold: long text ends in … or wraps inside its card, never past it. Long lists grow
   tools as they grow: a search (behind a magnifier button, beside the tabs or dropdown of that list, since

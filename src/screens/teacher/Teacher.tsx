@@ -1,3 +1,6 @@
+import {saveStaffCard} from '../../live/cards';
+import {LIVE} from '../../live/state';
+import {LiveQr} from './LiveQr';
 import {monthRange, pickedMonth, shiftMonth} from '../../lib/months';
 import {live} from '../../live/actions';
 import {useEffect, useRef, useState} from 'react';
@@ -24,7 +27,7 @@ import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {useCurrentSchool} from '../../state/school';
 import {classSlots, DotLegend, ProofChip, SessionCard, StudentCardView, TermsChip, UnpaidChip} from '../shared/pieces';
-import {LanguageRow, PasswordRow, SignOutButton, ThemeRow} from '../shared/Common';
+import {LanguageRow, PasswordRow, SignOutButton, ThemeRow, LegalRow} from '../shared/Common';
 import {useStaffCard} from './StaffCard';
 import {PayView} from '../shared/PayView';
 import {coversText, planText} from '../shared/labels';
@@ -277,6 +280,7 @@ export function SessionScreen({id}: { id: string }) {
 /** The check-in QR, full screen. It changes every 30 seconds; the ring shows how long is left. */
 export function QrScreen({id}: { id: string }) {
     const router = useRouter();
+    if (LIVE.on) return <LiveQr id={id} back={`${base(router.path)}/session/${id}`}/>;
     const session = sessionById(id);
     const [left, setLeft] = useState(30);
     const [seed, setSeed] = useState(1);
@@ -524,6 +528,7 @@ export function TeacherAccount() {
             </ul>
             <LanguageRow/>
             <ThemeRow/>
+            <LegalRow/>
         </Screen>
     );
 }
@@ -540,12 +545,20 @@ export function StaffCardEdit() {
         phone: teacher.phone,
         email: teacher.email,
         emergency: teacher.emergency,
-        health: teacher.health
+        health: teacher.health,
+        photoPath: teacher.photo,
     });
+    const [busy, setBusy] = useState(false);
     return (
         <Screen title={t('staff.myCard')} back={home} nav={false}
                 note={card.missing.length ? t('activity.missing', {list: card.missing.join(', ')}) : undefined}
-                footer={<button type="button" className="btn btn-lg" disabled={card.missing.length > 0} onClick={() => {
+                footer={<button type="button" className="btn btn-lg" disabled={card.missing.length > 0 || busy} onClick={async () => {
+                    if (LIVE.on) {
+                        setBusy(true);
+                        const problem = await saveStaffCard(card.values, card.email);
+                        setBusy(false);
+                        if (problem) return toast(t('live.refused', {reason: problem}));
+                    }
                     toast(card.emailChanged ? t('form.emailSent', {email: card.email}) : t('form.saved'));
                     router.back(home);
                 }}>{t('form.saveChanges')}</button>}>

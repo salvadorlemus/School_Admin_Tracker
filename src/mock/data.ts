@@ -1,3 +1,4 @@
+import {onProductionHost} from '../lib/hosts';
 import {LIVE, LIVE_STUDENTS} from '../live/state';
 /**
  * Invented sample data for the clickable prototype (docs/design/claude-design-brief.md). Nothing
@@ -20,7 +21,7 @@ import type {TextKey} from '../lib/texts';
 /** Logos the admin uploaded, by school (the prototype keeps them in memory). */
 export const SCHOOL_LOGOS = new Map<SchoolId, string>();
 
-export const STRESS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stress');
+export const STRESS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('stress') && !onProductionHost();
 
 export let TODAY = '2026-11-26';
 /** The prototype's clock: today at 10:15. */
@@ -117,6 +118,8 @@ export interface Teacher {
     futureSessions: number;
     emergency: { name: string; relation: string; phone: string }[];
     health?: string;
+    /** The staff card's photo (its path in the bucket), on the real data. */
+    photo?: string;
 }
 
 /** The person signed in for each staff role in the sample data. */
@@ -499,6 +502,9 @@ export interface Student {
     health?: string;
     emergency: { name: string; relation: string; phone: string }[];
     pickup?: string[];
+    /** The card's photo (its path in the bucket) and birth date, on the real data. */
+    photo?: string;
+    birth?: string;
 }
 
 export const STUDENTS: Student[] = [
@@ -685,6 +691,14 @@ export const STUDENTS: Student[] = [
 ];
 
 /** Daniela's children: two, or seven with stress data. */
+/** Who the student screens are for: the signed-in student (the prototype: Sofía) and the guardian's name. */
+export const ME = {student: 'sofia', name: 'Sofía', guardianName: 'Daniela', fullName: 'Sofía Ramírez Castro', phone: '55 1029 3847', email: 'sofia.ramirez@correo.mx',
+    /** The real data: the latest terms accepted at each school (by them, or for their children). */
+    accepted: [] as { school: string; version: number; when: string }[]};
+
+/** The guardian's children's schools (the prototype: Colibrí). */
+export const GUARDIAN_SCHOOLS: SchoolId[] = ['colibri'];
+
 export const GUARDIAN_KIDS: { id: string; name: string }[] = [{id: 'mateo', name: 'Mateo López Vega'}, {id: 'valentina', name: 'Valentina López Vega'}];
 
 if (STRESS) {
@@ -1023,7 +1037,7 @@ export const PERSONAL: Record<'s' | 'g' | 't' | 'd', Personal[]> = {
 };
 
 /** Whose classes the board is read for: Sofía's own, each of Daniela's children's, or Mariana's (she teaches). */
-export const BOARD_READERS: Record<string, string[]> = {s: ['sofia'], g: GUARDIAN_KIDS.map(kid => kid.id)};
+export const BOARD_READERS: Record<string, string[]> = {s: [ME.student], g: GUARDIAN_KIDS.map(kid => kid.id)};
 
 /**
  * The posts a person sees on a school's board: the ones for the whole school (a director's note, a
@@ -1249,6 +1263,8 @@ export interface FamilyPerson {
     pickup: boolean;
     /** Whether a photo was added: someone who picks the children up needs one. */
     photo?: boolean;
+    /** The photo picked on this phone, sent once the person is saved (the real data). */
+    file?: File;
     /** Which children they're for; all of them unless the guardian leaves someone out. */
     kids: string[];
 }

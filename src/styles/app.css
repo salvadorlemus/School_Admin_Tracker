@@ -1545,3 +1545,20 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
     html:not(.framed) .nav button:hover:not([aria-current="page"]) { background: var(--color-neutral); }
     html:not(.framed) .nav .badge { top: 6px; left: 26px; }
 }
+
+/* The terms PDF, drawn page by page by the reader. */
+.pdf-canvas { display: block; margin: 0 auto var(--space-md); background: var(--fixed-paper); border-radius: var(--radius-sm); box-shadow: 0 2px 10px var(--color-shadow); }
+
+/* A carousel dragged with the mouse: no snapping until it's let go. */
+.carousel { cursor: grab; }
+.carousel-dragging { cursor: grabbing; scroll-snap-type: none; scroll-behavior: auto; user-select: none; }
+
+/* The phone's keyboard: the screen ends above it, so the footer's button rides on top of the keyboard
+   instead of changing colour behind its translucent glass (iOS). --keyboard is set from the visual viewport. */
+@media (max-width: 599px), (max-height: 759px) {
+    .device { bottom: var(--keyboard, 0px); }
+    html[data-keyboard] .nav { display: none; }
+}
+
+/* The check-in code under the QR, to type it when the camera can't read the QR. */
+.qr-code-text { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: 0.12em; color: var(--qr-ink); margin: 0; }

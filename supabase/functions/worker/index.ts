@@ -13,7 +13,7 @@ const env = (name: string) => {
 };
 
 /** The sender (EMAIL_FROM, as VetClinicTracker): Lyra's name on the verified domain unless set. */
-const FROM = Deno.env.get('EMAIL_FROM') ?? 'Lyra <noreply@mail.kokoasoft.com>';
+const FROM = Deno.env.get('EMAIL_FROM') ?? 'Lyra <no-reply@mail.kokoasoft.com>';
 
 /** Compares the caller's password without telling, by its timing, how much of it was right. */
 function sameSecret(given: string, expected: string): boolean {

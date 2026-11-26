@@ -12,6 +12,17 @@ const newId = () => `p${nextId++}`;
 
 export type Person = FamilyPerson;
 
+/** What the card form holds when it's saved. */
+export interface CardValues {
+    name: string;
+    birth: string;
+    health: string;
+    phone: string;
+    email: string;
+    /** A new photo, when one was picked. */
+    photo?: File;
+}
+
 export interface Kid {
     id: string;
     name: string;
@@ -152,7 +163,7 @@ function PersonSheet({person, kind, minor, kids, mode, onClose, onSave}: {
                </>}>
             {picksUp && (
                 <div className="row-start align-center" >
-                    <PhotoPicker size="sm" name={draft.name} onPicked={() => set({photo: true})}
+                    <PhotoPicker size="sm" name={draft.name} onPicked={(_, file) => set({photo: true, file})}
                                  label={t('form.pickupPhoto', {name: draft.name || t('form.pickupPerson')})}/>
                     <span className="hint">{draft.photo ? t('people.photoDone') : t('people.photoHint')}</span>
                 </div>
@@ -223,7 +234,7 @@ export function useCardForm({
     student?: Student;
     minor: boolean;
     mode: 'register' | 'edit';
-    onSave: () => void;
+    onSave: (values: CardValues) => void;
     people: Person[];
     setPeople: (update: (list: Person[]) => Person[]) => void;
     kids: Kid[];
@@ -239,7 +250,8 @@ export function useCardForm({
     const confirm = useConfirm();
     const [health, setHealth] = useState(student?.health ?? '');
     const [name, setName] = useState(student?.name ?? defaultName ?? '');
-    const [birth, setBirth] = useState(student ? `${2026 - student.age}-03-14` : '');
+    const [birth, setBirth] = useState(student?.birth ?? (student ? `${2026 - student.age}-03-14` : ''));
+    const [photo, setPhoto] = useState<File>();
     const [phone, setPhone] = useState(ownPhone ?? '');
     const [email, setEmail] = useState(ownEmail ?? '');
     const toast = useToast();
@@ -266,7 +278,7 @@ export function useCardForm({
             body: t('form.healthChangedBody'),
             confirm: t('form.saveChanges'),
         }))) return;
-        onSave();
+        onSave({name, birth, health, phone, email, photo});
         // The new email works only once the person opens the link sent to it.
         if (ownEmail !== undefined && email.trim() !== ownEmail) toast(t('form.emailSent', {email: email.trim()}));
     };
@@ -274,7 +286,7 @@ export function useCardForm({
     const body = (
         <>
             <div className="row-start align-center gap-lg" >
-                <PhotoPicker name={name} label={t('form.photo')}/>
+                <PhotoPicker name={name} label={t('form.photo')} photo={student?.photo} onPicked={(_, file) => setPhoto(file)}/>
                 <p className="hint">{t(mode === 'edit' ? 'form.photoHint' : 'form.photoOptional')}</p>
             </div>
             <TextField id="card-name" label={t('form.name')} value={name}

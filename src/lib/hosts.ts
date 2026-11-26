@@ -34,3 +34,15 @@ export function leaveForOwnHost(path: string): boolean {
 
 /** Where the app lives, for links sent to people (invitations always open the app). */
 export const appOrigin = () => (APP_HOST ? `https://${APP_HOST}` : window.location.origin);
+
+/** The real site (the app's or the admin panel's address): the prototype and its invented data never show there. */
+export const onProductionHost = () => Boolean(APP_HOST || ADMIN_HOST)
+    && typeof window !== 'undefined' && [APP_HOST, ADMIN_HOST].includes(window.location.hostname);
+
+/** The prototype's own screens (sample flows with invented people), kept off the real site. */
+export const isPrototypePath = (path: string) =>
+    /^\/(invite(\/(card|terms|done|minor(\/.*)?|teacher(\/.*)?|director(\/.*)?))?|terms-new|delete-link)$/.test(path);
+
+/** Paths anyone may open signed out on the real site: the sign-in, invitation and password links, and the links that need a sign-in first. */
+export const isPublicPath = (path: string) =>
+    path === '/' || path === '/legal' || path === '/password/new' || path === '/checkin' || path.startsWith('/invite/') || path.startsWith('/delete-data/');

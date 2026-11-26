@@ -1,3 +1,4 @@
+import {useFileUrl} from '../live/files';
 import {Children, Fragment, isValidElement, useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode} from 'react';
 import {t} from '../lib/texts';
 import {dayField, initials, time} from '../lib/format';
@@ -351,15 +352,19 @@ export function Segmented<T extends string>({label, value, options, onChange}: {
  * A round photo with a camera badge: tapping it opens the camera (or the gallery). The picked
  * image shows at once; in the real app it's compressed on the phone before uploading.
  */
-export function PhotoPicker({name, size = 'md', label, onPicked}: {
+export function PhotoPicker({name, size = 'md', label, onPicked, photo}: {
     name: string;
     size?: 'sm' | 'md';
     label: string;
-    /** Called with the picked photo (an object URL the prototype keeps in memory). */
-    onPicked?: (url?: string) => void;
+    /** Called with the picked photo: an object URL to show it, and the file to send. */
+    onPicked?: (url: string, file: File) => void;
+    /** The photo already saved (its path in the bucket). */
+    photo?: string;
 }) {
     const input = useRef<HTMLInputElement>(null);
-    const [url, setUrl] = useState<string | null>(null);
+    const [picked, setUrl] = useState<string | null>(null);
+    const saved = useFileUrl(photo);
+    const url = picked ?? (saved || null);
     return (
         <>
             <button type="button" className={size === 'sm' ? 'photo-picker photo-picker-sm' : 'photo-picker'}
@@ -374,15 +379,16 @@ export function PhotoPicker({name, size = 'md', label, onPicked}: {
                        if (file) {
                            const next = URL.createObjectURL(file);
                            setUrl(next);
-                           onPicked?.(next);
+                           onPicked?.(next, file);
                        }
                    }}/>
         </>
     );
 }
 
-export function Avatar({name, large}: { name: string; large?: boolean }) {
-    return <span className={large ? 'avatar avatar-lg' : 'avatar'} aria-hidden="true">{initials(name)}</span>;
+export function Avatar({name, large, photo}: { name: string; large?: boolean; photo?: string }) {
+    const url = useFileUrl(photo);
+    return <span className={large ? 'avatar avatar-lg' : 'avatar'} aria-hidden="true">{url ? <img src={url} alt=""/> : initials(name)}</span>;
 }
 
 /** A row in a list: a button when it opens something, plain otherwise. `fixed` keeps every row one height. */
@@ -448,6 +454,40 @@ export function Carousel<T>({label, items, selected, onSelect, render, keyOf, on
     const settle = useRef(0);
     // While the strip glides to a tapped card, the cards it passes aren't selected on the way.
     const gliding = useRef(0);
+    const dragging = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+    const dragged = useRef(false);
+
+    /** Selects the card nearest the middle, and centres it if the strip stopped halfway between two. */
+    const snapToNearest = () => {
+        const box = strip.current;
+        if (!box) return;
+        const middle = box.getBoundingClientRect().left + box.clientWidth / 2;
+        const cards = [...box.querySelectorAll<HTMLElement>('.carousel-card')];
+        const nearest = cards.reduce((best, card, index) => {
+            const rect = card.getBoundingClientRect();
+            const distance = Math.abs(rect.left + rect.width / 2 - middle);
+            return distance < best.distance ? {index, distance} : best;
+        }, {index: selected, distance: Infinity});
+        const card = cards[nearest.index];
+        if (card && nearest.distance > 2) {
+            window.clearTimeout(gliding.current);
+            gliding.current = window.setTimeout(() => (gliding.current = 0), 450);
+            box.scrollTo({left: box.scrollLeft + card.getBoundingClientRect().left + card.offsetWidth / 2 - middle, behavior: 'smooth'});
+        }
+        if (nearest.index !== selected) {
+            swiped.current = true;
+            onSelect(nearest.index);
+        }
+    };
+
+    const endDrag = () => {
+        const drag = dragging.current;
+        if (!drag) return;
+        dragging.current = null;
+        dragged.current = drag.moved;
+        strip.current?.classList.remove('carousel-dragging');
+        snapToNearest();
+    };
     useEffect(() => {
         const box = strip.current;
         const card = box?.querySelectorAll<HTMLElement>('.carousel-card')[selected];
@@ -465,25 +505,36 @@ export function Carousel<T>({label, items, selected, onSelect, render, keyOf, on
     }, [selected]);
     return (
         <>
-            <div ref={strip} className="carousel" role="group" aria-label={label} onScroll={() => {
-                // While swiping, the card nearest the middle is selected: the screen follows it at once.
-                if (gliding.current) return;
-                window.cancelAnimationFrame(settle.current);
-                settle.current = window.requestAnimationFrame(() => {
-                    const box = strip.current;
-                    if (!box) return;
-                    const middle = box.getBoundingClientRect().left + box.clientWidth / 2;
-                    const cards = [...box.querySelectorAll<HTMLElement>('.carousel-card')];
-                    const nearest = cards.reduce((best, card, index) => {
-                        const rect = card.getBoundingClientRect();
-                        const distance = Math.abs(rect.left + rect.width / 2 - middle);
-                        return distance < best.distance ? {index, distance} : best;
-                    }, {index: selected, distance: Infinity}).index;
-                    if (nearest !== selected) {
-                        swiped.current = true;
-                        onSelect(nearest);
-                    }
-                });
+            <div ref={strip} className="carousel" role="group" aria-label={label}
+                 onScroll={() => {
+                     // Once the swipe settles, the card nearest the middle is selected and the screen follows it. Waiting for the
+                     // strip to stop keeps the screen below from changing size mid-swipe (iOS would drop the snap halfway).
+                     if (gliding.current || dragging.current) return;
+                     window.clearTimeout(settle.current);
+                     settle.current = window.setTimeout(snapToNearest, 90);
+                 }}
+                 onPointerDown={event => {
+                     // On a computer the mouse drags the strip, as a finger swipes it.
+                     if (event.pointerType !== 'mouse' || !strip.current) return;
+                     dragging.current = {x: event.clientX, left: strip.current.scrollLeft, moved: false};
+                     strip.current.classList.add('carousel-dragging');
+                 }}
+                 onPointerMove={event => {
+                     const drag = dragging.current;
+                     if (!drag || !strip.current) return;
+                     const dx = event.clientX - drag.x;
+                     if (Math.abs(dx) > 4) drag.moved = true;
+                     strip.current.scrollLeft = drag.left - dx;
+                 }}
+                 onPointerUp={() => endDrag()}
+                 onPointerLeave={() => endDrag()}
+                 onClickCapture={event => {
+                     // A drag isn't a tap: the card under the mouse isn't selected or opened by it.
+                     if (dragged.current) {
+                         event.preventDefault();
+                         event.stopPropagation();
+                         dragged.current = false;
+                     }
             }}>
                 {items.map((item, index) => (
                     <button key={keyOf(item)} type="button" className="carousel-card" aria-pressed={index === selected}
