@@ -34,11 +34,12 @@ function standing(fee: number, day: number, trialEnds: string, paid: Set<string>
 }
 
 export async function loadAdmin(): Promise<void> {
-    const [schools, billing, members, people, payments, log, usage] = await Promise.all([
+    const [schools, billing, members, people, payments, log, usage, emails] = await Promise.all([
         rows('school'), rows('school_billing'), rows('membership', 'school_id, person_id, role, status', q => q.eq('role', 'director')),
         rows('person', 'id, full_name, phone'), rows('billing_payment', '*', q => q.order('paid_on', {ascending: false})),
         rows('admin_log', '*', q => q.order('created_at', {ascending: false}).limit(200)),
         supabase.rpc('admin_usage').then(({data}) => (data ?? []) as Record<string, unknown>[]),
+        supabase.rpc('admin_director_emails').then(({data}) => (data ?? []) as { school_id: string; person_id: string; email: string }[]),
     ]);
     const person = new Map(people.map(p => [str(p.id), p]));
     SCHOOL_ROWS.splice(0, SCHOOL_ROWS.length, ...schools.map((s): SchoolRow => {
@@ -59,11 +60,10 @@ export async function loadAdmin(): Promise<void> {
             checkins: num(used?.check_ins), active: num(used?.active_people),
             storage: num(used?.storage_bytes) / 1e9,
             lastActivity: str(used?.last_activity).slice(0, 10) || str(s.created_at).slice(0, 10),
-            // Their email is their login, which the admin doesn't read: the phone is how to reach them.
             directors: members.filter(m => m.school_id === id && m.status !== 'inactive').map(m => ({
                 name: str(person.get(str(m.person_id))?.full_name),
                 phone: str(person.get(str(m.person_id))?.phone),
-                email: '',
+                email: emails.find(e => e.school_id === id && e.person_id === m.person_id)?.email ?? '',
             })),
         };
     }).sort((a, b) => a.name.localeCompare(b.name)));
@@ -164,6 +164,7 @@ export const adminLive = {
             method,
             paid_by: paidBy || null
         })),
+    inviteDirector: (school: string, name: string, email: string) => done(supabase.rpc('admin_invite_director', {school, full_name: name, email})),
     /** Sends the director's invitation again (a new link; the old one stops working). */
     resendDirector: (schoolName: string) => done((async () => {
         const school = SCHOOL_ROWS.find(row => row.name === schoolName);
