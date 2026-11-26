@@ -1405,3 +1405,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 .school-logo-md { width: 36px; height: 36px; font-size: 14px; border-radius: 9px; }
 .title-school { gap: 6px; }
 .heading-pick .school-logo { margin-right: 2px; }
+
+/* The app's name on the sign-in screen. */
+.brand { display: flex; flex-direction: column; min-width: 0; }
+.brand-name { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--color-accent); line-height: 1.1; }

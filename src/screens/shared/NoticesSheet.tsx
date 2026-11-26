@@ -43,7 +43,7 @@ export function NoticesSheet({role, open, onClose, keepNav}: {
     const [only, setOnly] = useState('all');
     const [limit, setLimit] = useState(10);
     if (role === 'a') return null;
-    const personal = [...(role === 'd' ? payReminders(current) : []), ...PERSONAL[role]].sort((a, b) => Number(Boolean(b.unread)) - Number(Boolean(a.unread)));
+    const personal = [...(role === 'd' ? payReminders(current) : []), ...PERSONAL[role].filter(item => role === 's' || role === 'g' || item.school === current)].sort((a, b) => Number(Boolean(b.unread)) - Number(Boolean(a.unread)));
     // Students see all their schools' boards; guardians their children's school; staff the school they're working in.
     const schools: SchoolId[] = role === 's' ? SOFIA_SCHOOLS : [role === 'g' ? 'colibri' : current];
     const canPost = role === 't' || role === 'd';

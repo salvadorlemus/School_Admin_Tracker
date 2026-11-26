@@ -1,17 +1,17 @@
-import {classById, NOW, PACKAGES, PRICES, type SchoolId, schoolOfClass, type Session, SESSIONS, TEACHERS, TODAY} from './data';
+import {attendanceOf, classById, guestsOf, NOW, PACKAGES, PRICES, type SchoolId, schoolOfClass, schoolOfSession, type Session, SESSIONS, studentById, TEACHERS, TODAY} from './data';
 import {teacherOf} from './changes';
-import {PROOFS, STUDENTS} from './data';
+import {PROOFS} from './data';
 
 /**
  * Whether a student's plan or package payment for this month is confirmed: what a teacher sees
  * beside their name. Per-visit payers pay each time, so they have nothing pending.
  */
-export function monthPayment(studentId: string): 'confirmed' | 'uploaded' | 'rejected' | 'none' | 'visit' {
-    const student = STUDENTS.find(item => item.id === studentId);
-    if (!student || student.plan === 'cash' || student.plan === 'totalpass') return 'visit';
-    const month = PROOFS.filter(proof => proof.student === studentId && proof.school === 'colibri' && proof.covers.endsWith('· 2026-11'))
+export function monthPayment(studentId: string, month = TODAY.slice(0, 7)): 'confirmed' | 'uploaded' | 'rejected' | 'none' | 'visit' {
+    const student = studentById(studentId);
+    if (student.id !== studentId || student.plan === 'cash' || ((student.plan === 'totalpass' || student.plan === 'wellhub') && !student.passExtra)) return 'visit';
+    const paid = PROOFS.filter(proof => proof.student === studentId && proof.school === (student.school ?? 'colibri') && proof.covers.endsWith(`· ${month}`))
         .sort((a, b) => (b.sent + b.sentAt).localeCompare(a.sent + a.sentAt))[0];
-    return month?.state ?? 'none';
+    return paid?.state ?? 'none';
 }
 
 /**
@@ -60,6 +60,12 @@ export const PAY_RULES: Record<SchoolId, PayRule> = {
         percent: 70,
         totalpassValue: 150,
         tiers: [{from: 1, to: 3, amount: 300}, {from: 4, to: 7, amount: 500}, {from: 8, amount: 700}], emptyPay: 0,
+    },
+    // Helios: per class, by how many students came.
+    helios: {
+        days: 'half', scheme: 'tiers', perSession: {}, defaultPerSession: 275, percent: 70, totalpassValue: 150,
+        tiers: [{from: 1, to: 1, amount: 110}, {from: 2, to: 2, amount: 165}, {from: 3, to: 5, amount: 275}, {from: 6, to: 7, amount: 385}, {from: 8, to: 9, amount: 440}, {from: 10, amount: 550}],
+        emptyPay: 0,
     },
 };
 
@@ -128,8 +134,17 @@ export interface Turnout {
     unpaid: number;
 }
 
-/** Invented, but steady: the same session always has the same turnout. */
+/** Who came, from the attendance records when the sample has them (Helios); otherwise invented, but steady: the same session always has the same turnout. */
 function turnoutOf(session: Session): Turnout {
+    const records = attendanceOf(session);
+    if (records) {
+        const plan = records.filter(entry => entry.as === 'plan');
+        return {
+            plan: plan.length, cash: records.filter(entry => entry.as === 'visit').length, totalpass: records.filter(entry => entry.as === 'pass').length,
+            trial: records.filter(entry => entry.as === 'trial').length, guests: guestsOf(session),
+            unpaid: plan.filter(entry => monthPayment(entry.student, session.date.slice(0, 7)) !== 'confirmed').length,
+        };
+    }
     let hash = 0;
     for (const char of session.id) hash = (hash * 31 + char.charCodeAt(0)) % 9973;
     const came = session.checkedIn ?? Math.min(session.expected ?? 8, 2 + hash % 9);
@@ -161,7 +176,7 @@ export interface SessionPay {
 export function sessionPay(session: Session, teacher: string, rule: PayRule): SessionPay {
     const turnout = turnoutOf(session);
     const counted = turnout.plan + turnout.cash + turnout.totalpass;
-    const visit = PRICES.find(price => price.kind === 'visit')?.amount ?? 0;
+    const visit = PRICES.find(price => price.kind === 'visit' && (price.school ?? 'colibri') === schoolOfSession(session))?.amount ?? 0;
     let amount = 0;
     let pending = 0;
     if (rule.scheme === 'perSession') amount = rule.perSession[teacher] ?? rule.defaultPerSession;
@@ -244,7 +259,7 @@ export interface TeacherPayment {
 
 let seeded: TeacherPayment[] | null = null;
 
-/** The sample's payments: the last two closed periods at Colibrí. */
+/** The sample's payments: the last two closed periods at Colibrí and Helios. */
 export function teacherPayments(): TeacherPayment[] {
     if (seeded) return seeded;
     const [, closed, older] = periodsOf(payRule('colibri'));
@@ -259,6 +274,16 @@ export function teacherPayments(): TeacherPayment[] {
         entry('lucia', closed, 'flagged', 400, 'Falta la sesión del jueves 12, que di como suplente.'),
         entry('rodrigo', closed, 'paid'),
     ].filter(item => item.amount > 0);
+    // Helios: the older period paid and confirmed; the last one paid to all but Mariana, and Dafne hasn't confirmed hers yet.
+    const [, hClosed, hOlder] = periodsOf(payRule('helios'));
+    const helios = TEACHERS.filter(teacher => teacher.schools?.includes('helios'));
+    const paid = (teacher: string, period: Period, state: TeacherPaymentState): TeacherPayment => ({
+        id: `tp-${teacher}-helios-${period.from}`, teacher, school: 'helios', period: period.from, amount: teacherPay(teacher, 'helios', period).amount,
+        method: teacher === 'mariana-a' ? 'cash' : 'transfer', date: period.payday, receipt: true, state,
+    });
+    seeded.push(...helios.map(teacher => paid(teacher.id, hOlder, 'confirmed')),
+        ...helios.filter(teacher => teacher.id !== 'mariana-a').map(teacher => paid(teacher.id, hClosed, teacher.id === 'dafne' ? 'paid' : 'confirmed')));
+    seeded = seeded.filter(item => item.amount > 0);
     return seeded;
 }
 

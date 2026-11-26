@@ -7,7 +7,7 @@ import {SchoolLogo} from '../screens/shared/pieces';
 import {useSheetRoute} from './Layers';
 import {NoticesSheet} from '../screens/shared/NoticesSheet';
 import {CardSheet} from '../screens/shared/CardSheet';
-import {PROOFS, REVIEWED, SCHOOLS, STAFF_ME, TEACHERS, teacherSchools, unreadNotices} from '../mock/data';
+import {PROOFS, REVIEWED, SCHOOLS, STAFF_ME, TEACHERS, teacherSchools, unreadNotices, isPass} from '../mock/data';
 import {setCurrentSchool, useCurrentSchool} from '../state/school';
 
 export type Role = 's' | 'g' | 't' | 'd' | 'a';
@@ -66,8 +66,10 @@ export {STAFF_ME};
  * all the room between the bars, the bottom texts and main action (always visible), and the
  * bottom bar. The scroll area remembers where it was for the back button.
  */
-export function Screen({title, subtitle, back, onBack, nav = true, footer, note, children, topActions, fixedList}: {
+export function Screen({title, subtitle, titleLine, back, onBack, nav = true, footer, note, children, topActions, fixedList}: {
     title: string;
+    /** A pick that changes the whole screen, kept under the title like the staff's school line (the student's school). */
+    titleLine?: ReactNode;
     /** One line, or several (the dashboard's school, then the date). */
     subtitle?: string | string[];
     /** Shows a back arrow; the path is where it goes when there's no previous page. */
@@ -113,7 +115,13 @@ export function Screen({title, subtitle, back, onBack, nav = true, footer, note,
     const showCard = role !== 'a' && isTab;
     const showNotices = role !== 'a' && (isTab || nav);
     const staff = role === 't' || role === 'd';
-    const mySchools = staff ? teacherSchools(TEACHERS.find(teacher => teacher.id === STAFF_ME[role]) ?? TEACHERS[0]) : [];
+    const me = staff ? TEACHERS.find(teacher => teacher.id === STAFF_ME[role]) ?? TEACHERS[0] : null;
+    // A director switches between the schools they direct (and teach at); a teacher, the ones they teach at.
+    const mySchools = me ? [...new Set([...(role === 'd' ? me.directs ?? [] : []), ...teacherSchools(me)])] : [];
+    // Signing in as someone else: back to one of their own schools.
+    useLayoutEffect(() => {
+        if (mySchools.length && !mySchools.includes(school)) setCurrentSchool(mySchools[0]);
+    }, [mySchools.join(), school]);
     const unread = unreadNotices(role);
     // Account isn't about a school: no switch there.
     const switching = mySchools.length > 1 && isTab && !router.path.endsWith('/account');
@@ -138,6 +146,7 @@ export function Screen({title, subtitle, back, onBack, nav = true, footer, note,
                                       options={mySchools.map(id => ({value: id, label: SCHOOLS[id].name}))}/>
                         </span>
                     )}
+                    {titleLine}
                     {lines.filter(line => !(switching && line === SCHOOLS[school].name)).map(line => <span key={line}>{line}</span>)}
                 </div>
                 <div className="topbar-actions">
@@ -185,7 +194,7 @@ export function Screen({title, subtitle, back, onBack, nav = true, footer, note,
                     {items.map(item => {
                         const current = router.path === item.path || router.path.startsWith(`${item.path}/`);
                         const badge = item.path === '/d/payments'
-                            ? PROOFS.filter(proof => proof.state === 'uploaded' && proof.method !== 'totalpass' && !REVIEWED.has(proof.id)).length || undefined
+                            ? PROOFS.filter(proof => proof.school === school && proof.state === 'uploaded' && !isPass(proof.method) && !REVIEWED.has(proof.id)).length || undefined
                             : item.badge;
                         return (
                             <button key={item.path} type="button" aria-current={current ? 'page' : undefined}

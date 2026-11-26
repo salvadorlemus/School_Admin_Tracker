@@ -14,28 +14,7 @@ import {
     weekdayShort
 } from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {
-    AMBAR_STUDENTS,
-    classById,
-    CLASSES,
-    PACKAGES,
-    PROOFS,
-    roomName,
-    SCHOOLS,
-    schoolOfClass,
-    schoolOfSession,
-    sessionById,
-    SESSIONS,
-    STRESS,
-    STUDENTS,
-    studentById,
-    teacherName,
-    TEACHERS,
-    sessionWindow,
-    TODAY,
-    TODAY_ROSTER,
-    type Session,
-} from '../../mock/data';
+import {AMBAR_STUDENTS, classById, CLASSES, PACKAGES, PROOFS, roomName, SCHOOLS, schoolOfClass, schoolOfSession, sessionById, SESSIONS, STRESS, STUDENTS, studentById, teacherName, TEACHERS, sessionWindow, TODAY, TODAY_ROSTER, type Session, rosterOf, guestsOf, studentsOf, classStudents} from '../../mock/data';
 import {teacherOf} from '../../mock/changes';
 import {Screen, roleOf, STAFF_ME} from '../../ui/Screen';
 import {Avatar, Check, Empty, ListRow, MenuText, SearchField, Segmented, SelectField, TextArea} from '../../ui/Fields';
@@ -49,7 +28,7 @@ import {PayView} from '../shared/PayView';
 import {coversText, planText} from '../shared/labels';
 import {monthPayment} from '../../mock/pay';
 
-/** Teacher screens (Mariana Ruiz, at Colibrí and Estudio Ámbar). A director who teaches reaches them under /d/. */
+/** Teacher screens (Mariana Alvarez, at Helios). A director who teaches reaches them under /d/. */
 
 function base(path: string) {
     return `/${roleOf(path)}`;
@@ -75,7 +54,8 @@ export function Schedule() {
     const school = useCurrentSchool();
     const day = useSheetRoute('day');
     const month = router.query.get('month') === '12' ? '2026-12-01' : '2026-11-01';
-    const sessions = mySessions('mariana', school);
+    const mine = me(router.path).id;
+    const sessions = mySessions(mine, school);
     const lead = weekdayOf(month) - 1;
     const cells = Array.from({length: 42}, (_, i) => addDays(month, i - lead)).filter((date, i) => i < 35 || date.slice(5, 7) === month.slice(5, 7));
     const today = sessions.filter(session => session.date === TODAY);
@@ -83,10 +63,10 @@ export function Schedule() {
     const todayList = useRef<HTMLHeadingElement>(null);
 
     const open = (session: Session) => {
-        if (session.substitute && session.substitute !== 'mariana') return undefined;
+        if (session.substitute && session.substitute !== mine) return undefined;
         return () => router.navigate(`/t/session/${session.id}`);
     };
-    const extra = (session: Session) => session.substitute && session.substitute !== 'mariana'
+    const extra = (session: Session) => session.substitute && session.substitute !== mine
         ? <span className="small">{t('schedule.coveredBy', {name: teacherName(session.substitute)})}</span>
         : session.checkedIn !== undefined
             ? <span className="small strong">{t('schedule.arrived', {
@@ -160,7 +140,7 @@ export function SessionScreen({id}: { id: string }) {
     const item = classById(session.classId);
     const held = session.date <= TODAY;
     const before = session.date < TODAY;
-    const roster: typeof TODAY_ROSTER = held ? TODAY_ROSTER : TODAY_ROSTER.map(entry => ({student: entry.student}));
+    const roster: typeof TODAY_ROSTER = held ? rosterOf(session) : rosterOf(session).map(entry => ({student: entry.student}));
     const waiting = roster.filter(entry => !entry.at);
     const arrived = roster.filter(entry => entry.at);
     const window = sessionWindow(session);
@@ -169,7 +149,7 @@ export function SessionScreen({id}: { id: string }) {
     const record = director ? arrived.find(entry => entry.student === recordSheet.item) : undefined;
     const recordOf = record ? studentById(record.student) : null;
     // Every correction stays in the history (stress data: a dozen of them).
-    const history = [
+    const history = schoolOfSession(session) !== 'colibri' ? [] : [
         {title: t('att.logAdded', {name: 'Héctor Navarro'}), sub: `Mariana Ruiz · ${time('10:11')}`},
         ...(STRESS ? STUDENTS.slice(0, 12).map((student, index) => ({
             title: t(index % 2 ? 'att.logAdded' : 'att.logRemoved', {name: student.name}),
@@ -202,7 +182,7 @@ export function SessionScreen({id}: { id: string }) {
             <div className="stats">
                 <div className="stat"><strong>{arrived.length}</strong>{t('session.arrived')}</div>
                 <div className="stat"><strong>{roster.length}</strong>{t('session.expected')}</div>
-                <div className="stat"><strong>{held ? 1 : 0}</strong>{t('att.guests')}</div>
+                <div className="stat"><strong>{held ? guestsOf(session) : 0}</strong>{t('att.guests')}</div>
             </div>
             <p className="hint">{t('session.whoCanCome')}</p>
             <h2 className="section-title">{t(before ? 'session.didntCome' : 'session.notYet')}</h2>
@@ -358,7 +338,7 @@ export function AddAttendance({id}: { id: string }) {
     const toast = useToast();
     const role = base(router.path);
     const session = sessionById(id);
-    const waiting = TODAY_ROSTER.filter(entry => !entry.at).map(entry => studentById(entry.student));
+    const waiting = rosterOf(session).filter(entry => !entry.at).map(entry => studentById(entry.student));
     const [picked, setPicked] = useState<string[]>([]);
     return (
         <Screen title={t('add.title')} subtitle={`${classById(session.classId).name} · ${time(session.start)}`}
@@ -388,12 +368,15 @@ export function Students() {
     const teacher = me(router.path);
     const school = useCurrentSchool();
     const [query, setQuery] = useState('');
-    const pool = school === 'ambar' ? AMBAR_STUDENTS : STUDENTS.filter(student => student.status === 'active' && student.id !== 'julia');
+    const pool = school === 'ambar' ? AMBAR_STUDENTS : school === 'colibri' ? STUDENTS.filter(student => student.status === 'active' && student.id !== 'julia')
+        : studentsOf(school).filter(student => student.status === 'active');
     // The classes I give at this school, each with its current students (sample data: a child is in the
     // children's class; an adult in the class their plan names, their package covers, or pays per visit).
     const classes = CLASSES.filter(item => schoolOfClass(item) === school && item.teacher === teacher.id);
-    const takes = (student: typeof pool[number], item: typeof classes[number]) => Boolean(item.forKids) === Boolean(student.minor)
-        && (student.minor || student.planLabel.startsWith(item.name) || student.plan === 'totalpass' || student.plan === 'cash'
+    // Helios: the students whose usual week includes the class.
+    const takes = (student: typeof pool[number], item: typeof classes[number]) => school !== 'colibri' && school !== 'ambar' ? classStudents(item.id).includes(student.id)
+        : Boolean(item.forKids) === Boolean(student.minor)
+        && (student.minor || student.planLabel.startsWith(item.name) || student.plan === 'totalpass' || student.plan === 'wellhub' || student.plan === 'cash'
             || (student.plan === 'package3' && PACKAGES[0].classes.includes(item.id))
             || (student.plan === 'package2' && PACKAGES[1].classes.includes(item.id)));
     const groups = classes.map(item => ({
@@ -473,9 +456,13 @@ export function TeacherPayments() {
     const sheet = useSheetRoute('proof');
     const director = base(router.path) === '/d';
     const tab = !director && router.query.get('tab') === 'proofs' ? 'proofs' : 'month';
-    const mine = school === 'ambar' ? [] : PROOFS.filter(proof => ['mateo', 'valentina', 'sofia', 'andres'].includes(proof.student) && proof.school === 'colibri');
-    const open = mine.find(proof => proof.id === sheet.item);
     const teacher = me(router.path);
+    // Helios: the last month's screenshots of the students who come to my classes.
+    const theirs = new Set(CLASSES.filter(item => schoolOfClass(item) === school && item.teacher === teacher.id).flatMap(item => classStudents(item.id)));
+    const mine = school === 'ambar' ? [] : school === 'colibri'
+        ? PROOFS.filter(proof => ['mateo', 'valentina', 'sofia', 'andres'].includes(proof.student) && proof.school === 'colibri')
+        : PROOFS.filter(proof => proof.school === school && theirs.has(proof.student) && proof.sent >= addDays(TODAY, -30)).sort((a, b) => (b.sent + b.sentAt).localeCompare(a.sent + a.sentAt));
+    const open = mine.find(proof => proof.id === sheet.item);
     return (
         <Screen title={director ? t('tpay.tabMonth') : t('tpay.title')}
                 back={director ? '/d/more' : undefined}>
@@ -574,7 +561,7 @@ export function PostNotice() {
     const school = useCurrentSchool();
     const role = base(router.path);
     const director = role === '/d';
-    const classes = CLASSES.filter(item => schoolOfClass(item) === school && (director || item.teacher === 'mariana'));
+    const classes = CLASSES.filter(item => schoolOfClass(item) === school && (director || item.teacher === me(router.path).id));
     const [target, setTarget] = useState(director ? 'all' : classes[0]?.id ?? '');
     const [text, setText] = useState('');
     const reach = target === 'all' ? 58 : classById(target).students;

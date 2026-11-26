@@ -7,8 +7,11 @@ import type {SchoolId} from '../mock/data';
  * Students and guardians never pick one: they see all their schools together.
  */
 
-let current: SchoolId = 'colibri';
+let current: SchoolId = 'helios';
 const listeners = new Set<() => void>();
+
+/** The current school, for code outside a component (every screen is redrawn when it changes). */
+export const currentSchool = (): SchoolId => current;
 
 export function setCurrentSchool(school: SchoolId): void {
     current = school;

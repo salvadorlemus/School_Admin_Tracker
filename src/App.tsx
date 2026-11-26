@@ -1,3 +1,4 @@
+import {useCurrentSchool} from './state/school';
 import type {ComponentType} from 'react';
 import {InsightScreen} from './screens/director/Insights';
 import {PaySettings, TeacherPaymentForm, TeacherPayouts, TeacherPayScreen} from './screens/director/TeacherPay';
@@ -39,7 +40,7 @@ import {
     DirectorStudents,
     Export,
     More,
-    Prices,
+    Prices, PackageForm,
     Reassign,
     Register,
     RegisterSent,
@@ -136,6 +137,7 @@ const ROUTES: Route[] = [
     ['/d/teacher-payments', TeacherPayouts],
     ['/d/teacher-pay', PaySettings],
     ['/d/prices', Prices],
+    ['/d/package/:id', ({id}) => <PackageForm id={id}/>],
     ['/d/terms', Terms],
     ['/d/export', Export],
 
@@ -162,6 +164,7 @@ export default function App() {
         }
     }
     const {Screen, params} = found ?? {Screen: SignIn, params: {}};
-    // Keyed by path: a new screen starts fresh, while a popup opening (?sheet=) keeps the screen as it is.
-    return <Device><Screen key={path} {...params}/></Device>;
+    // Keyed by path (and the staff's school): a new screen starts fresh, while a popup opening (?sheet=) keeps the screen as it is.
+    const school = useCurrentSchool();
+    return <Device><Screen key={`${path}@${school}`} {...params}/></Device>;
 }

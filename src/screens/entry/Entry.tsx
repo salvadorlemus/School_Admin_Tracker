@@ -40,7 +40,7 @@ export function SignIn() {
     const shortcuts: [string, string, string][] = [
         ['/s/home', 'Sofía Ramírez', t('proto.student')],
         ['/g/home', 'Daniela Vega', t('proto.guardian')],
-        ['/t/schedule', 'Mariana Ruiz', t('proto.teacher')],
+        ['/t/schedule', 'Mariana Alvarez', t('proto.teacher')],
         ['/d/home', 'Ana Torres', t('proto.director')],
         ['/a/schools', t('proto.adminName'), t('proto.admin')],
     ];
@@ -65,7 +65,10 @@ export function SignIn() {
     );
     return (
         <BareScreen>
-            <div style={{width: 120}}><LanguageSwitch/></div>
+            <div className="row">
+                <span className="brand"><span className="brand-name">{t('app.name')}</span><span className="small muted">{t('app.tagline')}</span></span>
+                <div style={{width: 120}}><LanguageSwitch/></div>
+            </div>
             <h1 className="huge">{t('signIn.title')}</h1>
             <form className="stack" onSubmit={event => {
                 event.preventDefault();
@@ -99,11 +102,11 @@ const INVITED: Record<InviteKind, { name: string; email: string }> = {
     adult: {name: 'Julia Paredes', email: 'julia.paredes@correo.mx'},
     minor: {name: 'Rosa Paz', email: 'rosa.paz@correo.mx'},
     teacher: {name: 'Sergio Luna', email: 'sergio.luna@correo.mx'},
-    director: {name: 'Rosa Elena Garza', email: 'rosa.garza@tallerdelsur.mx'},
+    director: {name: 'Rosa Elena Garza', email: 'rosa.garza@aereodelsur.mx'},
 };
 
 /** The school a new director was invited to run: just created by the admin, still empty. */
-const NEW_SCHOOL = 'Taller del Sur';
+const NEW_SCHOOL = 'Estudio Aéreo del Sur';
 
 /**
  * The page the invite email opens: who invited them and what's ahead, and the password, in one
@@ -339,7 +342,7 @@ export function SchoolDisabled() {
             <div className="done">
                 <span className="avatar avatar-lg"><Icon name="school" size={40}/></span>
                 <h1 className="huge">{t('disabled.title')}</h1>
-                <p>{t('disabled.body', {school: 'Casa Pigmento'})}</p>
+                <p>{t('disabled.body', {school: 'Casa Pirueta'})}</p>
             </div>
         </BareScreen>
     );

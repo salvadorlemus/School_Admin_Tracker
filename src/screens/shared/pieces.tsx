@@ -246,4 +246,11 @@ export function staffAsStudent(teacher: Teacher): Student {
 }
 
 /** "Mar 10:00 – 12:00 · Jue 10:00 – 12:00": when a weekly class meets. */
+/** A class's days grouped by their hours, to tell apart classes with the same name: "Lun, Mié 18:00 – 20:00". */
+export const classWhen = (item: SchoolClass) => {
+    const groups = new Map<string, number[]>();
+    for (const slot of item.slots) groups.set(timeRange(slot.start, slot.end), [...(groups.get(timeRange(slot.start, slot.end)) ?? []), slot.weekday]);
+    return [...groups].map(([range, days]) => `${days.map(day => weekdayShort(day)).join(', ')} ${range}`).join(' · ');
+};
+
 export const classSlots = (item: SchoolClass) => item.slots.map(slot => `${weekdayShort(slot.weekday)} ${timeRange(slot.start, slot.end)}`).join(' · ');

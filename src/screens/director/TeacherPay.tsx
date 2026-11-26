@@ -1,3 +1,4 @@
+import {currentSchool} from '../../state/school';
 import {useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayMonth, money, personName} from '../../lib/format';
@@ -22,32 +23,34 @@ export function PaySettings() {
     const toast = useToast();
     const confirm = useConfirm();
     const [rule, setRule] = useState<PayRule>(() => {
-        const saved = payRule('colibri');
+        const saved = payRule(currentSchool());
         return {...saved, perSession: {...saved.perSession}, tiers: saved.tiers.map(tier => ({...tier}))};
     });
     const set = (change: Partial<PayRule>) => setRule(current => ({...current, ...change}));
-    const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes('colibri'));
+    const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool()));
     const period = periodsOf(rule)[0];
     const last = rule.tiers.length - 1;
-    const tiersOk = rule.tiers.every((tier, i) => tier.amount > 0 && (i === last || (tier.to !== undefined && tier.to >= tier.from)));
+    // A range's problem, if any: it must follow the one before (starting at 1), end after it starts, and pay something.
+    const tierProblem = (i: number): string | null => {
+        const tier = rule.tiers[i];
+        const start = i === 0 ? 1 : (rule.tiers[i - 1].to ?? 0) + 1;
+        // While the range before has no end yet, that one says so.
+        if (tier.from !== start && (i === 0 || rule.tiers[i - 1].to)) return t('tpaySet.tierStart', {n: start});
+        if (i !== last && (!tier.to || tier.to < tier.from)) return t('tpaySet.tierEnd', {n: tier.from});
+        return null;
+    };
+    const tiersOk = rule.tiers.every((tier, i) => tier.amount > 0 && !tierProblem(i));
     const ready = rule.scheme === 'perSession' ? rule.defaultPerSession > 0
         : rule.scheme === 'percent' ? rule.percent > 0 && rule.percent <= 100 && rule.totalpassValue > 0 : tiersOk;
-    // Changing where a range ends moves where the next one starts.
-    const setTier = (i: number, change: { to?: number; amount?: number }) => set({
-        tiers: rule.tiers.map((tier, j) => j === i ? {...tier, ...change} : j === i + 1 && change.to !== undefined ? {
-            ...tier,
-            from: change.to + 1
-        } : tier),
+    // Each number is the director's to type; the next range's start follows a range's end only while it still followed it.
+    const setTier = (i: number, change: { from?: number; to?: number; amount?: number }) => set({
+        tiers: rule.tiers.map((tier, j) => j === i ? {...tier, ...change}
+            : j === i + 1 && change.to !== undefined && (!tier.from || tier.from === (rule.tiers[i].to ?? 0) + 1) ? {...tier, from: change.to + 1} : tier),
     });
+    // A new range goes before the last ("or more") one, starting where the one before ends, the rest to fill in.
     const addTier = () => {
-        const end = rule.tiers[last];
-        set({
-            tiers: [...rule.tiers.slice(0, last), {
-                from: end.from,
-                to: end.from + 2,
-                amount: end.amount
-            }, {from: end.from + 3, amount: end.amount}]
-        });
+        const start = last === 0 ? 1 : (rule.tiers[last - 1].to ?? 0) + 1;
+        set({tiers: [...rule.tiers.slice(0, last), {from: start, to: 0, amount: 0}, {...rule.tiers[last], from: 0}]});
     };
     const removeTier = (i: number) => {
         const tiers = rule.tiers.filter((_, j) => j !== i);
@@ -71,10 +74,10 @@ export function PaySettings() {
                         body: t('tpaySet.confirmBody', {from: dayMonth(period.from), to: dayMonth(period.to)}),
                         confirm: t('form.saveChanges'),
                     })) {
-                        saveRule('colibri', rule);
+                        saveRule(currentSchool(), rule);
                         PERSONAL.t.unshift({
                             id: `pay-rule-${Date.now()}`,
-                            school: 'colibri',
+                            school: currentSchool(),
                             date: TODAY,
                             unread: true,
                             text: 'personal.payRule',
@@ -138,9 +141,9 @@ export function PaySettings() {
                         <div key={i} className="card">
                             <div className="row">
                                 <span
-                                    className="strong">{i === last ? t('pay.orMore', {n: tier.from}) : t('tpaySet.tierRange', {
-                                    from: tier.from,
-                                    to: tier.to ?? tier.from
+                                    className="strong">{i === last ? t('pay.orMore', {n: tier.from || '…'}) : t('tpaySet.tierRange', {
+                                    from: tier.from || '…',
+                                    to: tier.to || '…'
                                 })}</span>
                                 {rule.tiers.length > 2 && (
                                     <button type="button" className="icon-btn" aria-label={t('form.remove')}
@@ -148,15 +151,18 @@ export function PaySettings() {
                                 )}
                             </div>
                             <div className="two">
-                                {i === last ? <TextField id={`tp-from-${i}`} label={t('tpaySet.from')} value={String(tier.from)} disabled/> : (
+                                <NumberField id={`tp-from-${i}`} label={t('tpaySet.from')} value={tier.from ? String(tier.from) : ''}
+                                             onChange={event => setTier(i, {from: digits(event.target.value)})}/>
+                                {i === last ? <TextField id={`tp-to-${i}`} label={t('tpaySet.upTo')} value={t('tpaySet.orMoreShort')} disabled/> : (
                                     <NumberField id={`tp-to-${i}`} label={t('tpaySet.upTo')}
                                                  value={tier.to ? String(tier.to) : ''}
                                                  onChange={event => setTier(i, {to: digits(event.target.value)})}/>
                                 )}
-                                <MoneyField id={`tp-amount-${i}`} label={t('tpaySet.perSessionPay')}
-                                            value={tier.amount ? String(tier.amount) : ''}
-                                            onChange={event => setTier(i, {amount: digits(event.target.value)})}/>
                             </div>
+                            <MoneyField id={`tp-amount-${i}`} label={t('tpaySet.perSessionPay')}
+                                        value={tier.amount ? String(tier.amount) : ''}
+                                        onChange={event => setTier(i, {amount: digits(event.target.value)})}/>
+                            {tierProblem(i) && <div className="banner banner-error small">{tierProblem(i)}</div>}
                         </div>
                     ))}
                     <button type="button" className="btn btn-secondary" onClick={addTier}><Icon
@@ -172,7 +178,7 @@ export function PaySettings() {
             })}</h2>
             <ul className="list">
                 {teachers.map(teacher => {
-                    const pay = teacherPay(teacher.id, 'colibri', period, rule);
+                    const pay = teacherPay(teacher.id, currentSchool(), period, rule);
                     return (
                         <ListRow key={teacher.id} left={<Avatar name={teacher.name}/>} title={personName(teacher.name)}
                                  sub={t('tpaySet.previewSub', {n: pay.counted, sessions: pay.sessions})}
@@ -205,10 +211,10 @@ const stateChip = (state: ReturnType<typeof paymentState>) => ({
 /** Más › Pagar a maestros: a closed period's pay for each teacher and where its payment stands. */
 export function TeacherPayouts() {
     const router = useRouter();
-    const closed = periodsOf(payRule('colibri')).filter(period => !period.current);
+    const closed = periodsOf(payRule(currentSchool())).filter(period => !period.current);
     const picked = closed.find(period => period.from === router.query.get('period')) ?? closed[0];
-    const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes('colibri'))
-        .map(teacher => ({teacher, due: teacherPay(teacher.id, 'colibri', picked).amount, state: paymentState(teacher.id, 'colibri', picked.from)}))
+    const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool()))
+        .map(teacher => ({teacher, due: teacherPay(teacher.id, currentSchool(), picked).amount, state: paymentState(teacher.id, currentSchool(), picked.from)}))
         .filter(row => row.due > 0)
         .sort((a, b) => ['flagged', 'unpaid', 'paid', 'confirmed'].indexOf(a.state) - ['flagged', 'unpaid', 'paid', 'confirmed'].indexOf(b.state));
     return (
@@ -235,10 +241,10 @@ export function TeacherPaymentForm({id}: { id: string }) {
     const toast = useToast();
     const confirm = useConfirm();
     const teacher = TEACHERS.find(item => item.id === id) ?? TEACHERS[0];
-    const periods = periodsOf(payRule('colibri'));
+    const periods = periodsOf(payRule(currentSchool()));
     const period = periods.find(item => item.from === router.query.get('period')) ?? periods[1];
-    const due = teacherPay(id, 'colibri', period).amount;
-    const already = paymentsFor(id, 'colibri', period.from).reduce((sum, item) => sum + item.amount, 0);
+    const due = teacherPay(id, currentSchool(), period).amount;
+    const already = paymentsFor(id, currentSchool(), period.from).reduce((sum, item) => sum + item.amount, 0);
     const left = due - already;
     const [amount, setAmount] = useState(String(Math.max(left, 0)));
     const [date, setDate] = useState(TODAY);
@@ -254,8 +260,8 @@ export function TeacherPaymentForm({id}: { id: string }) {
                 note={ready ? t('tpayRec.formNote') : differs && Number(amount) > 0 ? t('tpayRec.needNote') : t('tpayRec.needAmount')}
                 footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
                     if (await confirm({title: t('tpayRec.confirmTitle', {amount: money(Number(amount)), name: teacher.name}), body: t('tpayRec.confirmBody'), confirm: t('tpayRec.record')})) {
-                        recordTeacherPayment({teacher: id, school: 'colibri', period: period.from, amount: Number(amount), method: method === 'cash' ? 'cash' : 'transfer', date, note: note.trim() || undefined, receipt: Boolean(receipt), receiptUrl: receipt ?? undefined});
-                        if (id === STAFF_ME.t) PERSONAL.t.unshift({id: `paid-${Date.now()}`, school: 'colibri', date: TODAY, unread: true, text: 'personal.teacherPaid', vars: {amount: money(Number(amount))}});
+                        recordTeacherPayment({teacher: id, school: currentSchool(), period: period.from, amount: Number(amount), method: method === 'cash' ? 'cash' : 'transfer', date, note: note.trim() || undefined, receipt: Boolean(receipt), receiptUrl: receipt ?? undefined});
+                        if (id === STAFF_ME.t) PERSONAL.t.unshift({id: `paid-${Date.now()}`, school: currentSchool(), date: TODAY, unread: true, text: 'personal.teacherPaid', vars: {amount: money(Number(amount))}});
                         toast(t('tpayRec.recordedToast'));
                         router.back(back);
                     }
@@ -263,7 +269,7 @@ export function TeacherPaymentForm({id}: { id: string }) {
             <div className="card">
                 <span className="small muted">{t('pay.periodPaid', {from: Number(period.from.slice(8)), to: dayMonth(period.to), payday: dayMonth(period.payday)})}</span>
                 <span className="big num">{money(due)}</span>
-                <span className="small">{already ? t('tpayRec.alreadyPaid', {amount: money(already), left: money(left)}) : schemeLine(payRule('colibri'), id)}</span>
+                <span className="small">{already ? t('tpayRec.alreadyPaid', {amount: money(already), left: money(left)}) : schemeLine(payRule(currentSchool()), id)}</span>
             </div>
             <MoneyField id="tpr-amount" label={t('tpayRec.amount')} value={amount} onChange={event => setAmount(event.target.value.replace(/\D/g, ''))}/>
             <DateField id="tpr-date" label={t('tpayRec.date')} value={date} onChange={setDate} max={TODAY}/>

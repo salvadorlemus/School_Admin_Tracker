@@ -1,6 +1,7 @@
-# Art School Management
+# Lyra
 
-A phone-first web app for art schools: students and teachers, classes and their schedules,
+**lyra.kokoasoft.com** — a phone-first web app for art schools, starting with aerial dance studios
+(silks, hoop, trapeze, pole): students and teachers, classes and their schedules,
 enrollments, QR check-in, payments and payment screenshots, teacher pay, and a notices board.
 Several schools share one app, and each sees only its own people and records.
 
@@ -40,6 +41,33 @@ a guardian, a teacher, a director or the admin, or walk through an invitation).
 
 Other scripts: `npm run build` (type-check and production build into `dist/`), `npm run typecheck`,
 `npm run preview`.
+
+## Sample data
+
+The invented data the prototype runs on (an aerial dance studio, Estudio Aéreo Colibrí, and its
+sister schools) is in **`src/mock/data.ts`**: schools, rooms, teachers, classes and their weekly
+slots, students and their cards, enrollments and packages, prices, payment screenshots, notices and
+personal notices, in that order, each block with a comment. Sessions are generated from the classes'
+slots for November and December. The stress additions are the `if (STRESS)` blocks in the same file.
+
+**Helios** (`src/mock/helios.ts`) is a second aerial studio with its real setup: one room, its weekly
+schedule, prices, packages and teacher pay (per class, by how many students came). Its students are
+invented and listed by hand there (name, age, plan, payment day); two months of history (26 Sep to
+today: attendance, payment screenshots, trial classes, registration fees, teacher payments) are
+generated from each one's plan, so the director's numbers add up. The director (Ana Torres) switches to
+it from the school line under each title.
+
+A few more sample values live elsewhere: the teacher pay rules and payments in `src/mock/pay.ts`,
+the director's summary numbers in `src/mock/insights.ts`, the admin's school list and billing in
+`src/screens/admin/Admin.tsx` (`SCHOOL_ROWS`, `DETAILS`), and the dashboard's to-dos in
+`src/screens/director/DirectorMain.tsx`. Edit, save, and the dev server reloads.
+
+## Demo hosting
+
+Render static site from this repo (`main`): build `npm ci && npm run build`, publish `dist`,
+environment `NODE_VERSION=20`; custom domain `lyra.kokoasoft.com`. In Cloudflare, a `CNAME lyra`
+to the Render address, DNS only until Render issues the certificate, then proxied with SSL Full
+(strict). The page is marked `noindex` while it's a demo.
 
 ## Tech
 
