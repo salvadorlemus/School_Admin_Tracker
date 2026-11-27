@@ -165,14 +165,17 @@ function Headline({metric, rule}: { metric: Metric; rule: string }) {
 
 function DayFilter({day, onChange}: { day: number; onChange: (day: number) => void }) {
     return (
-        <div className="day-row" role="group" aria-label={t('plan.byDay')}>
-            {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
-                <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday}
-                        aria-label={weekdayLong(weekday)}
-                        onClick={() => onChange(day === weekday ? 0 : weekday)}>
-                    {weekdayLetter(weekday)}
-                </button>
-            ))}
+        <div className="day-filter">
+            <span className="small muted">{t('dayFilter.label')}</span>
+            <div className="day-row" role="group" aria-label={t('dayFilter.label')}>
+                {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                    <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday}
+                            aria-label={weekdayLong(weekday)}
+                            onClick={() => onChange(day === weekday ? 0 : weekday)}>
+                        {weekdayLetter(weekday)}
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }

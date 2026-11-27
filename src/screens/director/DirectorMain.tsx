@@ -366,13 +366,16 @@ function PlanView() {
                              beside={<span className="small muted">{t('plan.count', {n: weekly.filter(item => !onlyDay || item.slots.some(slot => slot.weekday === onlyDay)).length, of: ours.length})}</span>}/>
             )}
             {many && (
-                <div className="day-row" role="group" aria-label={t('plan.byDay')}>
-                    {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
-                        <button key={weekday} type="button" className="day-toggle" aria-pressed={onlyDay === weekday} aria-label={weekdayLong(weekday)}
-                                onClick={() => router.replace(router.withQuery('wd', onlyDay === weekday ? null : String(weekday)))}>
-                            {weekdayLetter(weekday)}
-                        </button>
-                    ))}
+                <div className="day-filter">
+                    <span className="small muted">{t('dayFilter.label')}</span>
+                    <div className="day-row" role="group" aria-label={t('dayFilter.label')}>
+                        {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                            <button key={weekday} type="button" className="day-toggle" aria-pressed={onlyDay === weekday} aria-label={weekdayLong(weekday)}
+                                    onClick={() => router.replace(router.withQuery('wd', onlyDay === weekday ? null : String(weekday)))}>
+                                {weekdayLetter(weekday)}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
             {[1, 2, 3, 4, 5, 6, 7].filter(weekday => !onlyDay || weekday === onlyDay).map(weekday => {
