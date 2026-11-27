@@ -19,7 +19,7 @@ import {
     weekdayShort
 } from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {classById, CLASSES, PRICES, schoolOfClass, schoolOfSession, PROOFS, REVIEWED, roomName, SCHOOLS, sessionById, SESSIONS, sessionsOn, studentById,
+import {classById, CLASSES, isVacationDate, PRICES, schoolOfClass, schoolOfSession, PROOFS, REVIEWED, roomName, SCHOOLS, sessionById, SESSIONS, sessionsOn, studentById,
     teacherName, TEACHERS, TODAY, NOW, STRESS, STUDENTS, type SchoolClass, type Session, teacherSchools, isPass, roomsHere, studentsHere, pricesHere, type Student, STAFF_ME} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Avatar, Carousel, Check, DateField, Empty, ListRow, NumberField, SearchField, Segmented, SelectField, TextField, TimeField, useQueryIndex} from '../../ui/Fields';
@@ -29,7 +29,7 @@ import {DoneMessage, DotLegend, ProofChip, SessionCard, SessionBody} from '../sh
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
-import {cancelSession, changeTeacher, createClass, decideProof, FEES_DONE, GROWN, SEEN, termsState, editClass, endClass, giveToSubstitute, moveSession, teacherOf, type ClassFields} from '../../mock/changes';
+import {cancelSession, changeTeacher, createClass, decideProof, FEES_DONE, GROWN, SEEN, termsState, editClass, endClass, giveToSubstitute, markVacation, moveSession, teacherOf, type ClassFields} from '../../mock/changes';
 
 /** Director screens, part 1: dashboard, calendar (month and weekly plan), payments. Ana Torres, Colibrí. */
 
@@ -159,7 +159,13 @@ export function Setup() {
 
 export function Calendar() {
     const router = useRouter();
+    const confirm = useConfirm();
+    const toast = useToast();
+    const [vacationMode, setVacationMode] = useState(false);
+    const [vacationDates, setVacationDates] = useState<string[]>([]);
     const tab = router.query.get('tab') === 'plan' ? 'plan' : 'month';
+    const removeVacation = vacationDates.length > 0 && vacationDates.every(date => isVacationDate(currentSchool(), date));
+    const vacationChanges = removeVacation ? vacationDates : vacationDates.filter(date => !isVacationDate(currentSchool(), date));
     return (
         <Screen title={t('cal.title')} subtitle={SCHOOLS[currentSchool()].name}
                 footer={tab === 'plan' ? (
@@ -171,11 +177,33 @@ export function Calendar() {
                             <Icon name="plus"/>{t('plan.addShort')}
                         </button>
                     </div>
-                ) : undefined}>
+                ) : vacationMode && (
+                    <button type="button" className="btn btn-lg" disabled={vacationChanges.length === 0} onClick={async () => {
+                        if (await confirm({
+                            title: t(removeVacation ? 'vacation.confirmRemoveTitle' : 'vacation.confirmTitle', {n: vacationChanges.length}),
+                            body: t(removeVacation ? 'vacation.confirmRemoveBody' : 'vacation.confirmBody', {dates: vacationChanges.map(dayMonth).join(', ')}),
+                            confirm: t(removeVacation ? 'vacation.remove' : 'vacation.publish'),
+                        })) {
+                            if (!await markVacation(vacationChanges, !removeVacation)) return;
+                            toast(t(removeVacation ? 'vacation.removed' : 'vacation.published', {n: vacationChanges.length}));
+                            setVacationDates([]);
+                            setVacationMode(false);
+                        }
+                    }}>{t(removeVacation ? 'vacation.remove' : 'vacation.publish')}</button>
+                )}>
             <Segmented label={t('cal.view')} value={tab}
                        onChange={value => router.replace(router.withQuery('tab', value === 'month' ? null : value))}
                        options={[{value: 'month', label: t('cal.month')}, {value: 'plan', label: t('cal.plan')}]}/>
-            {tab === 'month' ? <MonthView/> : <PlanView/>}
+            {tab === 'month' ? <MonthView vacationMode={vacationMode} vacationDates={vacationDates}
+                                          onVacationMode={setVacationMode}
+                                          onSelectVacation={date => setVacationDates(list => list.includes(date) ? list.filter(item => item !== date) : [...list, date])}
+                                          onSelectWeek={date => {
+                                              const monday = addDays(date, 1 - weekdayOf(date));
+                                              const week = Array.from({length: 7}, (_, index) => addDays(monday, index))
+                                                  .filter(selected => selected >= TODAY && !isVacationDate(currentSchool(), selected));
+                                              setVacationDates(list => [...new Set([...list, ...week])]);
+                                          }}
+                                          onClearVacationSelection={() => setVacationDates([])}/> : <PlanView/>}
         </Screen>
     );
 }
@@ -183,7 +211,14 @@ export function Calendar() {
 /** Is the session over? Past sessions only offer their attendance: there's nothing left to change. */
 const isPast = (session: Session) => session.date < TODAY || (session.date === TODAY && session.end <= NOW);
 
-function MonthView() {
+function MonthView({vacationMode, vacationDates, onVacationMode, onSelectVacation, onSelectWeek, onClearVacationSelection}: {
+    vacationMode: boolean;
+    vacationDates: string[];
+    onVacationMode: (enabled: boolean) => void;
+    onSelectVacation: (date: string) => void;
+    onSelectWeek: (date: string) => void;
+    onClearVacationSelection: () => void;
+}) {
     const router = useRouter();
     const day = router.query.get('day') ?? TODAY;
     const onlyMine = router.query.get('mine') === '1';
@@ -208,22 +243,41 @@ function MonthView() {
                     <button type="button" className="icon-btn" aria-label={t('schedule.nextMonth')} disabled={first >= monthRange().max}
                             onClick={() => goMonth(shiftMonth(first, 1))}><Icon name="chevron"/></button>
                 </span>
-                <button type="button" className="chip-toggle" aria-pressed={onlyMine}
-                        onClick={() => router.replace(router.withQuery('mine', onlyMine ? null : '1'))}>
-                    {t('cal.mine')}
-                </button>
+                <div className="wrap">
+                    <button type="button" className="chip-toggle" aria-pressed={onlyMine}
+                            onClick={() => router.replace(router.withQuery('mine', onlyMine ? null : '1'))}>
+                        {t('cal.mine')}
+                    </button>
+                    <button type="button" className="chip-toggle" aria-pressed={vacationMode}
+                            onClick={() => onVacationMode(!vacationMode)}>{t(vacationMode ? 'vacation.doneSelecting' : 'vacation.select')}</button>
+                </div>
             </div>
+            {vacationMode && (
+                <div className="card">
+                    <p className="small">{t('vacation.selectHint')}</p>
+                    <div className="row">
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => onSelectWeek(day)}>{t('vacation.selectWeek')}</button>
+                        {vacationDates.length > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={onClearVacationSelection}>{t('vacation.clear')}</button>}
+                    </div>
+                    {vacationDates.length > 0 && <p className="small muted">{t('vacation.selected', {n: vacationDates.length})}</p>}
+                </div>
+            )}
             <div className="month" role="group" aria-label={monthYear(first)}>
                 {[1, 2, 3, 4, 5, 6, 7].map(w => <span key={w} className="month-head" aria-hidden="true">{weekdayShort(w).slice(0, 2)}</span>)}
                 {cells.map(date => {
                     const sessions = on(date);
                     const out = !date.startsWith(first.slice(0, 7));
+                    const vacation = isVacationDate(currentSchool(), date);
+                    const selected = vacationDates.includes(date);
                     return (
-                        <button key={date} type="button" aria-pressed={date === day} data-out={out} data-today={date === TODAY}
-                                aria-label={`${dayLong(date)}: ${t('cal.nSessions', {n: sessions.length})}`}
-                                onClick={() => router.replace(router.withQuery('day', date))}>
+                        <button key={date} type="button" aria-pressed={vacationMode ? selected : date === day} data-out={out} data-today={date === TODAY}
+                                data-vacation={vacation || undefined} data-selected={selected || undefined}
+                                disabled={vacationMode && date < TODAY && !vacation}
+                                aria-label={`${dayLong(date)}: ${t('cal.nSessions', {n: sessions.length})}${vacation ? `, ${t('legend.vacation')}` : ''}`}
+                                onClick={() => vacationMode ? onSelectVacation(date) : router.replace(router.withQuery('day', date))}>
                             {Number(date.slice(8))}
                             <span className="dots">
+                                {vacation && <i data-kind="vacation"/>}
                                 {sessions.slice(0, 4).map(session => (
                                     <i key={session.id} data-kind={session.status === 'cancelled' ? 'cancelled' : session.substitute ? 'substitute' : 'class'}/>
                                 ))}
@@ -233,6 +287,7 @@ function MonthView() {
                 })}
             </div>
             <DotLegend/>
+            {!vacationMode && isVacationDate(currentSchool(), day) && <div className="banner banner-vacation">{t('vacation.classesCanceled')}</div>}
             <h2 className="section-title">{dayLong(day)}</h2>
             {list.length === 0 && <Empty>{t('cal.noSessions')}</Empty>}
             {list.map(session => (
@@ -247,6 +302,7 @@ function MonthView() {
             <Sheet open={sheet.open} onClose={sheet.close} title={open ? classById(open.classId).name : ''}>
                 {open && (
                     <>
+                        {isVacationDate(currentSchool(), open.date) && <div className="banner banner-vacation">{t('vacation.classesCanceled')}</div>}
                         <p className="muted">{dayLong(open.date)} · {timeRange(open.start, open.end)} · {roomName(open.room)}</p>
                         <p>{open.substitute ? t('session.givenBy', {name: teacherName(open.substitute)}) : teacherName(teacherOf(open))}</p>
                         {open.status === 'cancelled' ? (
@@ -954,4 +1010,3 @@ export function Review({id}: { id: string }) {
         </Screen>
     );
 }
-

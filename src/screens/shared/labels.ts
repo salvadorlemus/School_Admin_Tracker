@@ -1,5 +1,5 @@
 import {t, type TextKey} from '../../lib/texts';
-import {dayMonth, dayMonthYear, dayShort, monthInSentence, time} from '../../lib/format';
+import {dayMonth, dayMonthYear, dayShort, listOf, monthInSentence, time} from '../../lib/format';
 import {packageLabel, PRICES, RELATIONS, TODAY, type Notice, type Price, type Student} from '../../mock/data';
 
 /**
@@ -52,11 +52,15 @@ export function coversText(covers: string): string {
 /** A notice's variables with their dates (and what a screenshot covers) written in the reader's language. */
 export function noticeVars(vars?: Record<string, string>): Record<string, string> | undefined {
     if (!vars) return vars;
-    return Object.fromEntries(Object.entries(vars).map(([key, value]) => [key, key === 'what' ? coversText(value) : dateText(value)]));
+    return Object.fromEntries(Object.entries(vars).map(([key, value]) => [key, key === 'what' ? coversText(value)
+        : key === 'dates' ? listOf(value.split(',').filter(Boolean).map(dateText))
+            : dateText(value)]));
 }
 
 /** A post's title: a price change by the price's name, a schedule change with its session's date. */
 export function noticeTitle(notice: Notice): string {
+    if (notice.kind === 'vacation') return t('notice.vacationTitle');
+    if (notice.kind === 'vacation_removed') return t('notice.vacationRemovedTitle');
     const price = notice.priceId ? PRICES.find(item => item.id === notice.priceId) : undefined;
     const title = price ? priceLabel(price) : notice.title;
     return notice.at ? `${title} · ${dateText(notice.at)}` : title;

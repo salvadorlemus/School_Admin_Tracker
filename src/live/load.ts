@@ -1,7 +1,7 @@
 import {num, rows, type Row, str} from './query';
 import {money} from '../lib/format';
 import {DEFAULT_ZONE, localParts} from '../lib/zone';
-import {BOARD, CLASSES, ENROLLMENTS, HISTORY, PACKAGES, PERSONAL, PRICES, PROOFS, ROOMS, SCHOOLS, SESSIONS, STAFF_ME, TEACHERS, setClock, type Enrollment, type Notice, type Package, type Personal, type PlanKind, type Price, type Proof, type Room, type SchoolClass, type Session, type Student, type Teacher, ME, GUARDIAN_KIDS, GUARDIAN_SCHOOLS, SOFIA_SCHOOLS, BOARD_READERS} from '../mock/data';
+import {BOARD, CLASSES, ENROLLMENTS, HISTORY, PACKAGES, PERSONAL, PRICES, PROOFS, ROOMS, SCHOOLS, SESSIONS, STAFF_ME, TEACHERS, VACATION_DAYS, setClock, type Enrollment, type Notice, type Package, type Personal, type PlanKind, type Price, type Proof, type Room, type SchoolClass, type Session, type Student, type Teacher, ME, GUARDIAN_KIDS, GUARDIAN_SCHOOLS, SOFIA_SCHOOLS, BOARD_READERS} from '../mock/data';
 import type {Attendance} from '../mock/helios';
 import {PAY_RULES, setTeacherPayments, type TeacherPayment} from '../mock/pay';
 import {setLiveTerms} from '../mock/changes';
@@ -29,11 +29,11 @@ const replace = <T, >(list: T[], items: T[]) => list.splice(0, list.length, ...i
 export async function loadLive(): Promise<void> {
     const me = LIVE.person;
     const [schools, memberships, persons, rooms, classes, schedules, offers, offerClasses, prices, enrollments, packages, cards, contacts, links,
-        fees, terms, acceptances, proofs, announcements, notifications, rules, tiers, rates, payments, staffContacts, staffCards, family, familyKids] = await Promise.all([
+        fees, terms, acceptances, proofs, announcements, vacations, notifications, rules, tiers, rates, payments, staffContacts, staffCards, family, familyKids] = await Promise.all([
         rows('school'), rows('membership'), rows('person', 'id, full_name, phone'), rows('room'), rows('class'), rows('schedule'),
         rows('package_offer'), rows('package_offer_class'), rows('price'), rows('enrollment'), rows('student_package'), rows('student_card'),
         rows('emergency_contact'), rows('guardian_link'), rows('registration_fee'), rows('terms'), rows('terms_acceptance'),
-        rows('payment_proof'), rows('announcement'), rows('notification', '*', q => q.order('created_at', {ascending: false}).limit(100)),
+        rows('payment_proof'), rows('announcement'), rows('school_vacation'), rows('notification', '*', q => q.order('created_at', {ascending: false}).limit(100)),
         rows('teacher_pay_rule'), rows('teacher_pay_tier'), rows('teacher_pay_rate'), rows('teacher_payment'), rows('staff_emergency_contact'), rows('staff_card'),
         rows('family_person'), rows('family_person_child'),
     ]);
@@ -348,6 +348,9 @@ export async function loadLive(): Promise<void> {
         const school = str(a.school_id);
         const startAt = vars.starts_at ? local(str(vars.starts_at), zoneOf.get(school) ?? zone) : null;
         const body = str(a.body);
+        const rawKind = str(a.kind);
+        const kind = kindMap[rawKind] ?? (rawKind === 'vacation' ? 'vacation'
+            : rawKind === 'vacation_removed' ? 'vacation_removed' : 'note');
         const textOf: Partial<Record<string, TextKey>> = {
             cancelled: 'notice.cancelledOnly',
             substitute: 'notice.substitute',
@@ -355,14 +358,16 @@ export async function loadLive(): Promise<void> {
             teacher: 'notice.newTeacher',
             ended: 'notice.ended',
             price: 'notice.price',
-            moved: 'notice.moved'
+            moved: 'notice.moved',
+            vacation: 'notice.vacation',
+            vacation_removed: 'notice.vacationRemoved',
         };
         const who = nameOf.get(str(vars.person_id)) ?? '';
         return {
             id: str(a.id),
             school,
             date: local(str(a.created_at), zoneOf.get(school) ?? zone).date,
-            kind: kindMap[str(a.kind)] ?? 'note',
+            kind,
             classId: a.class_id ? str(a.class_id) : undefined,
             priceId: a.kind === 'price' ? (vars.offer_id ? str(vars.offer_id) : undefined) : undefined,
             title: a.class_id ? classNameOf.get(str(a.class_id)) ?? '' : shortTitle(body),
@@ -375,11 +380,13 @@ export async function loadLive(): Promise<void> {
                     to: money(num(vars.to)),
                     when: str(vars.starts_on)
                 }
-                : {name: who, when: str(vars.last_day ?? (startAt ? `${startAt.date} ${startAt.time}` : '')), room: ''}) as Record<string, string>,
+                : str(a.kind) === 'vacation' || str(a.kind) === 'vacation_removed' ? {dates: Array.isArray(vars.dates) ? vars.dates.map(String).join(',') : ''}
+                    : {name: who, when: str(vars.last_day ?? (startAt ? `${startAt.date} ${startAt.time}` : '')), room: ''}) as Record<string, string>,
             author: a.created_by ? nameOf.get(str(a.created_by)) : undefined,
             unread: false,
         };
     }).sort((a, b) => b.date.localeCompare(a.date)));
+    replace(VACATION_DAYS, vacations.map(vacation => ({school: str(vacation.school_id), date: str(vacation.vacation_date)})));
 
     const personal: Personal[] = [];
     for (const n of notifications) {

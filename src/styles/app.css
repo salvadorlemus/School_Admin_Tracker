@@ -562,6 +562,7 @@ button.card, a.card { text-align: left; color: inherit; text-decoration: none; c
 button.card:hover, a.card:hover { background: var(--color-surface-2); }
 .card-accent { border: 2px solid var(--color-accent); }
 .card-substitute { background: var(--color-substitute-soft); border: 2px solid var(--color-substitute); color: var(--color-substitute-text); }
+.card-vacation { background: var(--color-warning-soft); border: 2px solid var(--color-warning); color: var(--color-text); }
 .card-cancelled { background: var(--color-cancelled-soft); border-color: var(--color-cancelled-soft); }
 .card-important { background: var(--color-important-soft); border: 2px solid var(--color-important); }
 .card-flat { background: transparent; border-style: dashed; border-color: var(--color-line-strong); }
@@ -646,6 +647,7 @@ button.list-row:hover { background: var(--color-surface-2); }
 }
 
 .chip-substitute { background: var(--color-substitute-soft); color: var(--color-substitute-text); }
+.chip-vacation { background: var(--color-warning-soft); color: var(--color-warning-text); border: 1px solid var(--color-warning); }
 .chip-cancelled { background: var(--color-cancelled-soft); color: var(--color-cancelled-text); }
 .chip-confirmed { background: var(--color-confirmed-soft); color: var(--color-confirmed-text); }
 .chip-uploaded { background: var(--color-uploaded-soft); color: var(--color-uploaded-text); }
@@ -874,6 +876,10 @@ select.input { appearance: auto; }
 .month .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-faint); }
 .month .dots i[data-kind="substitute"] { background: var(--color-substitute); }
 .month .dots i[data-kind="cancelled"] { background: transparent; border: 1px solid var(--color-cancelled); box-sizing: border-box; }
+.month .dots i[data-kind="vacation"] { background: var(--color-warning); }
+.month button[data-vacation="true"] { box-shadow: inset 0 0 0 1px var(--color-warning); }
+.month button[data-selected="true"] { background: var(--color-warning-soft); box-shadow: inset 0 0 0 2px var(--color-warning); }
+.banner-vacation { background: var(--color-warning-soft); border-color: var(--color-warning); }
 .month button[aria-pressed="true"] .dots i { background: var(--color-on-ink); }
 
 /* A time slot in a day list. */
@@ -1258,6 +1264,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 .legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); }
 .legend i[data-kind="substitute"] { background: var(--color-substitute); }
 .legend i[data-kind="cancelled"] { background: transparent; border: 1px solid var(--color-cancelled); box-sizing: border-box; }
+.legend i[data-kind="vacation"] { background: var(--color-warning); }
 .month-nav .big { white-space: nowrap; font-size: var(--fs-md); font-weight: 700; }
 .chip-toggle { white-space: nowrap; padding: 0 12px; flex: none; }
 /* On the review screen the picture comes after the facts and stays at most half the screen tall. */
@@ -1382,6 +1389,8 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 .month .dots i[data-kind="join"] { background: transparent; border: 1.5px solid var(--color-accent); box-sizing: border-box; }
 .legend i[data-kind="join"] { background: transparent; border: 1.5px solid var(--color-accent); box-sizing: border-box; }
 .month button[aria-pressed="true"] { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.month button[data-selected="true"] { color: var(--color-text); border-color: var(--color-important); outline-color: var(--color-important); }
+.month button[data-selected="true"] .dots i[data-kind="vacation"] { background: var(--color-warning); }
 
 /* The school under the title, for staff in several schools: tapping it lists their schools. */
 .title-school {

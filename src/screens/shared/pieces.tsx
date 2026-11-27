@@ -1,7 +1,7 @@
 import type {ReactNode} from 'react';
 import {t} from '../../lib/texts';
 import {dayShort, initials, timeRange, weekdayShort} from '../../lib/format';
-import {classById, FAMILY, type ProofState, roomName, SCHOOL_LOGOS, type SchoolClass, type SchoolId, SCHOOLS, type Session, sessionById, type Student, type Teacher, teacherName} from '../../mock/data';
+import {classById, FAMILY, isVacationDate, type ProofState, roomName, SCHOOL_LOGOS, type SchoolClass, type SchoolId, SCHOOLS, type Session, sessionById, type Student, type Teacher, teacherName, schoolOfSession} from '../../mock/data';
 import {teacherOf} from '../../mock/changes';
 import {Icon} from '../../ui/Icon';
 import {relationText} from './labels';
@@ -46,6 +46,7 @@ export function DotLegend() {
             <span><i data-kind="class"/>{t('legend.class')}</span>
             <span><i data-kind="substitute"/>{t('legend.substitute')}</span>
             <span><i data-kind="cancelled"/>{t('legend.cancelled')}</span>
+            <span><i data-kind="vacation"/>{t('legend.vacation')}</span>
         </p>
     );
 }
@@ -60,6 +61,7 @@ export function SessionBody({session, showDate, school, extra, hideClass}: {
 }) {
     const item = classById(session.classId);
     const cancelled = session.status === 'cancelled';
+    const vacation = isVacationDate(schoolOfSession(session), session.date);
     const when = `${showDate ? `${dayShort(session.date)} · ` : ''}${timeRange(session.start, session.end)}`;
     const replacement = session.replacementId ? sessionById(session.replacementId) : null;
     return (
@@ -69,11 +71,12 @@ export function SessionBody({session, showDate, school, extra, hideClass}: {
                 <span className="wrap">
                     {school && <SchoolChip school={school}/>}
                     {cancelled && <span className="chip chip-cancelled">{t('chip.cancelled')}</span>}
+                    {vacation && <span className="chip chip-vacation">{t('chip.vacation')}</span>}
                     {session.substitute && <span className="chip chip-substitute">{t('chip.substitute')}</span>}
                     {session.replaces && <span className="chip">{t('chip.replacement')}</span>}
                 </span>
             </div>
-            {!hideClass && <span className={cancelled ? 'big strike' : 'big'}>{item.name}</span>}
+            {!hideClass && <span className={cancelled || vacation ? 'big strike' : 'big'}>{item.name}</span>}
             <span className="small">
                 {/* The Suplente chip says it's a substitute: the line just names who gives it. */}
                 {teacherName(session.substitute ?? teacherOf(session))}
@@ -98,7 +101,8 @@ export function SessionCard({session, showDate, school, onClick, extra, hideClas
     extra?: ReactNode;
     hideClass?: boolean;
 }) {
-    const css = session.status === 'cancelled' ? 'card card-cancelled' : session.substitute ? 'card card-substitute' : 'card';
+    const css = isVacationDate(schoolOfSession(session), session.date) ? 'card card-vacation'
+        : session.status === 'cancelled' ? 'card card-cancelled' : session.substitute ? 'card card-substitute' : 'card';
     const body = <SessionBody session={session} showDate={showDate} school={school} extra={extra} hideClass={hideClass}/>;
     return onClick
         ? <button type="button" className={css} onClick={onClick}>{body}</button>

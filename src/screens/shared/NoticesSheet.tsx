@@ -108,7 +108,8 @@ export function NoticesSheet({role, open, onClose, keepNav}: {
  */
 export function BoardPost({notice, showSchool, mine}: { notice: Notice; showSchool?: boolean; mine?: string }) {
     const css = notice.kind === 'price' ? 'card card-important'
-        : notice.kind === 'substitute' ? 'card card-substitute' : 'card';
+        : notice.kind === 'substitute' ? 'card card-substitute'
+            : notice.kind === 'vacation' || notice.kind === 'vacation_removed' ? 'card card-vacation' : 'card';
     const chip = {
         price: <span className="chip chip-important"><Icon name="star" size={12}/>{t('notices.important')}</span>,
         substitute: <span className="chip chip-substitute">{t('chip.substitute')}</span>,
@@ -116,10 +117,12 @@ export function BoardPost({notice, showSchool, mine}: { notice: Notice; showScho
         schedule: <span className="chip">{t('notices.scheduleChange')}</span>,
         ended: <span className="chip chip-cancelled">{t('notices.ended')}</span>,
         teacher: <span className="chip">{t('notices.teacherChange')}</span>,
+        vacation: <span className="chip chip-vacation">{t('chip.vacation')}</span>,
+        vacation_removed: <span className="chip chip-vacation">{t('chip.vacationRemoved')}</span>,
         note: <span className="chip chip-outline">{t('notices.noteBy', {name: notice.author ? shortName(notice.author) : SCHOOLS[notice.school ?? 'colibri']?.short ?? ''})}</span>,
     }[notice.kind];
     const item = notice.classId ? classById(notice.classId) : undefined;
-    const everyone = !item && notice.kind === 'note';
+    const everyone = !item && (notice.kind === 'note' || notice.kind === 'vacation' || notice.kind === 'vacation_removed');
     return (
         <article className={css}>
             <div className="row">
