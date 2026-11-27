@@ -793,6 +793,15 @@ textarea.input { min-height: 96px; padding: 12px 14px; resize: vertical; line-he
 select.input { appearance: auto; }
 .input[aria-invalid="true"] { border-color: var(--color-rejected); border-width: 2px; }
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tier-editor-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tier-field { position: relative; min-width: 0; }
+.tier-field .label { font-size: var(--fs-xs); }
+.tier-field[data-changed="true"] .label { padding-right: 14px; }
+.tier-field[data-changed="true"] .input { border-color: var(--color-warning); background: var(--color-warning-soft); }
+.tier-change-mark { position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--color-warning); }
+.tier-summary { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.tier-summary-pay { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: var(--fs-ui); font-variant-numeric: tabular-nums; }
+.tier-summary-pay .tier-change-mark { position: static; flex: none; }
 
 .check {
     display: flex;
