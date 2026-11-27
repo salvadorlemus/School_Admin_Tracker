@@ -8,7 +8,7 @@ import {paymentsFor, paymentState, payRule, type PayRule, type PayScheme, period
 import {Screen} from '../../ui/Screen';
 import {Avatar, DateField, ListRow, MenuText, MoneyField, NumberField, SelectField, TextArea, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
-import {useConfirm, useToast} from '../../ui/Layers';
+import {Sheet, useConfirm, useToast} from '../../ui/Layers';
 import {PayView, schemeLine} from '../shared/PayView';
 
 const digits = (value: string) => Number(value.replace(/\D/g, '')) || 0;
@@ -29,10 +29,15 @@ export function PaySettings() {
     const confirm = useConfirm();
     const [originalRule] = useState(() => copyRule(payRule(currentSchool())));
     const [rule, setRule] = useState<PayRule>(() => copyRule(payRule(currentSchool())));
+    const [tierIds, setTierIds] = useState(() => originalRule.tiers.map((_, index) => `initial-${index}`));
+    const [editingTierId, setEditingTierId] = useState<string | null>(null);
+    const nextTierId = useRef(0);
     const set = (change: Partial<PayRule>) => setRule(current => ({...current, ...change}));
     const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool()));
     const period = periodsOf(rule)[0];
     const last = rule.tiers.length - 1;
+    const editingTierIndex = tierIds.findIndex(id => id === editingTierId);
+    const editingTier = editingTierIndex >= 0 ? rule.tiers[editingTierIndex] : undefined;
     // A range's problem, if any: it must follow the one before (starting at 1), end after it starts, and pay something.
     const tierProblem = (i: number): string | null => {
         const tier = rule.tiers[i];
@@ -47,6 +52,14 @@ export function PaySettings() {
         const original = originalRule.tiers[i];
         return !original || tier.from !== original.from || tier.to !== original.to || tier.amount !== original.amount;
     });
+    const tierValueChanged = (i: number, field: 'from' | 'to' | 'amount') => {
+        const id = tierIds[i];
+        const tier = rule.tiers[i];
+        if (!id || !tier) return true;
+        if (!id.startsWith('initial-')) return (tier[field] ?? 0) > 0;
+        const original = originalRule.tiers[Number(id.slice('initial-'.length))];
+        return !original || tier[field] !== original[field];
+    };
     const comparePay = rule.scheme === 'tiers' && (
         originalRule.scheme !== 'tiers' || tiersChanged || rule.emptyPay !== originalRule.emptyPay
     );
@@ -60,10 +73,15 @@ export function PaySettings() {
     // A new range goes before the last ("or more") one, starting where the one before ends, the rest to fill in.
     const addTier = () => {
         const start = last === 0 ? 1 : (rule.tiers[last - 1].to ?? 0) + 1;
+        const id = `new-${nextTierId.current++}`;
+        setTierIds([...tierIds.slice(0, last), id, tierIds[last]]);
         set({tiers: [...rule.tiers.slice(0, last), {from: start, to: 0, amount: 0}, {...rule.tiers[last], from: 0}]});
+        setEditingTierId(id);
     };
     const removeTier = (i: number) => {
         const tiers = rule.tiers.filter((_, j) => j !== i);
+        setTierIds(tierIds.filter((_, j) => j !== i));
+        setEditingTierId(null);
         set({
             tiers: tiers.map((tier, j) => j === 0 ? {...tier, from: 1} : {
                 ...tier,
@@ -147,36 +165,63 @@ export function PaySettings() {
             )}
             {rule.scheme === 'tiers' && (
                 <>
-                    {rule.tiers.map((tier, i) => (
-                        <div key={i} className="card">
-                            <div className="row">
-                                <span
-                                    className="strong">{i === last ? t('pay.orMore', {n: tier.from || '…'}) : t('tpaySet.tierRange', {
-                                    from: tier.from || '…',
-                                    to: tier.to || '…'
-                                })}</span>
-                                {rule.tiers.length > 2 && (
-                                    <button type="button" className="icon-btn" aria-label={t('form.remove')}
-                                            onClick={() => removeTier(i)}><Icon name="trash" size={18}/></button>
-                                )}
-                            </div>
-                            <div className="two">
-                                <NumberField id={`tp-from-${i}`} label={t('tpaySet.from')} value={tier.from ? String(tier.from) : ''}
-                                             onChange={event => setTier(i, {from: digits(event.target.value)})}/>
-                                {i === last ? <TextField id={`tp-to-${i}`} label={t('tpaySet.upTo')} value={t('tpaySet.orMoreShort')} disabled/> : (
-                                    <NumberField id={`tp-to-${i}`} label={t('tpaySet.upTo')}
-                                                 value={tier.to ? String(tier.to) : ''}
-                                                 onChange={event => setTier(i, {to: digits(event.target.value)})}/>
-                                )}
-                            </div>
-                            <MoneyField id={`tp-amount-${i}`} label={t('tpaySet.perSessionPay')}
-                                        value={tier.amount ? String(tier.amount) : ''}
-                                        onChange={event => setTier(i, {amount: digits(event.target.value)})}/>
-                            {tierProblem(i) && <div className="banner banner-error small">{tierProblem(i)}</div>}
-                        </div>
-                    ))}
+                    <p className="small muted">{t('tpaySet.changedHint')}</p>
+                    <ul className="list">
+                        {rule.tiers.map((tier, i) => (
+                            <ListRow key={tierIds[i]} title={
+                                <span className="tier-summary">
+                                    <span>{i === last ? t('pay.orMore', {n: tier.from || '…'}) : t('tpaySet.tierRange', {
+                                        from: tier.from || '…',
+                                        to: tier.to || '…'
+                                    })}</span>
+                                    {(tierValueChanged(i, 'from') || (i !== last && tierValueChanged(i, 'to'))) &&
+                                        <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
+                                </span>
+                            } right={
+                                <span className="tier-summary-pay">
+                                    {tierValueChanged(i, 'amount') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
+                                    <span>{money(tier.amount)}{t('tpaySet.perSessionSuffix')}</span>
+                                </span>
+                            }
+                                     onClick={() => setEditingTierId(tierIds[i])}/>
+                        ))}
+                    </ul>
                     <button type="button" className="btn btn-secondary" onClick={addTier}><Icon
                         name="plus"/>{t('tpaySet.addTier')}</button>
+                    <Sheet open={Boolean(editingTier)} onClose={() => setEditingTierId(null)}
+                           title={editingTier ? (editingTierIndex === last
+                               ? t('pay.orMore', {n: editingTier.from || '…'})
+                               : t('tpaySet.tierRange', {from: editingTier.from || '…', to: editingTier.to || '…'})) : ''}
+                           footer={<button type="button" className="btn btn-lg" onClick={() => setEditingTierId(null)}>{t('common.done')}</button>}
+                           actions={rule.tiers.length > 2 && <button type="button" className="icon-btn" aria-label={t('form.remove')}
+                               onClick={() => editingTierIndex >= 0 && removeTier(editingTierIndex)}><Icon name="trash" size={18}/></button>}>
+                        {editingTier && (
+                            <>
+                                <div className="tier-editor-range">
+                                    <div className="tier-field" data-changed={tierValueChanged(editingTierIndex, 'from') || undefined}>
+                                        <NumberField id="tp-edit-from" label={t('tpaySet.from')} value={editingTier.from ? String(editingTier.from) : ''}
+                                                     onChange={event => setTier(editingTierIndex, {from: digits(event.target.value)})}/>
+                                        {tierValueChanged(editingTierIndex, 'from') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
+                                    </div>
+                                    <div className="tier-field" data-changed={editingTierIndex !== last && tierValueChanged(editingTierIndex, 'to') || undefined}>
+                                        {editingTierIndex === last ? <TextField id="tp-edit-to" label={t('tpaySet.upTo')} value={t('tpaySet.orMoreShort')} disabled/> : (
+                                            <NumberField id="tp-edit-to" label={t('tpaySet.upTo')}
+                                                         value={editingTier.to ? String(editingTier.to) : ''}
+                                                         onChange={event => setTier(editingTierIndex, {to: digits(event.target.value)})}/>
+                                        )}
+                                        {editingTierIndex !== last && tierValueChanged(editingTierIndex, 'to') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
+                                    </div>
+                                </div>
+                                <div className="tier-field" data-changed={tierValueChanged(editingTierIndex, 'amount') || undefined}>
+                                    <MoneyField id="tp-edit-amount" label={t('tpaySet.perSessionPay')}
+                                                value={editingTier.amount ? String(editingTier.amount) : ''}
+                                                onChange={event => setTier(editingTierIndex, {amount: digits(event.target.value)})}/>
+                                    {tierValueChanged(editingTierIndex, 'amount') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
+                                </div>
+                                {tierProblem(editingTierIndex) && <div className="banner banner-error small">{tierProblem(editingTierIndex)}</div>}
+                            </>
+                        )}
+                    </Sheet>
                     <MoneyField id="tp-empty" label={t('tpaySet.empty')} value={rule.emptyPay ? String(rule.emptyPay) : ''}
                                 placeholder={t('tpaySet.emptyNone')} onChange={event => set({emptyPay: digits(event.target.value)})} hint={t('tpaySet.emptyHint')}/>
                 </>
