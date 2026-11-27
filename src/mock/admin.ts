@@ -22,6 +22,11 @@ export interface SchoolRow {
     due?: { month: string; on: string };
 }
 
+/** Overdue platform fees pause only growth actions; existing school work remains usable. */
+export function platformBillingPaused(school: string): boolean {
+    return SCHOOL_ROWS.find(row => row.id === school)?.billing === 'late';
+}
+
 export const SCHOOL_ROWS: SchoolRow[] = [
     {
         id: 'colibri',
@@ -45,7 +50,7 @@ export const SCHOOL_ROWS: SchoolRow[] = [
         id: 'ambar',
         name: 'Ámbar Danza Aérea',
         enabled: true,
-        billing: 'soon',
+        billing: 'late',
         students: 31,
         teachers: 3,
         classes: 5,
@@ -54,14 +59,15 @@ export const SCHOOL_ROWS: SchoolRow[] = [
         active: 30,
         lastActivity: '2026-11-25',
         directors: [{name: 'Irene Castañeda', phone: '33 1122 3344', email: 'irene@estudioambar.mx'}],
-        fee: 1000
+        fee: 1000,
+        due: {month: '2026-11-01', on: '2026-11-30'}
     },
     // Helios: its counts come from its sample history.
     {
         id: 'helios',
         name: 'Helios',
         enabled: true,
-        billing: 'ok',
+        billing: 'late',
         students: studentsOf('helios').filter(student => student.status === 'active').length,
         teachers: TEACHERS.filter(teacher => teacher.schools?.includes('helios')).length,
         classes: CLASSES.filter(item => item.school === 'helios').length,
@@ -70,7 +76,8 @@ export const SCHOOL_ROWS: SchoolRow[] = [
         active: studentsOf('helios').filter(student => student.status === 'active').length,
         lastActivity: '2026-11-25',
         directors: [{name: 'Ana Torres', phone: '55 9012 3456', email: 'ana.torres@correo.mx'}],
-        fee: 1000
+        fee: 1000,
+        due: {month: '2026-11-01', on: '2026-11-30'}
     },
     {
         id: 'pigmento',

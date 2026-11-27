@@ -1519,6 +1519,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
     html:not(.framed) .month button { aspect-ratio: auto; min-height: 64px; }
 }
 
+
 /* Wide windows: the bottom bar becomes a side menu, with the app's name at its top. */
 @media (min-width: 900px) {
     /* A screen with a bottom bar (the device wraps every screen in another .screen, which stays as it is). */

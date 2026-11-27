@@ -26,6 +26,8 @@ import {Avatar, Carousel, Check, DateField, Empty, ListRow, NumberField, SearchF
 import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, DotLegend, ProofChip, SessionCard, SessionBody} from '../shared/pieces';
+import {SCHOOL_ROWS} from '../../mock/admin';
+import {platformBillingPaused} from '../../mock/admin';
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
@@ -35,6 +37,12 @@ import {cancelSession, changeTeacher, createClass, decideProof, FEES_DONE, GROWN
 
 export function Dashboard() {
     const router = useRouter();
+    const platformBilling = SCHOOL_ROWS.find(row => row.id === currentSchool());
+    const billingDue = platformBilling?.billing === 'late'
+        ? t('billing.overdue', {month: platformBilling.due?.month ? dayMonth(platformBilling.due.month) : ''})
+        : platformBilling?.billing === 'soon'
+            ? t('billing.dueSoon', {when: platformBilling.due?.on ? dayMonth(platformBilling.due.on) : ''})
+            : '';
     const today = sessionsOn(TODAY);
     // Selected at first: the session going on now, or the next one to start.
     const now = today.findIndex(session => session.end > NOW);
@@ -42,6 +50,7 @@ export function Dashboard() {
     // Each to-do lasts until it's dealt with: screenshots reviewed, the fee marked paid, the student's
     // file opened (what's only to know), the adult registration done, every student's acceptance.
     const pendingProofs = PROOFS.filter(proof => proof.school === currentSchool() && proof.state === 'uploaded' && !isPass(proof.method) && !REVIEWED.has(proof.id));
+    const oldestPendingProof = [...pendingProofs].sort((a, b) => (a.sent + a.sentAt).localeCompare(b.sent + b.sentAt))[0];
     const colibri = currentSchool() === 'colibri';
     const here = studentsHere();
     const newOnes = here.filter(s => s.newEnrollment && !SEEN.has(`new:${s.id}`));
@@ -53,7 +62,9 @@ export function Dashboard() {
     const flaggedPay = payStates.filter(row => row.state === 'flagged');
     const unpaidPay = payStates.filter(row => row.state === 'unpaid');
     const todos: { title: string; sub: string; to: string; chip?: JSX.Element }[] = [
-        ...(pendingProofs.length ? [{title: t('todo.proofs', {n: pendingProofs.length}), sub: [...new Set(pendingProofs.map(proof => personName(studentById(proof.student).name)))].join(' · '), to: `/d/payments/review/${pendingProofs[0].id}`, chip: <span className="chip chip-uploaded">{pendingProofs.length}</span>}] : []),
+        ...(pendingProofs.length ? [{title: t('todo.proofs', {n: pendingProofs.length}), sub: oldestPendingProof
+            ? t('todo.proofOldest', {name: personName(studentById(oldestPendingProof.student).name), when: dayMonth(oldestPendingProof.sent)})
+            : '', to: `/d/payments/review/${oldestPendingProof?.id ?? pendingProofs[0].id}`, chip: <span className="chip chip-uploaded">{pendingProofs.length}</span>}] : []),
         ...(flaggedPay.length ? [{title: t('todo.payFlagged', {n: flaggedPay.length}), sub: flaggedPay.map(row => personName(row.teacher.name)).join(' · '), to: `/d/teachers/${flaggedPay[0].teacher.id}/pay?period=${lastClosed?.from}`}] : []),
         ...(unpaidPay.length ? [{title: t('todo.payTeachers', {n: unpaidPay.length}), sub: lastClosed ? t('pay.periodPaid', {from: Number(lastClosed.from.slice(8)), to: dayMonth(lastClosed.to), payday: dayMonth(lastClosed.payday)}) : '', to: '/d/teacher-payments'}] : []),
         ...(!colibri || FEES_DONE.has('hector') ? [] : [{title: t('todo.fee', {n: 1}), sub: `Héctor Navarro · ${money(800)}`, to: '/d/payments?tab=fees'}]),
@@ -76,6 +87,12 @@ export function Dashboard() {
     const view = router.query.get('view') === 'summary' ? 'summary' : 'today';
     return (
         <Screen title={t('dash.title')} subtitle={[SCHOOLS[currentSchool()].name, dayLong(TODAY)]}>
+            {billingDue && (
+                <div className={platformBilling?.billing === 'late' ? 'banner banner-error' : 'banner banner-warning'}>
+                    <span className="strong">{platformBilling?.billing === 'late' ? t('billing.overdueTitle') : t('billing.dueSoonTitle')}</span>
+                    <span className="small">{billingDue}</span>
+                </div>
+            )}
             <Segmented label={t('dash.title')} value={view} onChange={value => router.replace(router.withQuery('view', value === 'today' ? null : value))}
                        options={[{value: 'today', label: t('dash.viewToday')}, {value: 'summary', label: t('dash.viewSummary')}]}/>
             {view === 'summary' ? <SummaryView/> : (
@@ -170,10 +187,14 @@ export function Calendar() {
         <Screen title={t('cal.title')} subtitle={SCHOOLS[currentSchool()].name}
                 footer={tab === 'plan' ? (
                     <div className="btn-row">
-                        <button type="button" className="btn btn-secondary btn-lg" onClick={() => router.navigate('/d/activity/new?kind=free')}>
+                        <button type="button" className="btn btn-secondary btn-lg" disabled={platformBillingPaused(currentSchool())}
+                                title={platformBillingPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
+                                onClick={() => router.navigate('/d/activity/new?kind=free')}>
                             <Icon name="plus"/>{t('plan.addFreeShort')}
                         </button>
-                        <button type="button" className="btn btn-lg" onClick={() => router.navigate('/d/activity/new')}>
+                        <button type="button" className="btn btn-lg" disabled={platformBillingPaused(currentSchool())}
+                                title={platformBillingPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
+                                onClick={() => router.navigate('/d/activity/new')}>
                             <Icon name="plus"/>{t('plan.addShort')}
                         </button>
                     </div>
@@ -416,6 +437,7 @@ function PlanView() {
                                         {item.perVisit && <span className="chip">{t('classes.perVisit')}</span>}
                                     </span>
                                     <button type="button" className="btn btn-ghost btn-sm self-start"
+                                            disabled={platformBillingPaused(currentSchool())}
                                             onClick={() => router.navigate(`/d/activity/new?from=${item.id}`)}>
                                         <Icon name="copy" size={18}/>{t('plan.duplicate')}
                                     </button>
@@ -444,6 +466,7 @@ export function ActivityForm({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
+    const paused = platformBillingPaused(currentSchool());
     const copyOf = router.query.get('from');
     // A replacement for a class that ends: it starts the day after the old one's last session.
     const after = router.query.get('after');
@@ -486,7 +509,7 @@ export function ActivityForm({id}: { id: string }) {
         <Screen title={title} subtitle={editing ? source?.name : after ? t('activity.replaceSub', {name: source?.name ?? ''}) : copyOf ? t(kind === 'free' ? 'activity.free' : 'activity.weekly') : undefined} back="/d/calendar?tab=plan" nav={false}
                 note={missing.length ? t('activity.missing', {list: missing.join(', ')}) : undefined}
                 footer={<>
-                    <button type="button" className="btn btn-lg" disabled={missing.length > 0} onClick={async () => {
+                    <button type="button" className="btn btn-lg" disabled={paused || missing.length > 0} onClick={async () => {
                         if (editing && !(await confirm({
                             title: t('activity.saveTitle'),
                             body: kind === 'weekly' ? t('activity.saveBody', {when: dayMonth(since), n: source?.students ?? 0}) : t('activity.saveBodyFree'),
@@ -506,16 +529,17 @@ export function ActivityForm({id}: { id: string }) {
                         else router.back('/d/calendar?tab=plan');
                     }}>{editing ? t('form.saveChanges') : t(kind === 'free' ? 'activity.createFree' : 'activity.create')}</button>
                     {editing && kind === 'weekly' && (
-                        <button type="button" className="btn btn-ghost-danger" onClick={() => router.navigate(`/d/activity/${id}/end`)}>{t('cal.endClass')}</button>
+                        <button type="button" className="btn btn-ghost-danger" disabled={paused} onClick={() => router.navigate(`/d/activity/${id}/end`)}>{t('cal.endClass')}</button>
                     )}
                 </>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             {copyOf && <div className="banner">{after ? t('activity.replaceNote', {name: source?.name ?? '', when: dayMonth(after)}) : t('activity.copyNote', {name: source?.name ?? ''})}</div>}
             {upcoming.length > 0 && (
                 <SelectField id="ac-since" label={t('activity.since')} value={since} onChange={setSince} hint={t('activity.sinceHint')}
                              options={upcoming.map(date => ({value: date, label: dayLong(date)}))}/>
             )}
-            <TextField id="ac-name" label={t('activity.name')} value={name} onChange={event => setName(event.target.value)}/>
-            <SelectField id="ac-teacher" label={t('activity.teacher')} value={teacher} onChange={setTeacher} placeholder={t('common.pick')}
+            <TextField id="ac-name" label={t('activity.name')} value={name} disabled={paused} onChange={event => setName(event.target.value)}/>
+            <SelectField id="ac-teacher" label={t('activity.teacher')} value={teacher} disabled={paused} onChange={setTeacher} placeholder={t('common.pick')}
                          options={TEACHERS.filter(item => item.status === 'active' && (item.schools ?? ['colibri']).includes(currentSchool())).map(item => ({value: item.id, label: item.name}))}/>
             {kind === 'weekly' ? (
                 <>
@@ -525,7 +549,7 @@ export function ActivityForm({id}: { id: string }) {
                             {[1, 2, 3, 4, 5, 6, 7].map(weekday => {
                                 const on = days.includes(weekday);
                                 return (
-                                    <button key={weekday} type="button" className="day-toggle" aria-pressed={on} aria-label={weekdayLong(weekday)}
+                                    <button key={weekday} type="button" className="day-toggle" aria-pressed={on} disabled={paused} aria-label={weekdayLong(weekday)}
                                             onClick={() => setDays(list => on ? list.filter(d => d !== weekday) : [...list, weekday])}>
                                         {weekdayLetter(weekday)}
                                     </button>
@@ -535,20 +559,20 @@ export function ActivityForm({id}: { id: string }) {
                         <span className="hint">{t('activity.daysHint')}</span>
                     </div>
                     <div className="two">
-                        <DateField id="ac-from" label={t('activity.from')} disabled={started} hint={started ? t('activity.startedHint') : undefined}
+                        <DateField id="ac-from" label={t('activity.from')} disabled={paused || started} hint={started ? t('activity.startedHint') : undefined}
                                    value={from} onChange={setFrom}/>
-                        <DateField id="ac-until" label={t('activity.until')} hint={editing ? t('activity.untilHint') : undefined}
+                        <DateField id="ac-until" label={t('activity.until')} disabled={paused} hint={editing ? t('activity.untilHint') : undefined}
                                    value={until} onChange={setUntil}/>
                     </div>
                 </>
             ) : (
-                <DateField id="ac-date" label={t('activity.date')} defaultValue="2026-11-27"/>
+                <DateField id="ac-date" label={t('activity.date')} defaultValue="2026-11-27" disabled={paused}/>
             )}
             <div className="two">
-                <TimeField id="ac-start" label={t('activity.start')} value={start} onChange={setStart}/>
-                <TimeField id="ac-end" label={t('activity.end')} value={end} onChange={setEnd}/>
+                <TimeField id="ac-start" label={t('activity.start')} value={start} disabled={paused} onChange={setStart}/>
+                <TimeField id="ac-end" label={t('activity.end')} value={end} disabled={paused} onChange={setEnd}/>
             </div>
-            <SelectField id="ac-room" label={t('activity.room')} value={room} onChange={setRoom} placeholder={t('common.pick')}
+            <SelectField id="ac-room" label={t('activity.room')} value={room} disabled={paused} onChange={setRoom} placeholder={t('common.pick')}
                          options={roomsHere().filter(r => !r.archived).map(r => ({value: r.id, label: r.name}))}/>
             {capacity && (
                 <div className="banner banner-warning" role="status">
@@ -558,21 +582,21 @@ export function ActivityForm({id}: { id: string }) {
                 </div>
             )}
             <h2 className="section-title">{t('activity.students')}</h2>
-            <NumberField id="ac-max" label={t(kind === 'free' ? 'activity.maxFree' : 'activity.max')} value={max} onChange={event => setMax(event.target.value)}
+            <NumberField id="ac-max" label={t(kind === 'free' ? 'activity.maxFree' : 'activity.max')} value={max} disabled={paused} onChange={event => setMax(event.target.value)}
                          hint={t(kind === 'free' ? 'activity.maxFreeHint' : 'activity.maxHint')}/>
             {source && editing && <p className="small">{t(kind === 'free' ? 'activity.bookedN' : 'activity.enrolledN', {n: source.students})}{source.inPackages ? ` · ${t('activity.packageNote')}` : ''}</p>}
             <p className="hint">{t('activity.selfEnroll')}</p>
             {after && source && source.students > 0 && (
-                <Check id="ac-notify" label={t('activity.notifyOld', {n: source.students, name: source.name})} checked={notify} onChange={setNotify}
+                <Check id="ac-notify" label={t('activity.notifyOld', {n: source.students, name: source.name})} checked={notify} disabled={paused} onChange={setNotify}
                        hint={t('activity.notifyOldHint')}/>
             )}
             {kind === 'weekly' && (
                 <>
                     <h2 className="section-title">{t('activity.howPaid')}</h2>
-                    <Check id="ac-pkg" label={t('activity.inPackages')} checked={pays.pkg} onChange={pkg => setPays({...pays, pkg})}/>
-                    <Check id="ac-monthly" label={t('activity.monthly')} checked={pays.monthly} onChange={monthly => setPays({...pays, monthly})}
+                    <Check id="ac-pkg" label={t('activity.inPackages')} checked={pays.pkg} disabled={paused} onChange={pkg => setPays({...pays, pkg})}/>
+                    <Check id="ac-monthly" label={t('activity.monthly')} checked={pays.monthly} disabled={paused} onChange={monthly => setPays({...pays, monthly})}
                            hint={source?.monthly ? t('activity.monthlyPrice', {amount: money(source.monthly.price), n: source.monthly.sessions}) : undefined}/>
-                    <Check id="ac-visit" label={t('activity.perVisit')} checked={pays.visit} onChange={visit => setPays({...pays, visit})}/>
+                    <Check id="ac-visit" label={t('activity.perVisit')} checked={pays.visit} disabled={paused} onChange={visit => setPays({...pays, visit})}/>
                     <p className="hint">{t('activity.pricesHint')}</p>
                 </>
             )}
@@ -784,7 +808,8 @@ export function DirectorPayments() {
     const toast = useToast();
     const confirm = useConfirm();
     const tab = router.query.get('tab') ?? 'review';
-    const pending = PROOFS.filter(proof => proof.school === currentSchool() && proof.state === 'uploaded' && !isPass(proof.method) && !REVIEWED.has(proof.id));
+    const pending = PROOFS.filter(proof => proof.school === currentSchool() && proof.state === 'uploaded' && !isPass(proof.method) && !REVIEWED.has(proof.id))
+        .sort((a, b) => (a.sent + a.sentAt).localeCompare(b.sent + b.sentAt));
     const [, redraw] = useState(0);
     const feeDone = FEES_DONE.has('hector');
     const colibri = currentSchool() === 'colibri';
@@ -805,7 +830,10 @@ export function DirectorPayments() {
                             <ListRow key={proof.id} left={<Avatar name={studentById(proof.student).name}/>}
                                      title={personName(studentById(proof.student).name)}
                                      sub={`${coversText(proof.covers)} · ${t(`method.${proof.method}` as const)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
-                                     right={<ProofChip state="uploaded"/>}
+                                     right={<span className="wrap">
+                                         {proof.sent <= addDays(TODAY, -1) && <span className="chip chip-rejected">{t('review.waitingOver24h')}</span>}
+                                         <ProofChip state="uploaded"/>
+                                     </span>}
                                      onClick={() => router.navigate(`/d/payments/review/${proof.id}`)}/>
                         ))}
                     </ul>
@@ -935,7 +963,8 @@ export function Review({id}: { id: string }) {
     const rejectSheet = useSheetRoute('reject');
     const [reason, setReason] = useState('');
     const proof = PROOFS.find(item => item.id === id) ?? PROOFS[0];
-    const queue = PROOFS.filter(item => item.school === currentSchool() && (item.state === 'uploaded' || REVIEWED.has(item.id)) && !isPass(item.method));
+    const queue = PROOFS.filter(item => item.school === currentSchool() && (item.state === 'uploaded' || REVIEWED.has(item.id)) && !isPass(item.method))
+        .sort((a, b) => (a.sent + a.sentAt).localeCompare(b.sent + b.sentAt));
     const left = queue.filter(item => !REVIEWED.has(item.id));
     const position = queue.findIndex(item => item.id === id) + 1;
     const student = studentById(proof.student);

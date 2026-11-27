@@ -235,7 +235,7 @@ const OTHER = '__other';
  * A dropdown. With `other`, the list ends with "Otro…", which shows a text field for an answer
  * the list doesn't have. The hint under it follows the chosen option.
  */
-export function SelectField({id, label, hint, options, value, defaultValue, onChange, other, placeholder}: {
+export function SelectField({id, label, hint, options, value, defaultValue, onChange, other, placeholder, disabled}: {
     id: string;
     label: string;
     hint?: string;
@@ -246,6 +246,7 @@ export function SelectField({id, label, hint, options, value, defaultValue, onCh
     other?: boolean;
     /** A first, empty option ("Elige…"), so nothing is chosen until the person picks. */
     placeholder?: string;
+    disabled?: boolean;
 }) {
     const known = (v: string | undefined) => v === undefined || v === '' || options.some(option => option.value === v);
     const start = value ?? defaultValue;
@@ -256,7 +257,7 @@ export function SelectField({id, label, hint, options, value, defaultValue, onCh
     return (
         <div className="field">
             <label className="label" htmlFor={id}>{label}</label>
-            <select id={id} className="input" value={shown} aria-describedby={line ? `${id}-hint` : undefined}
+            <select id={id} className="input" value={shown} disabled={disabled} aria-describedby={line ? `${id}-hint` : undefined}
                     onChange={event => {
                         setPicked(event.target.value);
                         onChange?.(event.target.value === OTHER ? otherText : event.target.value);

@@ -8,6 +8,7 @@ import {useSheetRoute} from './Layers';
 import {NoticesSheet} from '../screens/shared/NoticesSheet';
 import {CardSheet} from '../screens/shared/CardSheet';
 import {PROOFS, REVIEWED, SCHOOLS, STAFF_ME, TEACHERS, teacherSchools, unreadNotices, isPass} from '../mock/data';
+import {platformBillingPaused} from '../mock/admin';
 import {setCurrentSchool, useCurrentSchool} from '../state/school';
 
 export type Role = 's' | 'g' | 't' | 'd' | 'a';
@@ -154,6 +155,8 @@ export function Screen({title, subtitle, titleLine, back, onBack, nav = true, fo
                     {/* Register a student: on the director's main tabs, like the school switch, so detail screens keep room for their title. */}
                     {role === 'd' && isTab && (
                         <button type="button" className="icon-btn" aria-label={t('dstu.register')}
+                                disabled={platformBillingPaused(school)}
+                                title={platformBillingPaused(school) ? t('billing.growthPaused') : undefined}
                                 onClick={() => router.navigate('/d/register')}>
                             <Icon name="userPlus"/>
                         </button>
