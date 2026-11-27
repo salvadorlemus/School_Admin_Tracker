@@ -1134,6 +1134,7 @@ select.input { appearance: auto; }
 .list-row-fixed { height: 76px; min-height: 76px; overflow: hidden; }
 .list-row-fixed .list-row-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-row-fixed .wrap { flex-wrap: nowrap; overflow: hidden; }
+.payment-proof-row .grow { min-width: 0; }
 
 /* A saved person (emergency contact, pickup): a small card with its edit and delete buttons. */
 .person-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-md); }
@@ -1262,6 +1263,13 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 .carousel-card .row { flex-wrap: wrap; row-gap: 6px; }
 .carousel-card .row > .small { flex: none; }
 .carousel-card .row > .wrap { flex-wrap: nowrap; }
+.session-card-head { min-width: 0; align-items: flex-start; }
+.session-card-head > .num { flex: 1 1 auto; min-width: 0; }
+.session-card-chips { flex: 0 1 auto; min-width: 0; justify-content: flex-end; flex-wrap: nowrap; }
+.carousel-card .session-card-head { flex-wrap: nowrap; align-items: flex-start; }
+.carousel-card .session-card-head > .num { flex: 1 1 auto; max-width: none; white-space: nowrap; overflow: visible; text-overflow: clip; }
+.carousel-card .session-card-head > .session-card-chips { flex: 0 0 auto; max-width: none; overflow: visible; }
+.session-status-chips { flex-wrap: wrap; justify-content: flex-start; }
 /* A section title with a link beside it: both on one line, centred. */
 .section-head .section-title { margin: 0; }
 /* A long title (a class name beside a back arrow and three buttons) takes two lines at most. */

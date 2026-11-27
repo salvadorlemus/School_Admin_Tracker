@@ -823,8 +823,7 @@ export function DirectorPayments() {
     const feeDone = FEES_DONE.has('hector');
     const colibri = currentSchool() === 'colibri';
     return (
-        <Screen title={t('dpay.title')} subtitle={SCHOOLS[currentSchool()].name}
->
+        <Screen title={t('dpay.title')} subtitle={SCHOOLS[currentSchool()].name} fixedList={tab === 'due'}>
             <Segmented label={t('dpay.title')} value={tab}
                        onChange={value => router.replace(router.withQuery('tab', value === 'review' ? null : value))}
                        options={[{value: 'review', label: t('dpay.review', {n: pending.length})}, {
@@ -838,18 +837,23 @@ export function DirectorPayments() {
                         {pending.map(proof => (
                             <ListRow key={proof.id} left={<Avatar name={studentById(proof.student).name}/>}
                                      title={personName(studentById(proof.student).name)}
-                                     sub={`${coversText(proof.covers)} · ${t(`method.${proof.method}` as const)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
-                                     right={<span className="wrap">
-                                         {proof.sent <= addDays(TODAY, -1) && <span className="chip chip-rejected">{t('review.waitingOver24h')}</span>}
-                                         <ProofChip state="uploaded"/>
-                                     </span>}
+                                     sub={`${coversText(proof.covers)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
+                                     chips={proof.sent <= addDays(TODAY, -1)
+                                         ? <span className="chip chip-rejected">{t('review.waitingOver24h')}</span>
+                                         : undefined}
+                                     right={<ProofChip state="uploaded"/>}
                                      onClick={() => router.navigate(`/d/payments/review/${proof.id}`)}/>
                         ))}
                     </ul>
                     <p className="hint">{t('dpay.totalpassHint')}</p>
                 </>
             )}
-            {!colibri && tab !== 'review' && <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>}
+            {!colibri && tab === 'fees' && <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>}
+            {!colibri && tab === 'due' && (
+                <div className="list-fill">
+                    <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>
+                </div>
+            )}
             {tab === 'fees' && colibri && (
                 <ul className="list">
                     <ListRow left={<Avatar name="Héctor Navarro"/>} title="Héctor Navarro"
@@ -870,7 +874,7 @@ export function DirectorPayments() {
                 </ul>
             )}
             {tab === 'due' && colibri && (
-                <>
+                <div className="list-fill">
                     <h2 className="section-title">{t('dpay.dueOn', {when: dayMonth('2026-11-30')})}</h2>
                     <ul className="list">
                         {['camila', 'regina', 'mateo', 'valentina', 'jimena'].map(id => {
@@ -887,7 +891,7 @@ export function DirectorPayments() {
                     </ul>
                     <h2 className="section-title">{t('dpay.overdue')}</h2>
                     <Empty>{t('dpay.noOverdue')}</Empty>
-                </>
+                </div>
             )}
         </Screen>
     );
