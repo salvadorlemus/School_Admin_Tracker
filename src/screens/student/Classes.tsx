@@ -7,7 +7,7 @@ import {Icon} from '../../ui/Icon';
 import {useRouter} from '../../lib/router';
 import {t} from '../../lib/texts';
 import {addDays, dayLong, dayMonth, dayShort, money, monthYear, personName, time, timeRange, weekdayLetter, weekdayLong, weekdayOf, weekdayShort} from '../../lib/format';
-import {classById, classesOf, CLASSES, ENROLLMENTS, PACKAGES, PRICES, roomName, schoolOfClass, SCHOOLS, SESSIONS, studentById, teacherName, TODAY, TRIALS_TAKEN, type SchoolClass, SOFIA_SCHOOLS, ME, GUARDIAN_SCHOOLS, packageLabel} from '../../mock/data';
+import {classById, classesOf, CLASSES, ENROLLMENTS, isVacationDate, PACKAGES, PRICES, roomName, schoolOfClass, SCHOOLS, SESSIONS, studentById, teacherName, TODAY, TRIALS_TAKEN, type SchoolClass, SOFIA_SCHOOLS, ME, GUARDIAN_SCHOOLS, packageLabel} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Empty, ListRow, MenuText, Segmented, SelectField, TextField} from '../../ui/Fields';
 import {useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
@@ -165,12 +165,19 @@ export function Classes() {
                     {PACKAGES.filter(pack => !pack.retired && memberOf.has(pack.school ?? 'colibri') && (school === 'all' || (pack.school ?? 'colibri') === school)).map(pack => (
                         <ListRow key={pack.id}
                                  title={t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2')}
-                                 sub={`${pack.classes.map(id => classById(id).name).join(' · ')} · ${money(pack.price)}`}
-                                 chips={mine.some(enrollment => enrollment.packageId === pack.id) ? <span
-                                     className="chip chip-confirmed">{t('classes.yourPackage')}</span> : undefined}
-                                 onClick={() => router.navigate(`${base}/classes/${pack.id}${guardian ? `?kid=${student}` : ''}`)}/>
-                    ))}
-                </ul>
+                                sub={t('detail.packageChoice', {amount: money(pack.price), n: pack.perWeek})}
+                                chips={<>
+                                    <SchoolChip school={pack.school ?? 'colibri'}/>
+                                    {[...new Set(pack.classes.flatMap(id => classById(id).slots.map(slot => slot.weekday)))]
+                                        .sort((a, b) => a - b).map(weekday => (
+                                            <span key={weekday} className="chip">{weekdayShort(weekday)}</span>
+                                        ))}
+                                    {mine.some(enrollment => enrollment.packageId === pack.id) &&
+                                        <span className="chip chip-confirmed">{t('classes.yourPackage')}</span>}
+                                </>}
+                                onClick={() => router.navigate(`${base}/classes/${pack.id}${guardian ? `?kid=${student}` : ''}`)}/>
+                   ))}
+               </ul>
             )}
             {join === 'free' && (school === 'all' || school === 'colibri') && (
                 <ul className="list">
@@ -184,6 +191,49 @@ export function Classes() {
             </>}
             <ClassSheet id={classSheet.item} student={student} open={classSheet.open} onClose={classSheet.close}/>
         </Screen>
+    );
+}
+
+function PackageWeek({pack}: { pack: typeof PACKAGES[number] }) {
+    const router = useRouter();
+    const day = Number(router.query.get('wd')) || 0;
+    const schedule = pack.classes.flatMap(id => {
+        const item = classById(id);
+        return item.slots.map(slot => ({item, slot}));
+    }).sort((a, b) => a.slot.weekday - b.slot.weekday || a.slot.start.localeCompare(b.slot.start));
+    const days = [...new Set(schedule.map(entry => entry.slot.weekday))].filter(weekday => !day || weekday === day);
+    return (
+        <>
+            <div className="card">
+                <span className="big num">{money(pack.price)} {t('detail.perMonth')}</span>
+                <span className="small">{t('detail.packageBody', {n: pack.perWeek})}</span>
+            </div>
+            <h2 className="section-title">{t('detail.packageSchedule')}</h2>
+            <div className="day-row" role="group" aria-label={t('plan.byDay')}>
+                {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                    <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday}
+                            aria-label={weekdayLong(weekday)}
+                            onClick={() => router.replace(router.withQuery('wd', day === weekday ? null : String(weekday)))}>
+                        {weekdayLetter(weekday)}
+                    </button>
+                ))}
+            </div>
+            {days.length === 0 ? <Empty>{t('detail.noPackageClasses')}</Empty> : days.map(weekday => (
+                <section key={weekday} className="stack-sm">
+                    {!day && <h3 className="section-title">{weekdayLong(weekday)}</h3>}
+                    <ul className="list">
+                        {schedule.filter(entry => entry.slot.weekday === weekday).map(({item, slot}) => (
+                            <ListRow key={`${item.id}-${slot.start}`} title={item.name}
+                                     sub={`${timeRange(slot.start, slot.end)} · ${teacherName(item.teacher)} · ${roomName(slot.room)}`}
+                                     chips={<span className="chip chip-outline">{t('detail.dates', {
+                                         from: dayMonth(item.from),
+                                         until: dayMonth(item.until)
+                                     })}</span>}/>
+                        ))}
+                    </ul>
+                </section>
+            ))}
+        </>
     );
 }
 
@@ -207,7 +257,7 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
     const takes = new Set(classesOf(student));
     const inSchool = (classId: string) => school === 'all' || schoolOfClass(classById(classId)) === school;
     const mineOn = (date: string) => SESSIONS.filter(session => session.date === date && takes.has(session.classId) && inSchool(session.classId));
-    const joinOn = (date: string) => date < TODAY ? [] : offered.filter(item => inSchool(item.id) && placesLeft(item) > 0
+    const joinOn = (date: string) => date < TODAY ? [] : offered.filter(item => inSchool(item.id) && !isVacationDate(schoolOfClass(item), date) && placesLeft(item) > 0
         && date >= item.from && date <= item.until && item.slots.some(slot => slot.weekday === weekdayOf(date)))
         .sort((x, y) => (x.slots.find(slot => slot.weekday === weekdayOf(date))?.start ?? '').localeCompare(y.slots.find(slot => slot.weekday === weekdayOf(date))?.start ?? ''));
     const lead = weekdayOf(month) - 1;
@@ -228,14 +278,15 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
                 {cells.map(date => {
                     const sessions = mineOn(date);
                     const rings = all ? joinOn(date) : [];
+                    const hasVacation = sessions.some(session => isVacationDate(schoolOfClass(classById(session.classId)), date));
                     return (
                         <button key={date} type="button" aria-pressed={date === day} data-out={date.slice(0, 7) !== month.slice(0, 7)} data-today={date === TODAY}
-                                aria-label={`${dayLong(date)}: ${t('cal.nSessions', {n: sessions.length})}`}
+                                aria-label={`${dayLong(date)}: ${t('cal.nSessions', {n: sessions.length})}${hasVacation ? `, ${t('legend.vacation')}` : ''}`}
                                 onClick={() => router.replace(router.withQuery('day', date))}>
                             {Number(date.slice(8))}
                             <span className="dots">
                                 {sessions.slice(0, 4).map(session => (
-                                    <i key={session.id} data-kind={session.status === 'cancelled' ? 'cancelled' : session.substitute ? 'substitute' : 'class'}/>
+                                    <i key={session.id} data-kind={isVacationDate(schoolOfClass(classById(session.classId)), date) ? 'vacation' : session.status === 'cancelled' ? 'cancelled' : session.substitute ? 'substitute' : 'class'}/>
                                 ))}
                                 {rings.slice(0, Math.max(0, 4 - sessions.length)).map(item => <i key={item.id} data-kind="join"/>)}
                             </span>
@@ -252,6 +303,7 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
                     {t('classes.showJoinable')}
                 </button>
             </div>
+            {mine.some(session => isVacationDate(schoolOfClass(classById(session.classId)), day)) && <div className="banner banner-vacation">{t('vacation.classesCanceled')}</div>}
             <h2 className="section-title">{dayLong(day)}</h2>
             {mine.length === 0 ? <p className="small muted">{t('classes.noClassThisDay')}</p> : mine.map(session => (
                 <SessionCard key={session.id} session={session} school={schoolOfClass(classById(session.classId))} onClick={() => onOpenClass(session.classId)}/>
@@ -293,7 +345,8 @@ export function ClassDetail({id}: { id: string }) {
     const item = pack || free ? null : classById(id);
     // From the calendar (?start=), the first session on or after the day tapped comes first.
     const from = router.query.get('start');
-    const next = item ? SESSIONS.filter(session => session.classId === item.id && session.date > TODAY && (!from || session.date >= from) && session.status !== 'cancelled').slice(0, 4) : [];
+    const next = item ? SESSIONS.filter(session => session.classId === item.id && session.date > TODAY && (!from || session.date >= from)
+        && session.status !== 'cancelled' && !isVacationDate(schoolOfClass(item), session.date)).slice(0, 4) : [];
     const [chosen, setHow] = useState('');
     const [start, setStart] = useState(next[0]?.id ?? '');
     const left = item ? placesLeft(item) : 1;
@@ -392,12 +445,7 @@ export function ClassDetail({id}: { id: string }) {
                 </div>
             )}
             {pack && (
-                <div className="card">
-                    <span className="big num">{money(pack.price)} {t('detail.perMonth')}</span>
-                    <span className="small">{t('detail.packageBody', {n: pack.perWeek})}</span>
-                    <ul className="small plain-list" >{pack.classes.map(c => <li
-                        key={c}>{classById(c).name} · {slots(classById(c))}</li>)}</ul>
-                </div>
+                <PackageWeek pack={pack}/>
             )}
             {free && (
                 <div className="card">

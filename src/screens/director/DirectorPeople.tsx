@@ -4,7 +4,7 @@ import {LIVE} from '../../live/state';
 import {currentSchool} from '../../state/school';
 import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
-import {dayMonth, dayMonthYear, dayShort, money, personName, time, weekdayShort} from '../../lib/format';
+import {dayMonth, dayMonthYear, dayShort, money, personName, time, weekdayLetter, weekdayLong, weekdayShort} from '../../lib/format';
 import {useRouter} from '../../lib/router';
 import {classById, CLASSES, schoolOfClass, TODAY, PRICES, PROOFS, ROOMS, roomName, SCHOOLS, studentById, TEACHERS, teacherSchools, type Price, type Room, roomsHere, studentsHere, pricesHere, packageLabel, PACKAGES, teacherName} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
@@ -782,6 +782,16 @@ export function PackageForm({id}: { id: string }) {
     const [perWeek, setPerWeek] = useState(pack ? String(pack.perWeek) : '');
     const [covers, setCovers] = useState<string[]>(pack ? pack.classes : classes.map(item => item.id));
     const [amount, setAmount] = useState('');
+    const onlyDay = Number(router.query.get('wd')) || 0;
+    const visibleClasses = (onlyDay ? classes.filter(item => item.slots.some(slot => slot.weekday === onlyDay)) : classes)
+        .slice()
+        .sort((a, b) => {
+            const aSlot = a.slots.filter(slot => !onlyDay || slot.weekday === onlyDay)
+                .sort((x, y) => x.weekday - y.weekday || x.start.localeCompare(y.start))[0];
+            const bSlot = b.slots.filter(slot => !onlyDay || slot.weekday === onlyDay)
+                .sort((x, y) => x.weekday - y.weekday || x.start.localeCompare(y.start))[0];
+            return (aSlot?.weekday ?? 0) - (bSlot?.weekday ?? 0) || (aSlot?.start ?? '').localeCompare(bSlot?.start ?? '');
+        });
     const holders = pack ? packageHolders(pack.id) : [];
     const ready = name.trim().length > 0 && Number(perWeek) > 0 && covers.length > 0 && (pack ? true : Number(amount) > 0);
     const missing = !name.trim() ? t('pack.needName') : !(Number(perWeek) > 0) ? t('pack.needPerWeek') : covers.length === 0 ? t('pack.needClasses') : !pack && !(Number(amount) > 0) ? t('pack.needPrice') : undefined;
@@ -836,11 +846,21 @@ export function PackageForm({id}: { id: string }) {
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCovers(allOn ? [] : classes.map(item => item.id))}>
                     {t(allOn ? 'pack.none' : 'pack.all')}</button>
             </div>
-            {classes.map(item => (
+            <div className="day-row" role="group" aria-label={t('plan.byDay')}>
+                {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                    <button key={weekday} type="button" className="day-toggle" aria-pressed={onlyDay === weekday}
+                            aria-label={weekdayLong(weekday)}
+                            onClick={() => router.replace(router.withQuery('wd', onlyDay === weekday ? null : String(weekday)))}>
+                        {weekdayLetter(weekday)}
+                    </button>
+                ))}
+            </div>
+            {visibleClasses.map(item => (
                 <Check key={item.id} id={`pk-${item.id}`} label={item.name} hint={`${teacherName(item.teacher)} · ${classWhen(item)}`}
                        checked={covers.includes(item.id)}
                        onChange={on => setCovers(list => on ? [...list, item.id] : list.filter(other => other !== item.id))}/>
             ))}
+            {visibleClasses.length === 0 && <Empty>{t('pack.noClassesDay')}</Empty>}
             <p className="hint">{t('pack.coversHint')}</p>
         </Screen>
     );

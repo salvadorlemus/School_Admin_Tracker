@@ -468,6 +468,9 @@ export const sessionById = (id: string) => SESSIONS.find(session => session.id =
 export const schoolOfSession = (session: Session): SchoolId => schoolOfClass(classById(session.classId));
 export const sessionsOn = (date: string, school: SchoolId = currentSchool()) =>
     SESSIONS.filter(session => session.date === date && schoolOfSession(session) === school);
+export const VACATION_DAYS: { school: SchoolId; date: string }[] = [];
+export const isVacationDate = (school: SchoolId, date: string) =>
+    VACATION_DAYS.some(vacation => vacation.school === school && vacation.date === date);
 
 // ---- Students ----
 
@@ -857,8 +860,8 @@ export interface Notice {
     id: string;
     school: SchoolId;
     date: string;
-    /** A schedule change the database posted, a price change (important), or a note someone wrote. */
-    kind: 'substitute' | 'cancelled' | 'schedule' | 'ended' | 'teacher' | 'price' | 'note';
+    /** A schedule change, price change, school vacation, or note. */
+    kind: 'substitute' | 'cancelled' | 'schedule' | 'ended' | 'teacher' | 'price' | 'note' | 'vacation' | 'vacation_removed';
     /** The class it's about, by id: two classes can share a name. */
     classId?: string;
     title: string;

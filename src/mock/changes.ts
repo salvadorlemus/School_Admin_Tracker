@@ -29,6 +29,7 @@ import {
     type SchoolClass,
     type Session,
     type Slot,
+    VACATION_DAYS,
 } from './data';
 
 /**
@@ -120,6 +121,27 @@ export function cancelSession(id: string) {
     const session = sessionById(id);
     session.status = 'cancelled';
     post({kind: 'cancelled', classId: session.classId, title: sessionTitle(session), at: sessionAt(session), text: 'notice.cancelledOnly'});
+}
+
+export async function markVacation(dates: string[], vacation = true): Promise<boolean> {
+    const school = currentSchool();
+    const changed = [...new Set(dates)].filter(date => VACATION_DAYS.some(item => item.school === school && item.date === date) !== vacation);
+    if (changed.length === 0) return true;
+    if (LIVE.on) return live.setVacationDates(changed, vacation);
+    if (vacation) {
+        for (const date of changed) VACATION_DAYS.push({school, date});
+    } else {
+        for (let i = VACATION_DAYS.length - 1; i >= 0; i--) {
+            if (VACATION_DAYS[i].school === school && changed.includes(VACATION_DAYS[i].date)) VACATION_DAYS.splice(i, 1);
+        }
+    }
+    post({
+        kind: vacation ? 'vacation' : 'vacation_removed',
+        title: vacation ? 'Vacation closure' : 'Vacation update',
+        text: vacation ? 'notice.vacation' : 'notice.vacationRemoved',
+        vars: {dates: changed.sort().join(',')},
+    });
+    return true;
 }
 
 /** Picking the session's own teacher again takes the substitute away. */

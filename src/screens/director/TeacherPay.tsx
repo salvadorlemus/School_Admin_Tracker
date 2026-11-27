@@ -12,6 +12,11 @@ import {useConfirm, useToast} from '../../ui/Layers';
 import {PayView, schemeLine} from '../shared/PayView';
 
 const digits = (value: string) => Number(value.replace(/\D/g, '')) || 0;
+const copyRule = (rule: PayRule): PayRule => ({
+    ...rule,
+    perSession: {...rule.perSession},
+    tiers: rule.tiers.map(tier => ({...tier})),
+});
 
 /**
  * How the school pays its teachers: the pay days and one of three schemes (a fixed amount per
@@ -22,10 +27,8 @@ export function PaySettings() {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const [rule, setRule] = useState<PayRule>(() => {
-        const saved = payRule(currentSchool());
-        return {...saved, perSession: {...saved.perSession}, tiers: saved.tiers.map(tier => ({...tier}))};
-    });
+    const [originalRule] = useState(() => copyRule(payRule(currentSchool())));
+    const [rule, setRule] = useState<PayRule>(() => copyRule(payRule(currentSchool())));
     const set = (change: Partial<PayRule>) => setRule(current => ({...current, ...change}));
     const teachers = TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool()));
     const period = periodsOf(rule)[0];
@@ -40,6 +43,13 @@ export function PaySettings() {
         return null;
     };
     const tiersOk = rule.tiers.every((tier, i) => tier.amount > 0 && !tierProblem(i));
+    const tiersChanged = rule.tiers.length !== originalRule.tiers.length || rule.tiers.some((tier, i) => {
+        const original = originalRule.tiers[i];
+        return !original || tier.from !== original.from || tier.to !== original.to || tier.amount !== original.amount;
+    });
+    const comparePay = rule.scheme === 'tiers' && (
+        originalRule.scheme !== 'tiers' || tiersChanged || rule.emptyPay !== originalRule.emptyPay
+    );
     const ready = rule.scheme === 'perSession' ? rule.defaultPerSession > 0
         : rule.scheme === 'percent' ? rule.percent > 0 && rule.percent <= 100 && rule.totalpassValue > 0 : tiersOk;
     // Each number is the director's to type; the next range's start follows a range's end only while it still followed it.
@@ -179,10 +189,17 @@ export function PaySettings() {
             <ul className="list">
                 {teachers.map(teacher => {
                     const pay = teacherPay(teacher.id, currentSchool(), period, rule);
+                    const originalPay = comparePay ? teacherPay(teacher.id, currentSchool(), period, originalRule) : null;
                     return (
                         <ListRow key={teacher.id} left={<Avatar name={teacher.name}/>} title={personName(teacher.name)}
                                  sub={t('tpaySet.previewSub', {n: pay.counted, sessions: pay.sessions})}
-                                 right={<span className="big num">{money(pay.amount)}</span>}/>
+                                 right={originalPay
+                                     ? <span className="row">
+                                         <span className="small num muted" aria-label={t('tpaySet.previousAmount', {amount: money(originalPay.amount)})}>{money(originalPay.amount)}</span>
+                                         <span className="small muted" aria-hidden="true">→</span>
+                                         <span className="big num" aria-label={t('tpaySet.newAmount', {amount: money(pay.amount)})}>{money(pay.amount)}</span>
+                                     </span>
+                                     : <span className="big num">{money(pay.amount)}</span>}/>
                     );
                 })}
             </ul>

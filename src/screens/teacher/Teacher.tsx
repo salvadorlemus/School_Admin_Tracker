@@ -19,7 +19,7 @@ import {
     weekdayShort
 } from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {AMBAR_STUDENTS, classById, CLASSES, PACKAGES, PROOFS, roomName, SCHOOLS, schoolOfClass, schoolOfSession, sessionById, SESSIONS, STRESS, STUDENTS, studentById, teacherName, TEACHERS, sessionWindow, TODAY, TODAY_ROSTER, type Session, rosterOf, guestsOf, studentsOf, classStudents} from '../../mock/data';
+import {AMBAR_STUDENTS, classById, CLASSES, isVacationDate, PACKAGES, PROOFS, roomName, SCHOOLS, schoolOfClass, schoolOfSession, sessionById, SESSIONS, STRESS, STUDENTS, studentById, teacherName, TEACHERS, sessionWindow, TODAY, TODAY_ROSTER, type Session, rosterOf, guestsOf, studentsOf, classStudents} from '../../mock/data';
 import {teacherOf} from '../../mock/changes';
 import {Screen, roleOf, STAFF_ME} from '../../ui/Screen';
 import {Avatar, Check, Empty, ListRow, MenuText, SearchField, Segmented, SelectField, TextArea} from '../../ui/Fields';
@@ -97,15 +97,17 @@ export function Schedule() {
                 {cells.map(date => {
                     const mine = sessions.filter(session => session.date === date);
                     const out = date.slice(5, 7) !== month.slice(5, 7);
+                    const vacation = isVacationDate(school, date);
                     return (
                         <button key={date} type="button" data-out={out} data-today={date === TODAY}
-                                disabled={mine.length === 0}
-                                aria-label={`${dayLong(date)}: ${t('cal.nSessions', {n: mine.length})}`}
+                                disabled={mine.length === 0 && !vacation}
+                                aria-label={`${dayLong(date)}: ${t('cal.nSessions', {n: mine.length})}${vacation ? `, ${t('legend.vacation')}` : ''}`}
                                 onClick={() => date === TODAY
                                     ? todayList.current?.scrollIntoView({behavior: 'smooth', block: 'start'})
                                     : day.show(date)}>
                             {Number(date.slice(8))}
                             <span className="dots">
+                                {vacation && <i data-kind="vacation"/>}
                                 {mine.slice(0, 4).map(session => (
                                     <i key={session.id}
                                        data-kind={session.status === 'cancelled' ? 'cancelled' : session.substitute ? 'substitute' : 'class'}/>
@@ -116,12 +118,14 @@ export function Schedule() {
                 })}
             </div>
             <DotLegend/>
+            {isVacationDate(school, TODAY) && <div className="banner banner-vacation">{t('vacation.classesCanceled')}</div>}
             <p className="hint">{t('schedule.hint')}</p>
             <h2 ref={todayList} className="section-title">{t('schedule.today')}</h2>
             {today.length === 0 && <Empty>{t('schedule.empty')}</Empty>}
             {today.map(session => <SessionCard key={session.id} session={session} onClick={open(session)}
                                                extra={extra(session)}/>)}
             <Sheet open={day.open} onClose={day.close} title={day.item ? dayLong(day.item) : ''}>
+                {day.item && isVacationDate(school, day.item) && <div className="banner banner-vacation">{t('vacation.classesCanceled')}</div>}
                 {onDay.map(session => <SessionCard key={session.id} session={session} onClick={open(session)}
                                                    extra={extra(session)}/>)}
             </Sheet>

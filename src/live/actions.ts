@@ -52,6 +52,27 @@ export const live = {
     decideProof: (id: string, confirmed: boolean, reason: string) =>
         send(() => supabase.rpc('decide_proof', {proof_id: id, confirmed, reason: reason || null})),
     cancelSession: (id: string) => send(() => supabase.rpc('cancel_session', {session_id: id})),
+    setVacationDates: async (dates: string[], vacation: boolean): Promise<boolean> => {
+        if (!LIVE.on) return true;
+        try {
+            const {error} = await supabase.rpc('set_vacation_dates', {
+                requested_school: currentSchool(),
+                vacation_dates: dates,
+                is_vacation: vacation,
+            });
+            if (error) {
+                liveProblem(error.message);
+                await loadLive().catch(reason => liveProblem(String(reason)));
+                return false;
+            }
+            await loadLive().catch(reason => liveProblem(String(reason)));
+            return true;
+        } catch (reason) {
+            liveProblem(String(reason));
+            await loadLive().catch(loadError => liveProblem(String(loadError)));
+            return false;
+        }
+    },
     moveSession: (id: string, to: { date: string; start: string; end: string; room: string }) =>
         send(() => supabase.rpc('move_session', {
             session_id: id,

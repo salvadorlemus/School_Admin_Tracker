@@ -2,9 +2,9 @@ import {classWhen} from '../shared/pieces';
 import {currentSchool} from '../../state/school';
 import type {ReactNode} from 'react';
 import {t, type TextKey} from '../../lib/texts';
-import {dayMonth, decimal, money, monthInSentence, monthName, personName, weekdayShort} from '../../lib/format';
+import {dayMonth, decimal, money, monthInSentence, monthName, personName, weekdayLetter, weekdayLong, weekdayShort} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {classById, studentById, TODAY, teacherName} from '../../mock/data';
+import {classById, rosterOf, schoolOfClass, SESSIONS, studentById, TODAY, teacherName} from '../../mock/data';
 import {
     AT_RISK,
     COHORTS,
@@ -26,14 +26,13 @@ import {
     SLOTS,
     toneDown,
     toneUp,
-    trialsByTeacher,
     trialTone,
     trialTotal,
     TRIALS,
     type Tone,
 } from '../../mock/insights';
 import {Screen} from '../../ui/Screen';
-import {Avatar, ListRow, Skeleton, useBriefLoading} from '../../ui/Fields';
+import {Avatar, Empty, ListRow, Skeleton, useBriefLoading} from '../../ui/Fields';
 
 const pct = (value: number) => `${Math.round(value * 100)}%`;
 const inSentence = monthInSentence;
@@ -164,13 +163,49 @@ function Headline({metric, rule}: { metric: Metric; rule: string }) {
     );
 }
 
+function DayFilter({day, onChange}: { day: number; onChange: (day: number) => void }) {
+    return (
+        <div className="day-row" role="group" aria-label={t('plan.byDay')}>
+            {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday}
+                        aria-label={weekdayLong(weekday)}
+                        onClick={() => onChange(day === weekday ? 0 : weekday)}>
+                    {weekdayLetter(weekday)}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function studentHasClassOnDay(student: string, weekday: number): boolean {
+    return SESSIONS.some(session => {
+        const item = classById(session.classId);
+        return schoolOfClass(item) === currentSchool() && item.kind === 'weekly'
+            && item.slots.some(slot => slot.weekday === weekday)
+            && rosterOf(session).some(entry => entry.student === student);
+    });
+}
+
+function trialsByTeacherFor(rows: typeof TRIALS) {
+    const map = new Map<string, {trials: number; enrolled: number}>();
+    for (const row of rows) {
+        const teacher = classById(row.classId).teacher;
+        const sum = map.get(teacher) ?? {trials: 0, enrolled: 0};
+        map.set(teacher, {trials: sum.trials + row.trials, enrolled: sum.enrolled + row.enrolled});
+    }
+    return [...map.entries()].map(([teacher, sum]) => ({teacher, name: teacherName(teacher), ...sum}));
+}
+
 export function InsightScreen({id}: { id: string }) {
     const router = useRouter();
     const metric = metrics().find(item => item.id === id) ?? metrics()[0];
     const back = '/d/home?view=summary';
+    const day = Number(router.query.get('wd')) || 0;
+    const setDay = (weekday: number) => router.replace(router.withQuery('wd', weekday ? String(weekday) : null));
     let body: ReactNode = null;
     if (metric.id === 'margin') {
         const total = marginTotal();
+        const rows = day ? MARGINS.filter(row => classById(row.classId).slots.some(slot => slot.weekday === day)) : MARGINS;
         body = (
             <>
                 <div className="card">
@@ -182,48 +217,50 @@ export function InsightScreen({id}: { id: string }) {
                     </div>
                 </div>
                 <h2 className="section-title">{t('ins.byClass')}</h2>
-                <ul className="list">
-                    {MARGINS.map(row => (
+                {rows.length === 0 ? <Empty>{t('ins.noRows')}</Empty> : <ul className="list">
+                    {rows.map(row => (
                         <ListRow key={row.classId} title={classById(row.classId).name}
                                  sub={<>{whoWhen(row.classId)}<br/>{t('ins.marginRow', {income: money(row.income), pay: money(row.pay)})}</>}
                                  chips={<ToneChip
                                      tone={marginTone(row)}>{money(row.margin)} · {pct(row.margin / row.income)}</ToneChip>}
                                  onClick={() => router.navigate(`/d/activity/${row.classId}`)}/>
                     ))}
-                </ul>
+                </ul>}
                 <p className="hint">{t('ins.marginHow')}</p>
             </>
         );
     } else if (metric.id === 'trials') {
+        const rows = day ? TRIALS.filter(row => classById(row.classId).slots.some(slot => slot.weekday === day)) : TRIALS;
         body = (
             <>
                 <h2 className="section-title">{t('ins.byClass')}</h2>
-                <ul className="list">
-                    {TRIALS.map(row => (
+                {rows.length === 0 ? <Empty>{t('ins.noRows')}</Empty> : <ul className="list">
+                    {rows.map(row => (
                         <ListRow key={row.classId} title={classById(row.classId).name}
                                  sub={<>{whoWhen(row.classId)}<br/>{t('ins.trialRow', {trials: row.trials, enrolled: row.enrolled})}</>}
                                  chips={<ToneChip
                                      tone={trialTone(row.enrolled / row.trials)}>{pct(row.enrolled / row.trials)}</ToneChip>}/>
                     ))}
-                </ul>
+                </ul>}
                 <h2 className="section-title">{t('ins.byTeacher')}</h2>
-                <ul className="list">
-                    {trialsByTeacher().map(row => (
+                {rows.length === 0 ? <Empty>{t('ins.noRows')}</Empty> : <ul className="list">
+                    {trialsByTeacherFor(rows).map(row => (
                         <ListRow key={row.teacher} left={<Avatar name={row.name}/>} title={row.name}
                                  sub={t('ins.trialRow', {trials: row.trials, enrolled: row.enrolled})}
                                  chips={<ToneChip
                                      tone={trialTone(row.enrolled / row.trials)}>{pct(row.enrolled / row.trials)}</ToneChip>}/>
                     ))}
-                </ul>
+                </ul>}
                 <p className="hint">{t('ins.trialsHow')}</p>
             </>
         );
     } else if (metric.id === 'fill') {
+        const rows = day ? FILL.filter(row => classById(row.classId).slots.some(slot => slot.weekday === day)) : FILL;
         body = (
             <>
                 <h2 className="section-title">{t('ins.byClass')}</h2>
-                <ul className="list">
-                    {FILL.map(row => (
+                {rows.length === 0 ? <Empty>{t('ins.noRows')}</Empty> : <ul className="list">
+                    {rows.map(row => (
                         <ListRow key={row.classId} title={classById(row.classId).name}
                                  sub={<>
                                      {whoWhen(row.classId)}
@@ -238,13 +275,13 @@ export function InsightScreen({id}: { id: string }) {
                                  chips={<ToneChip
                                      tone={fillTone(row.enrolled / row.max)}>{pct(row.enrolled / row.max)}</ToneChip>}/>
                     ))}
-                </ul>
+                </ul>}
                 <h2 className="section-title">{t('ins.slots')}</h2>
                 <div className="slot-grid" role="table" aria-label={t('ins.slots')}>
                     <span role="columnheader"/>
                     {(['morning', 'afternoon', 'evening'] as const).map(part => <span key={part} role="columnheader"
                                                                                       className="small muted">{t(`ins.part.${part}` as const)}</span>)}
-                    {[...new Set(SLOTS.map(slot => slot.weekday))].map(weekday => (
+                    {[...new Set(SLOTS.map(slot => slot.weekday))].filter(weekday => !day || weekday === day).map(weekday => (
                         <div key={weekday} role="row" className="slot-row">
                             <span role="rowheader" className="small strong">{weekdayShort(weekday)}</span>
                             {SLOTS.filter(slot => slot.weekday === weekday).map(slot => (
@@ -258,10 +295,11 @@ export function InsightScreen({id}: { id: string }) {
             </>
         );
     } else if (metric.id === 'risk') {
+        const rows = day ? AT_RISK.filter(row => studentHasClassOnDay(row.student, day)) : AT_RISK;
         body = (
             <>
-                <ul className="list">
-                    {AT_RISK.map(row => (
+                {rows.length === 0 ? <Empty>{t('ins.noRows')}</Empty> : <ul className="list">
+                    {rows.map(row => (
                         <ListRow key={row.student} left={<Avatar name={studentById(row.student).name}/>}
                                  title={personName(studentById(row.student).name)}
                                  sub={t('ins.lastSeen', {when: dayMonth(row.lastSeen)})}
@@ -269,12 +307,13 @@ export function InsightScreen({id}: { id: string }) {
                                                                            className="chip chip-warning">{t(`ins.reason.${reason}` as const)}</span>)}</>}
                                  onClick={() => router.navigate(`/d/students/${row.student}`)}/>
                     ))}
-                </ul>
+                </ul>}
                 <p className="hint">{t('ins.riskHow')}</p>
             </>
         );
     } else if (metric.id === 'late') {
         const late = lateTotal();
+        const rows = day ? LATE.filter(row => studentHasClassOnDay(row.student, day)) : LATE;
         body = (
             <>
                 <div className="card">
@@ -297,8 +336,8 @@ export function InsightScreen({id}: { id: string }) {
                     ))}
                 </div>
                 <h2 className="section-title">{t('ins.whoLate')}</h2>
-                <ul className="list">
-                    {LATE.map(row => (
+                {rows.length === 0 ? <Empty>{t('ins.noRows')}</Empty> : <ul className="list">
+                    {rows.map(row => (
                         <ListRow key={row.student} left={<Avatar name={studentById(row.student).name}/>}
                                  title={personName(studentById(row.student).name)}
                                  sub={t('ins.lateRow', {days: row.days, times: row.times})}
@@ -306,7 +345,7 @@ export function InsightScreen({id}: { id: string }) {
                                      tone={toneDown(row.times, 1, 2)}>{t('ins.times', {n: row.times})}</ToneChip>}
                                  onClick={() => router.navigate(`/d/students/${row.student}`)}/>
                     ))}
-                </ul>
+                </ul>}
                 <p className="hint">{t('ins.lateHow')}</p>
             </>
         );
@@ -334,6 +373,7 @@ export function InsightScreen({id}: { id: string }) {
     return (
         <Screen title={t(metric.label)} subtitle={t('ins.month', {month: inSentence(TODAY)})} back={back} nav={false}>
             <Headline metric={metric} rule={t(`ins.rule.${metric.id}` as TextKey)}/>
+            {['margin', 'trials', 'fill', 'risk', 'late'].includes(metric.id) && <DayFilter day={day} onChange={setDay}/>}
             {body}
         </Screen>
     );
