@@ -10,6 +10,7 @@ import {Avatar, DateField, ListRow, MenuText, MoneyField, NumberField, SelectFie
 import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useToast} from '../../ui/Layers';
 import {PayView, schemeLine} from '../shared/PayView';
+import {platformBillingPaused} from '../../mock/admin';
 
 const digits = (value: string) => Number(value.replace(/\D/g, '')) || 0;
 const copyRule = (rule: PayRule): PayRule => ({
@@ -25,6 +26,7 @@ const copyRule = (rule: PayRule): PayRule => ({
  */
 export function PaySettings() {
     const router = useRouter();
+    const paused = platformBillingPaused(currentSchool());
     const toast = useToast();
     const confirm = useConfirm();
     const [originalRule] = useState(() => copyRule(payRule(currentSchool())));
@@ -92,11 +94,11 @@ export function PaySettings() {
 
     return (
         <Screen title={t('tpaySet.title')} back="/d/more" nav={false}
-                note={ready ? t('tpaySet.note', {
+                note={paused ? t('billing.growthPaused') : ready ? t('tpaySet.note', {
                     from: dayMonth(period.from),
                     to: dayMonth(period.to)
                 }) : t('tpaySet.missing')}
-                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
+                footer={<button type="button" className="btn btn-lg" disabled={paused || !ready} onClick={async () => {
                     if (await confirm({
                         title: t('tpaySet.confirmTitle'),
                         body: t('tpaySet.confirmBody', {from: dayMonth(period.from), to: dayMonth(period.to)}),
@@ -115,14 +117,15 @@ export function PaySettings() {
                         router.back('/d/more');
                     }
                 }}>{t('form.saveChanges')}</button>}>
-            <SelectField id="tp-days" label={t('tpaySet.days')} value={rule.days}
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
+            <SelectField id="tp-days" label={t('tpaySet.days')} value={rule.days} disabled={paused}
                          onChange={value => set({days: value === 'month' ? 'month' : 'half'})}
                          options={[{
                              value: 'half',
                              label: t('tpaySet.half'),
                              hint: t('tpaySet.halfHint')
                          }, {value: 'month', label: t('tpaySet.month'), hint: t('tpaySet.monthHint')}]}/>
-            <SelectField id="tp-scheme" label={t('tpaySet.scheme')} value={rule.scheme}
+            <SelectField id="tp-scheme" label={t('tpaySet.scheme')} value={rule.scheme} disabled={paused}
                          onChange={value => set({scheme: value as PayScheme})}
                          options={[
                              {value: 'perSession', label: t('tpaySet.perSession'), hint: t('tpaySet.perSessionHint')},
@@ -133,12 +136,14 @@ export function PaySettings() {
                 <>
                     <MoneyField id="tp-default" label={t('tpaySet.default')}
                                 value={rule.defaultPerSession ? String(rule.defaultPerSession) : ''}
+                                disabled={paused}
                                 onChange={event => set({defaultPerSession: digits(event.target.value)})}
                                 hint={t('tpaySet.defaultHint')}/>
                     <h2 className="section-title">{t('tpaySet.perTeacher')}</h2>
                     {teachers.map(teacher => (
                         <MoneyField key={teacher.id} id={`tp-${teacher.id}`} label={teacher.name}
                                     value={rule.perSession[teacher.id] ? String(rule.perSession[teacher.id]) : ''}
+                                    disabled={paused}
                                     placeholder={t('tpaySet.usesDefault', {amount: money(rule.defaultPerSession)})}
                                     onChange={event => {
                                         const amount = digits(event.target.value);
@@ -154,10 +159,12 @@ export function PaySettings() {
                 <>
                     <NumberField id="tp-percent" label={t('tpaySet.share')}
                                  value={rule.percent ? String(rule.percent) : ''}
+                                 disabled={paused}
                                  onChange={event => set({percent: Math.min(100, digits(event.target.value))})}
                                  hint={t('tpaySet.shareHint', {school: 100 - rule.percent})}/>
                     <MoneyField id="tp-totalpass" label={t('tpaySet.totalpass')}
                                 value={rule.totalpassValue ? String(rule.totalpassValue) : ''}
+                                disabled={paused}
                                 onChange={event => set({totalpassValue: digits(event.target.value)})}
                                 hint={t('tpaySet.totalpassHint')}/>
                     <p className="hint">{t('tpaySet.percentHow')}</p>
@@ -186,7 +193,7 @@ export function PaySettings() {
                                      onClick={() => setEditingTierId(tierIds[i])}/>
                         ))}
                     </ul>
-                    <button type="button" className="btn btn-secondary" onClick={addTier}><Icon
+                    <button type="button" className="btn btn-secondary" disabled={paused} onClick={addTier}><Icon
                         name="plus"/>{t('tpaySet.addTier')}</button>
                     <Sheet open={Boolean(editingTier)} onClose={() => setEditingTierId(null)}
                            title={editingTier ? (editingTierIndex === last
@@ -194,12 +201,14 @@ export function PaySettings() {
                                : t('tpaySet.tierRange', {from: editingTier.from || '…', to: editingTier.to || '…'})) : ''}
                            footer={<button type="button" className="btn btn-lg" onClick={() => setEditingTierId(null)}>{t('common.done')}</button>}
                            actions={rule.tiers.length > 2 && <button type="button" className="icon-btn" aria-label={t('form.remove')}
+                               disabled={paused}
                                onClick={() => editingTierIndex >= 0 && removeTier(editingTierIndex)}><Icon name="trash" size={18}/></button>}>
                         {editingTier && (
                             <>
                                 <div className="tier-editor-range">
                                     <div className="tier-field" data-changed={tierValueChanged(editingTierIndex, 'from') || undefined}>
                                         <NumberField id="tp-edit-from" label={t('tpaySet.from')} value={editingTier.from ? String(editingTier.from) : ''}
+                                                     disabled={paused}
                                                      onChange={event => setTier(editingTierIndex, {from: digits(event.target.value)})}/>
                                         {tierValueChanged(editingTierIndex, 'from') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
                                     </div>
@@ -207,6 +216,7 @@ export function PaySettings() {
                                         {editingTierIndex === last ? <TextField id="tp-edit-to" label={t('tpaySet.upTo')} value={t('tpaySet.orMoreShort')} disabled/> : (
                                             <NumberField id="tp-edit-to" label={t('tpaySet.upTo')}
                                                          value={editingTier.to ? String(editingTier.to) : ''}
+                                                         disabled={paused}
                                                          onChange={event => setTier(editingTierIndex, {to: digits(event.target.value)})}/>
                                         )}
                                         {editingTierIndex !== last && tierValueChanged(editingTierIndex, 'to') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
@@ -215,6 +225,7 @@ export function PaySettings() {
                                 <div className="tier-field" data-changed={tierValueChanged(editingTierIndex, 'amount') || undefined}>
                                     <MoneyField id="tp-edit-amount" label={t('tpaySet.perSessionPay')}
                                                 value={editingTier.amount ? String(editingTier.amount) : ''}
+                                                disabled={paused}
                                                 onChange={event => setTier(editingTierIndex, {amount: digits(event.target.value)})}/>
                                     {tierValueChanged(editingTierIndex, 'amount') && <span className="tier-change-mark" title={t('tpaySet.changed')} role="img" aria-label={t('tpaySet.changed')}/>}
                                 </div>
@@ -223,6 +234,7 @@ export function PaySettings() {
                         )}
                     </Sheet>
                     <MoneyField id="tp-empty" label={t('tpaySet.empty')} value={rule.emptyPay ? String(rule.emptyPay) : ''}
+                                disabled={paused}
                                 placeholder={t('tpaySet.emptyNone')} onChange={event => set({emptyPay: digits(event.target.value)})} hint={t('tpaySet.emptyHint')}/>
                 </>
             )}

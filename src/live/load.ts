@@ -8,6 +8,8 @@ import {setLiveTerms} from '../mock/changes';
 import {currentSchool, setCurrentSchool} from '../state/school';
 import {LIVE, LIVE_STUDENTS, liveChanged, LIVE_FEES} from './state';
 import type {TextKey} from '../lib/texts';
+import {supabase} from '../lib/supabase';
+import {SCHOOL_ROWS} from '../mock/admin';
 
 /**
  * Loads what the signed-in person may see (the database's policies decide) into the shapes the
@@ -56,6 +58,23 @@ export async function loadLive(): Promise<void> {
     setClock(now.date, now.time);
     const today = now.date;
     if (!schools.some(s => s.id === currentSchool())) setCurrentSchool(firstSchool);
+    if (LIVE.on) {
+        const {data, error} = await supabase.rpc('director_billing_status', {requested_school: currentSchool()});
+        if (!error) {
+            const status = (Array.isArray(data) ? data[0] : data) as
+                {billing?: unknown; due_month?: unknown; due_on?: unknown} | null;
+            if (status) {
+                const row = SCHOOL_ROWS.find(item => item.id === currentSchool());
+                if (row) {
+                    row.billing = str(status.billing) === 'late' ? 'late'
+                        : str(status.billing) === 'soon' ? 'soon' : 'ok';
+                    row.due = str(status.due_month) || str(status.due_on)
+                        ? {month: str(status.due_month), on: str(status.due_on)}
+                        : undefined;
+                }
+            }
+        }
+    }
 
     // ---- Schools, rooms, teachers ----
     for (const key of Object.keys(SCHOOLS)) delete SCHOOLS[key];

@@ -14,6 +14,7 @@ import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DetailsCard, ProofChip, StudentCardView, TermsChip, classWhen} from '../shared/pieces';
 import {NavRow} from '../shared/Common';
 import {paymentState, payRule, type PayRule, periodsOf, teacherPay} from '../../mock/pay';
+import {platformBillingPaused} from '../../mock/admin';
 
 /** The last closed period: how many teachers are still to be paid, or flagged a payment. */
 const toPayLine = () => {
@@ -260,6 +261,7 @@ export function DeleteStudent({id}: { id: string }) {
  */
 export function Register() {
     const router = useRouter();
+    const paused = platformBillingPaused(currentSchool());
     const adult = router.query.get('adult');
     const grown = adult ? studentById(adult) : null;
     const [who, setWho] = useState<string>(adult ? 'adult' : 'minor');
@@ -276,8 +278,8 @@ export function Register() {
     const email = minorForm ? guardianEmail : adultEmail;
     const filled = Boolean(day) && name.trim().length > 1 && /^\S+@\S+\.\S+$/.test(email.trim()) && (!minorForm || kids.some(kid => kid.trim().length > 1));
     return (
-        <Screen title={t('reg.title')} back="/d/students" nav={false} note={day ? t('reg.termsNote') : t('reg.pickDay')}
-                footer={<button type="button" className="btn btn-lg" disabled={!filled || busy}
+        <Screen title={t('reg.title')} back="/d/students" nav={false} note={paused ? t('billing.growthPaused') : day ? t('reg.termsNote') : t('reg.pickDay')}
+                footer={<button type="button" className="btn btn-lg" disabled={paused || !filled || busy}
                                 onClick={async () => {
                                     if (LIVE.on) {
                                         setBusy(true);
@@ -291,6 +293,7 @@ export function Register() {
                                     if (adult) sent.set('adult', adult);
                                     router.replace(`/d/register/sent?${sent}`);
                                 }}>{t(busy ? 'upload.sending' : 'reg.send')}</button>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             {grown && <div className="banner">{t('reg.grownNote', {name: grown.name, when: dayMonth(grown.turns18 ?? TODAY)})}</div>}
             {!grown && <SelectField id="rg-who" label={t('reg.who')} value={who} onChange={setWho}
                          options={[{value: 'minor', label: t('reg.minor'), hint: t('reg.minorHint')}, {
@@ -398,6 +401,7 @@ export function More() {
 
 export function Rooms() {
     const router = useRouter();
+    const paused = platformBillingPaused(currentSchool());
     const [query, setQuery] = useState('');
     const ours = roomsHere();
     const many = ours.length > 10;
@@ -405,7 +409,10 @@ export function Rooms() {
     const shown = ours.filter(r => r.name.toLowerCase().includes(query.trim().toLowerCase()));
     return (
         <Screen title={t('more.rooms')} subtitle={many ? t('rooms.count', {n: ours.filter(r => !r.archived).length}) : undefined} back="/d/more" fixedList={many}
-                footer={<button type="button" className="btn btn-lg" onClick={() => router.navigate('/d/rooms/new')}><Icon name="plus"/>{t('rooms.add')}</button>}>
+                footer={<button type="button" className="btn btn-lg" disabled={paused}
+                                title={paused ? t('billing.growthPaused') : undefined}
+                                onClick={() => router.navigate('/d/rooms/new')}><Icon name="plus"/>{t('rooms.add')}</button>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             {many && <SearchField id="rm-search" label={t('list.search')} value={query} onChange={setQuery}
                                   beside={<Segmented label={t('more.rooms')} value={tab} onChange={value => router.replace(router.withQuery('tab', value === 'active' ? null : value))}
                                                      options={[{value: 'active', label: t('rooms.tabActive', {n: ours.filter(r => !r.archived).length})}, {value: 'archived', label: t('rooms.tabArchived', {n: ours.filter(r => r.archived).length})}]}/>}/>}
@@ -436,6 +443,7 @@ export function RoomScreen({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
+    const paused = platformBillingPaused(currentSchool());
     const room: Room | undefined = ROOMS.find(r => r.id === id);
     const ahead = room ? futureSessionsIn(room.id) : [];
     const holding = [...new Set(ahead.map(session => session.classId))].map(classId => ({
@@ -447,9 +455,9 @@ export function RoomScreen({id}: { id: string }) {
     const named = name.trim().length > 0;
     return (
         <Screen title={room ? room.name : t('rooms.add')} back="/d/rooms" nav={false}
-                note={named ? undefined : t('rooms.needName')}
+                note={paused && !room ? t('billing.growthPaused') : named ? undefined : t('rooms.needName')}
                 footer={<>
-                    <button type="button" className="btn btn-lg" disabled={!named} onClick={() => {
+                    <button type="button" className="btn btn-lg" disabled={paused || !named} onClick={() => {
                         const fields = {name: name.trim(), classesAtOnce: Number(classes) || undefined, students: Number(students) || undefined};
                         setup.saveRoom(room?.id, fields);
                         if (room) Object.assign(room, fields);
@@ -458,7 +466,7 @@ export function RoomScreen({id}: { id: string }) {
                         router.back('/d/rooms');
                     }}>{room ? t('form.saveChanges') : t('rooms.add')}</button>
                     {room && !room.archived && ahead.length === 0 && (
-                        <button type="button" className="btn btn-secondary" onClick={async () => {
+                        <button type="button" className="btn btn-secondary" disabled={paused} onClick={async () => {
                             if (await confirm({title: t('rooms.archiveTitle', {name: room.name}), body: t('rooms.archiveBody'), confirm: t('rooms.archive')})) {
                                 archiveRoom(room.id);
                                 toast(t('rooms.archived1'));
@@ -467,10 +475,11 @@ export function RoomScreen({id}: { id: string }) {
                         }}>{t('rooms.archive')}</button>
                     )}
                 </>}>
-            <TextField id="rm-name" label={t('rooms.name')} value={name} onChange={event => setName(event.target.value)}/>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
+            <TextField id="rm-name" label={t('rooms.name')} value={name} disabled={paused} onChange={event => setName(event.target.value)}/>
             <div className="two">
-                <NumberField id="rm-classes" label={t('rooms.classesAtOnce')} value={classes} onChange={event => setClasses(event.target.value.replace(/\D/g, ''))}/>
-                <NumberField id="rm-students" label={t('rooms.students')} value={students} onChange={event => setStudents(event.target.value.replace(/\D/g, ''))}/>
+                <NumberField id="rm-classes" label={t('rooms.classesAtOnce')} value={classes} disabled={paused} onChange={event => setClasses(event.target.value.replace(/\D/g, ''))}/>
+                <NumberField id="rm-students" label={t('rooms.students')} value={students} disabled={paused} onChange={event => setStudents(event.target.value.replace(/\D/g, ''))}/>
             </div>
             <p className="hint">{t('rooms.capacityHint')}</p>
             {room && ahead.length > 0 && (
@@ -494,6 +503,7 @@ const classesLine = (names: string[]) => names.length > 2 ? `${names.slice(0, 2)
 
 export function Teachers() {
     const router = useRouter();
+    const paused = platformBillingPaused(currentSchool());
     const toast = useToast();
     const invite = useSheetRoute('invite');
     const [name, setName] = useState('');
@@ -508,9 +518,12 @@ export function Teachers() {
     const shown = ours.filter(teacher => (!many || teacher.status === status) && teacher.name.toLowerCase().includes(query.trim().toLowerCase()));
     return (
         <Screen title={t('more.teachers')} subtitle={many ? t('teachers.count', {n: ours.length}) : undefined} back="/d/more" fixedList={many}
-                footer={<button type="button" className="btn btn-lg" onClick={() => invite.show()}>
+                footer={<button type="button" className="btn btn-lg" disabled={paused}
+                                title={paused ? t('billing.growthPaused') : undefined}
+                                onClick={() => invite.show()}>
                     <Icon name="mail"/>{t('teachers.invite')}
                 </button>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             {many && <SearchField id="tc-search" label={t('list.search')} value={query} onChange={setQuery}
                                   beside={<Segmented label={t('dstu.status')} value={status} onChange={value => router.replace(router.withQuery('status', value === 'active' ? null : value))}
                                                      options={[{value: 'active', label: t('teachers.tabActive', {n: counts.active})}, {value: 'invited', label: t('teachers.tabInvited', {n: counts.invited})}, {value: 'inactive', label: t('teachers.tabInactive', {n: counts.inactive})}]}/>}/>}
@@ -533,7 +546,8 @@ export function Teachers() {
             <Sheet open={invite.open} onClose={invite.close} title={t('teachers.invite')}
                    footer={<>
                        {!ready && <p className="hint center">{t('teachers.inviteNeed')}</p>}
-                       <button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
+                       {paused && <p className="hint center">{t('billing.growthPaused')}</p>}
+                       <button type="button" className="btn btn-lg" disabled={paused || !ready} onClick={async () => {
                            const problem = LIVE.on ? await invitePerson({school: currentSchool(), role: 'teacher', email, fullName: name}) : null;
                            if (problem) return toast(t('live.refused', {reason: problem}));
                            toast(t('teachers.inviteSent'));
@@ -692,6 +706,7 @@ const PRICE_GROUPS: { kind: Price['kind']; label: Parameters<typeof t>[0] }[] = 
 export function Prices() {
     const toast = useToast();
     const confirm = useConfirm();
+    const paused = platformBillingPaused(currentSchool());
     const sheet = useSheetRoute('price');
     const [amount, setAmount] = useState('');
     const [from, setFrom] = useState('2027-01-01');
@@ -700,7 +715,10 @@ export function Prices() {
     const router = useRouter();
     return (
         <Screen title={t('more.prices')} back="/d/more"
-                footer={<button type="button" className="btn btn-lg" onClick={() => router.navigate('/d/package/new')}><Icon name="plus"/>{t('pack.add')}</button>}>
+                footer={<button type="button" className="btn btn-lg" disabled={paused}
+                                title={paused ? t('billing.growthPaused') : undefined}
+                                onClick={() => router.navigate('/d/package/new')}><Icon name="plus"/>{t('pack.add')}</button>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             <div className="banner">{t('prices.intro')}</div>
             {PRICE_GROUPS.map(group => (
                 <section key={group.kind} className="stack">
@@ -725,7 +743,7 @@ export function Prices() {
             <Sheet open={sheet.open} onClose={sheet.close} title={price ? label(price) : ''}
                    footer={<>
                        {!amount && <p className="hint center">{t('prices.needAmount')}</p>}
-                       <button type="button" className="btn btn-lg" disabled={!amount || !from} onClick={async () => {
+                       <button type="button" className="btn btn-lg" disabled={paused || !amount || !from} onClick={async () => {
                            if (await confirm({title: t('prices.confirmTitleWhat', {amount: money(Number(amount)), when: dayMonthYear(from)}), body: t('prices.confirmBody'), confirm: t('prices.confirmButton')})) {
                                if (price) schedulePrice(price.id, Number(amount), from);
                                toast(t('prices.saved'));
@@ -740,11 +758,11 @@ export function Prices() {
                             amount: money(price.amount),
                             when: dayMonthYear(price.from)
                         })}</p>
-                        <MoneyField id="pr-amount" label={t('prices.newAmount')} value={amount} onChange={event => setAmount(event.target.value.replace(/\D/g, ''))}/>
+                        <MoneyField id="pr-amount" label={t('prices.newAmount')} value={amount} disabled={paused} onChange={event => setAmount(event.target.value.replace(/\D/g, ''))}/>
                         {price.next && <div className="banner banner-important small">{t('prices.nextBody', {amount: money(price.next.amount), when: dayMonthYear(price.next.from)})}</div>}
-                        <DateField id="pr-from" label={t('prices.from')} min={TODAY} value={from} onChange={setFrom}/>
+                        <DateField id="pr-from" label={t('prices.from')} min={TODAY} value={from} disabled={paused} onChange={setFrom}/>
                         {price.kind === 'fee' && (
-                            <TextField id="pr-months" label={t('prices.months')} inputMode="numeric" pattern="[0-9]*"
+                            <TextField id="pr-months" label={t('prices.months')} inputMode="numeric" pattern="[0-9]*" disabled={paused}
                                        defaultValue={price.extra}
                                        hint={t('prices.monthsHint')}/>
                         )}
@@ -775,6 +793,7 @@ export function PackageForm({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
+    const paused = platformBillingPaused(currentSchool());
     const pack = PACKAGES.find(item => item.id === id);
     const price = PRICES.find(item => item.id === id);
     const classes = CLASSES.filter(item => item.kind === 'weekly' && schoolOfClass(item) === currentSchool() && !item.ending);
@@ -798,9 +817,9 @@ export function PackageForm({id}: { id: string }) {
     const allOn = covers.length === classes.length;
     return (
         <Screen title={pack ? priceLabel(price ?? {id, kind: 'package', label: name, amount: 0, from: TODAY, history: []}) : t('pack.add')} back="/d/prices" nav={false}
-                note={missing}
+                note={paused && !pack ? t('billing.growthPaused') : missing}
                 footer={<>
-                    <button type="button" className="btn btn-lg" disabled={!ready} onClick={async () => {
+                    <button type="button" className="btn btn-lg" disabled={paused || !ready} onClick={async () => {
                         const fields = {label: name.trim(), perWeek: Number(perWeek), classes: covers};
                         if (pack) {
                             if (holders.length && !await confirm({title: t('pack.confirmEdit'), body: t('pack.confirmEditBody', {n: holders.length}), confirm: t('form.saveChanges')})) return;
@@ -813,7 +832,7 @@ export function PackageForm({id}: { id: string }) {
                         router.back('/d/prices');
                     }}>{pack ? t('form.saveChanges') : t('pack.add')}</button>
                     {pack && !pack.retired && (
-                        <button type="button" className={holders.length ? 'btn btn-secondary' : 'btn btn-danger-outline'} onClick={async () => {
+                        <button type="button" disabled={paused} className={holders.length ? 'btn btn-secondary' : 'btn btn-danger-outline'} onClick={async () => {
                             if (await confirm(holders.length
                                 ? {title: t('pack.retireTitle'), body: t('pack.retireBody', {n: holders.length}), confirm: t('pack.retire')}
                                 : {title: t('pack.deleteTitle'), body: t('pack.deleteBody'), confirm: t('pack.delete'), danger: true})) {
@@ -824,26 +843,27 @@ export function PackageForm({id}: { id: string }) {
                         }}>{t(holders.length ? 'pack.retire' : 'pack.delete')}</button>
                     )}
                     {pack?.retired && (
-                        <button type="button" className="btn btn-secondary" onClick={() => {
+                        <button type="button" className="btn btn-secondary" disabled={paused} onClick={() => {
                             offerPackageAgain(pack.id);
                             toast(t('pack.offeredAgain'));
                             router.back('/d/prices');
                         }}>{t('pack.offerAgain')}</button>
                     )}
                 </>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             {pack?.retired && <div className="banner">{t('pack.retiredBody', {n: holders.length})}</div>}
-            <TextField id="pk-name" label={t('pack.name')} value={name} onChange={event => setName(event.target.value)} placeholder={t('pack.namePlaceholder')}/>
-            <NumberField id="pk-week" label={t('pack.perWeek')} value={perWeek} onChange={event => setPerWeek(event.target.value.replace(/\D/g, ''))} hint={t('pack.perWeekHint')}/>
+            <TextField id="pk-name" label={t('pack.name')} value={name} disabled={paused} onChange={event => setName(event.target.value)} placeholder={t('pack.namePlaceholder')}/>
+            <NumberField id="pk-week" label={t('pack.perWeek')} value={perWeek} disabled={paused} onChange={event => setPerWeek(event.target.value.replace(/\D/g, ''))} hint={t('pack.perWeekHint')}/>
             {pack && price ? (
                 <ListRow title={t('pack.price')} sub={t('pack.priceWhere')} right={<span className="big num">{money(price.amount)}</span>}
                          onClick={() => router.navigate(`/d/prices?sheet=price&item=${pack.id}`)}/>
             ) : (
-                <MoneyField id="pk-price" label={t('pack.priceMonth')} value={amount} onChange={event => setAmount(event.target.value.replace(/\D/g, ''))}/>
+                <MoneyField id="pk-price" label={t('pack.priceMonth')} value={amount} disabled={paused} onChange={event => setAmount(event.target.value.replace(/\D/g, ''))}/>
             )}
             {pack && <p className="small muted">{t('pack.holders', {n: holders.length})}</p>}
             <div className="section-head">
                 <h2 className="section-title">{t('pack.covers', {n: covers.length, of: classes.length})}</h2>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCovers(allOn ? [] : classes.map(item => item.id))}>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={paused} onClick={() => setCovers(allOn ? [] : classes.map(item => item.id))}>
                     {t(allOn ? 'pack.none' : 'pack.all')}</button>
             </div>
             <div className="day-filter">
@@ -861,6 +881,7 @@ export function PackageForm({id}: { id: string }) {
             {visibleClasses.map(item => (
                 <Check key={item.id} id={`pk-${item.id}`} label={item.name} hint={`${teacherName(item.teacher)} · ${classWhen(item)}`}
                        checked={covers.includes(item.id)}
+                       disabled={paused}
                        onChange={on => setCovers(list => on ? [...list, item.id] : list.filter(other => other !== item.id))}/>
             ))}
             {visibleClasses.length === 0 && <Empty>{t('pack.noClassesDay')}</Empty>}
@@ -872,6 +893,7 @@ export function PackageForm({id}: { id: string }) {
 export function Terms() {
     const toast = useToast();
     const confirm = useConfirm();
+    const paused = platformBillingPaused(currentSchool());
     const input = useRef<HTMLInputElement>(null);
     // Who hasn't accepted: a few at first, all of them (in a box that shows five at a time) on request.
     const fresh = termsState().uploaded === TODAY;
@@ -880,7 +902,9 @@ export function Terms() {
     const [, redraw] = useState(0);
     return (
         <Screen title={t('more.terms')} back="/d/more"
-                footer={<button type="button" className="btn btn-lg" onClick={() => input.current?.click()}><Icon name="upload"/>{t('dterms.upload')}</button>}>
+                footer={<button type="button" className="btn btn-lg" disabled={paused} title={paused ? t('billing.growthPaused') : undefined}
+                                onClick={() => input.current?.click()}><Icon name="upload"/>{t('dterms.upload')}</button>}>
+            {paused && <div className="banner banner-error">{t('billing.growthPaused')}</div>}
             <div className="card">
                 <div className="row"><span className="big">{t('terms.version', {n: termsState().version})}</span><span
                     className="chip chip-confirmed">{t('dterms.current')}</span></div>

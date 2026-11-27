@@ -64,3 +64,4 @@ begin
 end $$;
 
 grant execute on function public.set_vacation_dates(uuid, date[], boolean) to authenticated;
+revoke execute on function public.set_vacation_dates(uuid, date[], boolean) from public, anon;

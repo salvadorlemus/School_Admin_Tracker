@@ -32,11 +32,12 @@ insert into ids values ('u_dir', pg_temp.login('dir@vac.mx')), ('u_teacher', pg_
     ('u_student', pg_temp.login('student@vac.mx')), ('u_other', pg_temp.login('other@vac.mx'));
 insert into person (user_id, full_name) select id, name from ids where name like 'u\_%';
 insert into ids select 'p_' || substr(i.name, 3), p.id from ids i join person p on p.user_id = i.id;
-insert into membership (school_id, person_id, role, status) values
-    (pg_temp.id('A'), pg_temp.id('p_dir'), 'director', 'active'),
-    (pg_temp.id('A'), pg_temp.id('p_teacher'), 'teacher', 'active'),
-    (pg_temp.id('A'), pg_temp.id('p_student'), 'student', 'active'),
-    (pg_temp.id('B'), pg_temp.id('p_other'), 'student', 'active');
+insert into terms (school_id, file_path) select id, 'vacation-terms.pdf' from school;
+insert into membership (school_id, person_id, role, status, payment_day) values
+    (pg_temp.id('A'), pg_temp.id('p_dir'), 'director', 'active', null),
+    (pg_temp.id('A'), pg_temp.id('p_teacher'), 'teacher', 'active', null),
+    (pg_temp.id('A'), pg_temp.id('p_student'), 'student', 'active', 15),
+    (pg_temp.id('B'), pg_temp.id('p_other'), 'student', 'active', 30);
 
 select pg_temp.act_as(pg_temp.id('u_dir'));
 select lives_ok($$ select public.set_vacation_dates(pg_temp.id('A'), array[pg_temp.today() + 5, pg_temp.today() + 6]) $$,
