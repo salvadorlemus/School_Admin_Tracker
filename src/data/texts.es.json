@@ -1006,6 +1006,7 @@
   "students.allClasses": "Tus {n} clases",
   "students.seeClass": "Ver los {n} alumnos de la clase",
   "plan.byDay": "Ver un día",
+  "dayFilter.label": "Filtrar por día",
   "notices.more": "Ver {n} avisos más",
   "invite.showPassword": "Mostrar la contraseña",
   "invite.then": "Después",

@@ -1006,6 +1006,7 @@
   "students.allClasses": "All {n} of your classes",
   "students.seeClass": "See all {n} students in the class",
   "plan.byDay": "Show one day",
+  "dayFilter.label": "Filter by day",
   "notices.more": "See {n} more posts",
   "invite.showPassword": "Show the password",
   "invite.then": "Then",

@@ -1187,6 +1187,7 @@ details.collapse > div { padding: 0 16px 14px; display: flex; flex-direction: co
 
 /* The activity form's days: seven equal buttons in one row, the full width of the phone. */
 .day-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day-filter { display: flex; flex-direction: column; gap: 4px; }
 .day-row .day-toggle { padding: 0; }
 .day-toggle[aria-pressed="true"] { background: var(--color-accent); border: 1px solid var(--color-accent); color: var(--color-on-accent); }
 

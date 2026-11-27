@@ -9,7 +9,7 @@ import {t} from '../../lib/texts';
 import {addDays, dayLong, dayMonth, dayShort, money, monthYear, personName, time, timeRange, weekdayLetter, weekdayLong, weekdayOf, weekdayShort} from '../../lib/format';
 import {classById, classesOf, CLASSES, ENROLLMENTS, isVacationDate, PACKAGES, PRICES, roomName, schoolOfClass, SCHOOLS, SESSIONS, studentById, teacherName, TODAY, TRIALS_TAKEN, type SchoolClass, SOFIA_SCHOOLS, ME, GUARDIAN_SCHOOLS, packageLabel} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
-import {Empty, ListRow, MenuText, Segmented, SelectField, TextField} from '../../ui/Fields';
+import {Empty, ListRow, MenuText, Segmented, SelectField} from '../../ui/Fields';
 import {useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, SchoolChip, SchoolLogo, SessionCard} from '../shared/pieces';
 import {KIDS, useWho} from './Student';
@@ -56,7 +56,6 @@ export function Classes() {
     const {base, router, guardian, student} = useStudent();
     const classSheet = useSheetRoute('class');
     const mineAll = enrolledIn(student);
-    const [query, setQuery] = useState('');
     const join = router.query.get('join') ?? 'classes';
     const day = Number(router.query.get('wd')) || 0;
     // The school keeps to one school's classes in both views; kept in the URL, so back finds it.
@@ -70,8 +69,6 @@ export function Classes() {
     const rank = (item: SchoolClass) => placesLeft(item) === 0 ? 2 : clashOf(student, item) ? 1 : 0;
     const catalogue = offered
         .filter(item => (!day || item.slots.some(slot => slot.weekday === day)) && (school === 'all' || schoolOfClass(item) === school))
-        .filter(item => [item.name, teacherName(item.teacher), SCHOOLS[schoolOfClass(item)].short]
-            .some(text => text.toLowerCase().includes((school === 'all' ? query : '').trim().toLowerCase())))
         .sort((a, b) => rank(a) - rank(b) || (a.slots[0]?.weekday ?? 0) - (b.slots[0]?.weekday ?? 0) || (a.slots[0]?.start ?? '').localeCompare(b.slots[0]?.start ?? ''));
     const mine = mineAll.filter(enrollment => school === 'all' || (enrollment.classId ? schoolOfClass(classById(enrollment.classId)) : PACKAGES.find(pack => pack.id === enrollment.packageId)?.school ?? 'colibri') === school);
     const many = offered.length > 8;
@@ -125,17 +122,17 @@ export function Classes() {
             {join === 'classes' && (
                 <>
                     {/* One school picked: its classes are few enough for the day row alone. */}
-                    {many && school === 'all' && (
-                        <TextField id="cl-search" label={t('classes.search')} type="search" value={query} onChange={event => setQuery(event.target.value)}/>
-                    )}
                     {many && (
-                        <div className="day-row" role="group" aria-label={t('plan.byDay')}>
-                            {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
-                                <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday} aria-label={weekdayLong(weekday)}
-                                        onClick={() => router.replace(router.withQuery('wd', day === weekday ? null : String(weekday)))}>
-                                    {weekdayLetter(weekday)}
-                                </button>
-                            ))}
+                        <div className="day-filter">
+                            <span className="small muted">{t('dayFilter.label')}</span>
+                            <div className="day-row" role="group" aria-label={t('dayFilter.label')}>
+                                {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                                    <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday} aria-label={weekdayLong(weekday)}
+                                            onClick={() => router.replace(router.withQuery('wd', day === weekday ? null : String(weekday)))}>
+                                        {weekdayLetter(weekday)}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
                     {many && <p className="small muted">{t('plan.count', {n: catalogue.length, of: offered.length})}</p>}
@@ -209,14 +206,17 @@ function PackageWeek({pack}: { pack: typeof PACKAGES[number] }) {
                 <span className="small">{t('detail.packageBody', {n: pack.perWeek})}</span>
             </div>
             <h2 className="section-title">{t('detail.packageSchedule')}</h2>
-            <div className="day-row" role="group" aria-label={t('plan.byDay')}>
-                {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
-                    <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday}
-                            aria-label={weekdayLong(weekday)}
-                            onClick={() => router.replace(router.withQuery('wd', day === weekday ? null : String(weekday)))}>
-                        {weekdayLetter(weekday)}
-                    </button>
-                ))}
+            <div className="day-filter">
+                <span className="small muted">{t('dayFilter.label')}</span>
+                <div className="day-row" role="group" aria-label={t('dayFilter.label')}>
+                    {[1, 2, 3, 4, 5, 6, 7].map(weekday => (
+                        <button key={weekday} type="button" className="day-toggle" aria-pressed={day === weekday}
+                                aria-label={weekdayLong(weekday)}
+                                onClick={() => router.replace(router.withQuery('wd', day === weekday ? null : String(weekday)))}>
+                            {weekdayLetter(weekday)}
+                        </button>
+                    ))}
+                </div>
             </div>
             {days.length === 0 ? <Empty>{t('detail.noPackageClasses')}</Empty> : days.map(weekday => (
                 <section key={weekday} className="stack-sm">
