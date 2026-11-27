@@ -27,7 +27,7 @@ import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, DotLegend, ProofChip, SessionCard, SessionBody} from '../shared/pieces';
 import {SCHOOL_ROWS} from '../../mock/admin';
-import {platformBillingPaused} from '../../mock/admin';
+import {directorGrowthPaused, proofReviewPressure} from '../../mock/admin';
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
@@ -43,6 +43,7 @@ export function Dashboard() {
         : platformBilling?.billing === 'soon'
             ? t('billing.dueSoon', {when: platformBilling.due?.on ? dayMonth(platformBilling.due.on) : ''})
             : '';
+    const reviewPressure = proofReviewPressure(currentSchool());
     const today = sessionsOn(TODAY);
     // Selected at first: the session going on now, or the next one to start.
     const now = today.findIndex(session => session.end > NOW);
@@ -87,6 +88,14 @@ export function Dashboard() {
     const view = router.query.get('view') === 'summary' ? 'summary' : 'today';
     return (
         <Screen title={t('dash.title')} subtitle={[SCHOOLS[currentSchool()].name, dayLong(TODAY)]}>
+            {reviewPressure.paused && (
+                <div className="banner banner-error">
+                    <span className="strong">{t('review.pressureTitle')}</span>
+                    <span className="small">{t('review.pressureBody', {n: reviewPressure.pending})}</span>
+                    <button type="button" className="btn btn-secondary btn-sm self-start"
+                            onClick={() => router.navigate('/d/payments?tab=review')}>{t('review.pressureAction')}</button>
+                </div>
+            )}
             {billingDue && (
                 <div className={platformBilling?.billing === 'late' ? 'banner banner-error' : 'banner banner-warning'}>
                     <span className="strong">{platformBilling?.billing === 'late' ? t('billing.overdueTitle') : t('billing.dueSoonTitle')}</span>
@@ -187,13 +196,13 @@ export function Calendar() {
         <Screen title={t('cal.title')} subtitle={SCHOOLS[currentSchool()].name}
                 footer={tab === 'plan' ? (
                     <div className="btn-row">
-                        <button type="button" className="btn btn-secondary btn-lg" disabled={platformBillingPaused(currentSchool())}
-                                title={platformBillingPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
+                        <button type="button" className="btn btn-secondary btn-lg" disabled={directorGrowthPaused(currentSchool())}
+                                title={directorGrowthPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
                                 onClick={() => router.navigate('/d/activity/new?kind=free')}>
                             <Icon name="plus"/>{t('plan.addFreeShort')}
                         </button>
-                        <button type="button" className="btn btn-lg" disabled={platformBillingPaused(currentSchool())}
-                                title={platformBillingPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
+                        <button type="button" className="btn btn-lg" disabled={directorGrowthPaused(currentSchool())}
+                                title={directorGrowthPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
                                 onClick={() => router.navigate('/d/activity/new')}>
                             <Icon name="plus"/>{t('plan.addShort')}
                         </button>
@@ -437,7 +446,7 @@ function PlanView() {
                                         {item.perVisit && <span className="chip">{t('classes.perVisit')}</span>}
                                     </span>
                                     <button type="button" className="btn btn-ghost btn-sm self-start"
-                                            disabled={platformBillingPaused(currentSchool())}
+                                            disabled={directorGrowthPaused(currentSchool())}
                                             onClick={() => router.navigate(`/d/activity/new?from=${item.id}`)}>
                                         <Icon name="copy" size={18}/>{t('plan.duplicate')}
                                     </button>
@@ -466,7 +475,7 @@ export function ActivityForm({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const copyOf = router.query.get('from');
     // A replacement for a class that ends: it starts the day after the old one's last session.
     const after = router.query.get('after');

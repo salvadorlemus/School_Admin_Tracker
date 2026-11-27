@@ -14,7 +14,7 @@ import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DetailsCard, ProofChip, StudentCardView, TermsChip, classWhen} from '../shared/pieces';
 import {NavRow} from '../shared/Common';
 import {paymentState, payRule, type PayRule, periodsOf, teacherPay} from '../../mock/pay';
-import {platformBillingPaused} from '../../mock/admin';
+import {directorGrowthPaused} from '../../mock/admin';
 
 /** The last closed period: how many teachers are still to be paid, or flagged a payment. */
 const toPayLine = () => {
@@ -261,7 +261,7 @@ export function DeleteStudent({id}: { id: string }) {
  */
 export function Register() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const adult = router.query.get('adult');
     const grown = adult ? studentById(adult) : null;
     const [who, setWho] = useState<string>(adult ? 'adult' : 'minor');
@@ -401,7 +401,7 @@ export function More() {
 
 export function Rooms() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const [query, setQuery] = useState('');
     const ours = roomsHere();
     const many = ours.length > 10;
@@ -443,7 +443,7 @@ export function RoomScreen({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const room: Room | undefined = ROOMS.find(r => r.id === id);
     const ahead = room ? futureSessionsIn(room.id) : [];
     const holding = [...new Set(ahead.map(session => session.classId))].map(classId => ({
@@ -503,7 +503,7 @@ const classesLine = (names: string[]) => names.length > 2 ? `${names.slice(0, 2)
 
 export function Teachers() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const toast = useToast();
     const invite = useSheetRoute('invite');
     const [name, setName] = useState('');
@@ -706,7 +706,7 @@ const PRICE_GROUPS: { kind: Price['kind']; label: Parameters<typeof t>[0] }[] = 
 export function Prices() {
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const sheet = useSheetRoute('price');
     const [amount, setAmount] = useState('');
     const [from, setFrom] = useState('2027-01-01');
@@ -793,7 +793,7 @@ export function PackageForm({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const pack = PACKAGES.find(item => item.id === id);
     const price = PRICES.find(item => item.id === id);
     const classes = CLASSES.filter(item => item.kind === 'weekly' && schoolOfClass(item) === currentSchool() && !item.ending);
@@ -893,7 +893,7 @@ export function PackageForm({id}: { id: string }) {
 export function Terms() {
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const input = useRef<HTMLInputElement>(null);
     // Who hasn't accepted: a few at first, all of them (in a box that shows five at a time) on request.
     const fresh = termsState().uploaded === TODAY;

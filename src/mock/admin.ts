@@ -1,4 +1,4 @@
-import {attendanceOf, CLASSES, SESSIONS, STRESS, studentsOf, TEACHERS} from './data';
+import {attendanceOf, CLASSES, SESSIONS, STRESS, studentsOf, TEACHERS, PROOFS, REVIEWED, isPass, TODAY, NOW, STUDENTS} from './data';
 
 // The platform admin panel's data: invented for the prototype, filled from the database in the live
 // app (src/live/admin.ts). Counts only, never a school's records.
@@ -25,6 +25,60 @@ export interface SchoolRow {
 /** Overdue platform fees pause only growth actions; existing school work remains usable. */
 export function platformBillingPaused(school: string): boolean {
     return SCHOOL_ROWS.find(row => row.id === school)?.billing === 'late';
+}
+
+export interface ProofReviewPressure {
+    paused: boolean;
+    pending: number;
+    oldestHours: number;
+    reason: 'count' | 'age' | null;
+}
+
+/** Growth actions pause after too many screenshots wait, or one waits longer than 72 hours. */
+export function proofReviewPressure(school: string): ProofReviewPressure {
+    const pending = PROOFS.filter(proof =>
+        proof.school === school &&
+        proof.state === 'uploaded' &&
+        !isPass(proof.method) &&
+        !REVIEWED.has(proof.id));
+    const now = Date.parse(`${TODAY}T${NOW}:00Z`);
+    const oldestHours = pending.reduce((oldest, proof) => {
+        const sent = Date.parse(`${proof.sent}T${proof.sentAt}:00Z`);
+        if (!Number.isFinite(sent)) return oldest;
+        return Math.max(oldest, Math.max(0, (now - sent) / 3600000));
+    }, 0);
+    const countReached = pending.length >= 10;
+    const ageReached = oldestHours >= 72;
+    return {
+        paused: countReached || ageReached,
+        pending: pending.length,
+        oldestHours,
+        reason: ageReached ? 'age' : countReached ? 'count' : null,
+    };
+}
+
+export function directorGrowthPaused(school: string): boolean {
+    return platformBillingPaused(school);
+}
+
+// Local prototype pressure sample: Helios has one queue that reaches both limits.
+if (!PROOFS.some(proof => proof.id === 'helios-review-1')) {
+    const heliosStudents = STUDENTS.filter(student => student.school === 'helios');
+    for (let index = 0; index < 10; index++) {
+        const student = heliosStudents[index % Math.max(1, heliosStudents.length)];
+        if (!student) break;
+        PROOFS.push({
+            id: `helios-review-${index + 1}`,
+            sentAt: index % 2 ? '10:20' : '08:10',
+            student: student.id,
+            school: 'helios',
+            covers: `Clases Helios · 2026-11`,
+            method: index % 3 === 0 ? 'cash' : 'transfer',
+            amount: 1200,
+            sent: index < 7 ? '2026-11-24' : '2026-11-26',
+            state: 'uploaded',
+        });
+    }
 }
 
 export const SCHOOL_ROWS: SchoolRow[] = [
