@@ -28,6 +28,8 @@ import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, DotLegend, ProofChip, SessionCard, SessionBody} from '../shared/pieces';
 import {SCHOOL_ROWS} from '../../mock/admin';
 import {directorGrowthPaused, proofReviewPressure} from '../../mock/admin';
+import {SCHOOL_PAYMENT_METHODS, paymentMethodLabel, type PaymentMethod} from '../../mock/data';
+import {savePaymentMethods} from '../../mock/changes';
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
@@ -140,6 +142,54 @@ export function Dashboard() {
     );
 }
 
+/** The school's accepted payment methods: three always offered, plus the options it takes. */
+export function PaymentMethods() {
+    const router = useRouter();
+    const toast = useToast();
+    const [methods, setMethods] = useState<PaymentMethod[]>(() => {
+        const saved = SCHOOL_PAYMENT_METHODS[currentSchool()];
+        if (saved) return saved.map(method => ({...method}));
+        return [
+            {key: 'transfer', label: 'Transferencia / depósito', enabled: true, defaultMethod: true},
+            {key: 'terminal', label: 'Terminal', enabled: true, defaultMethod: true},
+            {key: 'cash', label: 'Efectivo', enabled: true, defaultMethod: true},
+            {key: 'totalpass', label: 'TotalPass', enabled: false},
+            {key: 'wellhub', label: 'Wellhub', enabled: false},
+        ];
+    });
+    const [custom, setCustom] = useState('');
+    const ready = methods.length > 0;
+    return (
+        <Screen title={t('paymentMethods.title')} back="/d/setup" nav={false}
+                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={() => {
+                    savePaymentMethods(methods);
+                    toast(t('paymentMethods.saved'));
+                    router.back('/d/setup');
+                }}>{t('form.saveChanges')}</button>}>
+            <p className="hint">{t('paymentMethods.intro')}</p>
+            {methods.map((method, index) => (
+                <Check key={method.key} id={`pm-${method.key}-${index}`} label={method.label}
+                       checked={method.enabled}
+                       disabled={method.defaultMethod}
+                       onChange={enabled => setMethods(list => list.map(item => item.key === method.key ? {...item, enabled} : item))}
+                       hint={method.defaultMethod ? t('paymentMethods.defaultHint') : undefined}/>
+            ))}
+            <h2 className="section-title">{t('paymentMethods.other')}</h2>
+            <TextField id="pm-custom" label={t('paymentMethods.customName')} value={custom}
+                       onChange={event => setCustom(event.target.value)} placeholder={t('paymentMethods.customPlaceholder')}/>
+            <button type="button" className="btn btn-secondary" disabled={custom.trim().length < 2}
+                    onClick={() => {
+                        const label = custom.trim();
+                        const key = `custom-${label.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || Date.now()}`;
+                        setMethods(list => [...list, {key, label, enabled: true}]);
+                        setCustom('');
+                    }}>
+                <Icon name="plus"/>{t('paymentMethods.add')}
+            </button>
+        </Screen>
+    );
+}
+
 /**
  * A new school's first steps, in the order they depend on each other: the terms (students can't be
  * registered without them), rooms and teachers (a class needs both), prices (a class's payment
@@ -153,6 +203,7 @@ export function Setup() {
         {title: t('setup.terms'), sub: t('setup.termsSub'), to: '/d/terms', done: !fresh},
         {title: t('setup.rooms'), sub: t('setup.roomsSub'), to: '/d/rooms', done: !fresh},
         {title: t('setup.teachers'), sub: t('setup.teachersSub'), to: '/d/teachers', done: !fresh},
+        {title: t('setup.paymentMethods'), sub: t('setup.paymentMethodsSub'), to: '/d/payment-methods', done: !fresh},
         {title: t('setup.prices'), sub: t('setup.pricesSub'), to: '/d/prices', done: !fresh},
         {title: t('setup.classes'), sub: t('setup.classesSub'), to: '/d/calendar?tab=plan', done: !fresh},
         {title: t('setup.students'), sub: t('setup.studentsSub'), to: '/d/register', done: !fresh},
@@ -1020,7 +1071,7 @@ export function Review({id}: { id: string }) {
                 <dt>{t('review.covers')}</dt>
                 <dd>{coversText(proof.covers)}</dd>
                 <dt>{t('review.method')}</dt>
-                <dd>{t(`method.${proof.method}` as const)}</dd>
+                <dd>{paymentMethodLabel(proof.school, proof.method)}</dd>
                 <dt>{t('review.amount')}</dt>
                 <dd className="num">{money(proof.amount)}</dd>
                 <dt>{t('review.sent')}</dt>

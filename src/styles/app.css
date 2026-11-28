@@ -630,6 +630,53 @@ button.list-row:hover { background: var(--color-surface-2); }
 .list-row .chev { color: var(--color-faint); flex: none; }
 .list-row-title { font-weight: 600; }
 .list-row-sub { font-size: var(--fs-sm); color: var(--color-muted); }
+.class-list-title {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: 20px;
+    max-height: 20px;
+    line-height: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: normal;
+}
+
+.list-row-one-line-title {
+    min-height: 68px;
+    height: auto;
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
+.list-row-one-line-title > .grow {
+    min-height: 50px;
+    height: auto;
+    overflow: visible;
+    gap: 3px;
+}
+.list-row-one-line-title .list-row-sub {
+    display: block;
+    height: 18px;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.list-row-one-line-title > .grow > .wrap {
+    min-height: 18px;
+    height: auto;
+    flex-wrap: nowrap;
+    overflow: visible;
+}
+
+.list-row > .grow,
+.list-row > .grow .list-row-title.class-list-title {
+    min-width: 0;
+    overflow: hidden;
+}
 
 .chip {
     flex: none;

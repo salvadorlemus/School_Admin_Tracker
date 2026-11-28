@@ -6,7 +6,7 @@ import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayMonth, dayMonthYear, dayShort, money, personName, time, weekdayLetter, weekdayLong, weekdayShort} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {classById, CLASSES, schoolOfClass, TODAY, PRICES, PROOFS, ROOMS, roomName, SCHOOLS, studentById, TEACHERS, teacherSchools, type Price, type Room, roomsHere, studentsHere, pricesHere, packageLabel, PACKAGES, teacherName} from '../../mock/data';
+import {classById, CLASSES, schoolOfClass, TODAY, PRICES, PROOFS, ROOMS, roomName, SCHOOLS, studentById, TEACHERS, teacherSchools, paymentMethodLabel, type Price, type Room, roomsHere, studentsHere, pricesHere, packageLabel, PACKAGES, teacherName} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Avatar, Check, DateField, EmailField, Empty, ListRow, MoneyField, NumberField, SearchField, Segmented, SelectField, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -196,7 +196,7 @@ export function DirectorStudent({id}: { id: string }) {
                     <ul className="list">
                         {proofs.map(proof => (
                             <ListRow key={proof.id} title={coversText(proof.covers)}
-                                     sub={`${t(`method.${proof.method}` as const)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
+                                     sub={`${paymentMethodLabel(proof.school, proof.method)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
                                      right={<ProofChip state={proof.state}/>}
                                      onClick={proof.state === 'uploaded' ? () => router.navigate(`/d/payments/review/${proof.id}`) : undefined}/>
                         ))}
@@ -378,11 +378,12 @@ export function More() {
         <Screen title={t('more.title')} subtitle={SCHOOLS[currentSchool()].name}>
             <h2 className="section-title">{t('more.school')}</h2>
             <ul className="list">
-                <NavRow label={t('more.setup')} sub={t('setup.progress', {done: 6, of: 6})} to="/d/setup" icon="check"/>
+                <NavRow label={t('more.setup')} sub={t('setup.progress', {done: 7, of: 7})} to="/d/setup" icon="check"/>
                 <NavRow label={t('more.rooms')}
                         sub={t('more.roomsSub', {n: roomsHere().filter(r => !r.archived).length})} to="/d/rooms"
                         icon="room"/>
                 <NavRow label={t('more.teachers')} sub={t('more.teachersSub', {n: TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool())).length})} to="/d/teachers" icon="people"/>
+                <NavRow label={t('paymentMethods.title')} sub={t('paymentMethods.moreSub')} to="/d/payment-methods" icon="pay"/>
                 <NavRow label={t('more.prices')} sub={t('more.pricesSub')} to="/d/prices" icon="pay"/>
                 <NavRow label={t('tpayRec.title')} sub={toPayLine()} to="/d/teacher-payments" icon="pay"/>
                 <NavRow label={t('more.payRule')} sub={schemeName(payRule(currentSchool()))} to="/d/teacher-pay" icon="chart"/>

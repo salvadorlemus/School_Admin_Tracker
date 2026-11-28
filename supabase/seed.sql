@@ -50,6 +50,13 @@ begin
         insert into terms (school_id, file_path) values (helios, 'pending');
     end if;
 
+    insert into school_payment_method (school_id, key, label, enabled, sort_order)
+    values
+        (helios, 'card', 'Tarjeta', true, 4),
+        (helios, 'totalpass', 'TotalPass', true, 5),
+        (helios, 'wellhub', 'Wellhub', true, 6)
+    on conflict (school_id, key) do update set label = excluded.label, enabled = true;
+
     -- ---- The room and the teachers ----
     insert into room (school_id, name, max_students) values (helios, 'Salón principal', 30) returning id into salon;
 
@@ -297,7 +304,7 @@ begin
     -- ---- Payments: October and November around each payment day; per class and Wellhub/TotalPass, per visit ----
     insert into payment_proof (id, school_id, student_id, method, covers, enrollment_id, package_id, month, amount, expected, file_path, state, reason,
                                decided_at, created_by, created_at)
-    select pid, helios, plan.student, (array['transfer', 'transfer', 'card', 'cash'])[1 + abs(hashtext(plan.id::text || m::text)) % 4]::pay_method,
+    select pid, helios, plan.student, (array['transfer', 'transfer', 'card', 'cash'])[1 + abs(hashtext(plan.id::text || m::text)) % 4],
            'month', plan.enrollment, plan.package, m, plan.price, plan.price,
            format('%s/proofs/%s/%s.jpg', helios, plan.student, pid),
            case when sent < today - 6 then 'confirmed' else 'uploaded' end::proof_state, null,
@@ -312,7 +319,7 @@ begin
 
     insert into payment_proof (id, school_id, student_id, method, covers, session_id, amount, expected, file_path, state, decided_at, created_by, created_at)
     select pid, helios, a.person_id,
-           case ss.plan when 'wellhub' then 'wellhub' when 'totalpass' then 'totalpass' else 'cash' end::pay_method, 'visit', a.session_id,
+           case ss.plan when 'wellhub' then 'wellhub' when 'totalpass' then 'totalpass' else 'cash' end, 'visit', a.session_id,
            case when ss.plan in ('wellhub', 'totalpass') then 0 else 290 end, case when ss.plan in ('wellhub', 'totalpass') then 0 else 290 end,
            format('%s/proofs/%s/%s.jpg', helios, a.person_id, pid),
            case when a.created_at::date < today - 6 then 'confirmed' else 'uploaded' end::proof_state,

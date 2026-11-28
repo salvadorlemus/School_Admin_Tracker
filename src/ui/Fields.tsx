@@ -400,7 +400,7 @@ function fewChips(chips: ReactNode): ReactNode {
     return <>{items.slice(0, 2)}<span className="chip chip-outline" aria-label={t('chip.moreN', {n: items.length - 2})}>+{items.length - 2}</span></>;
 }
 
-export function ListRow({title, sub, left, right, chips, onClick, fixed}: {
+export function ListRow({title, sub, left, right, chips, onClick, fixed, oneLineTitle}: {
     title: ReactNode;
     sub?: ReactNode;
     left?: ReactNode;
@@ -408,12 +408,13 @@ export function ListRow({title, sub, left, right, chips, onClick, fixed}: {
     chips?: ReactNode;
     onClick?: () => void;
     fixed?: boolean;
+    oneLineTitle?: boolean;
 }) {
     const inner = (
         <>
             {left}
             <span className="grow">
-                <span className="list-row-title">{title}</span>
+                <span className={oneLineTitle ? 'list-row-title class-list-title' : 'list-row-title'}>{title}</span>
                 {sub && <span className="list-row-sub">{sub}</span>}
                 {chips && <span className="wrap">{fixed ? fewChips(chips) : chips}</span>}
             </span>
@@ -421,7 +422,7 @@ export function ListRow({title, sub, left, right, chips, onClick, fixed}: {
             {onClick && <span className="chev"><Icon name="chevron" size={18}/></span>}
         </>
     );
-    const css = fixed ? 'list-row list-row-fixed' : 'list-row';
+    const css = fixed ? 'list-row list-row-fixed' : oneLineTitle ? 'list-row list-row-one-line-title' : 'list-row';
     return (
         <li>
             {onClick
