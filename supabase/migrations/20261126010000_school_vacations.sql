@@ -1,10 +1,10 @@
 -- School-wide vacation dates mark sessions as canceled in calendar views without changing or
 -- logging the sessions themselves. A single board post records each director's selection.
 
-alter type announcement_kind add value 'vacation';
-alter type announcement_kind add value 'vacation_removed';
+alter type announcement_kind add value if not exists 'vacation';
+alter type announcement_kind add value if not exists 'vacation_removed';
 
-create table school_vacation (
+create table if not exists school_vacation (
     school_id      uuid not null references school on delete cascade,
     vacation_date  date not null,
     created_by     uuid not null references person,
@@ -14,8 +14,10 @@ create table school_vacation (
 
 alter table school_vacation enable row level security;
 
+drop policy if exists "school members read vacation dates" on school_vacation;
 create policy "school members read vacation dates" on school_vacation for select to authenticated
     using (private.is_member(school_id));
+drop policy if exists "directors mark vacation dates" on school_vacation;
 create policy "directors mark vacation dates" on school_vacation for insert to authenticated
     with check (private.is_director(school_id));
 

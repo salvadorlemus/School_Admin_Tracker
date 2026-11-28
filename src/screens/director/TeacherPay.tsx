@@ -10,7 +10,7 @@ import {Avatar, DateField, ListRow, MenuText, MoneyField, NumberField, SelectFie
 import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useToast} from '../../ui/Layers';
 import {PayView, schemeLine} from '../shared/PayView';
-import {platformBillingPaused} from '../../mock/admin';
+import {directorGrowthPaused} from '../../mock/admin';
 
 const digits = (value: string) => Number(value.replace(/\D/g, '')) || 0;
 const copyRule = (rule: PayRule): PayRule => ({
@@ -26,7 +26,7 @@ const copyRule = (rule: PayRule): PayRule => ({
  */
 export function PaySettings() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const toast = useToast();
     const confirm = useConfirm();
     const [originalRule] = useState(() => copyRule(payRule(currentSchool())));

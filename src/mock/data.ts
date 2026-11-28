@@ -66,6 +66,29 @@ export const SCHOOLS: Record<SchoolId, { name: string; short: string; zone?: str
     helios: HELIOS_SCHOOL,
 };
 
+export interface PaymentMethod {
+    key: string;
+    label: string;
+    enabled: boolean;
+    defaultMethod?: boolean;
+}
+
+const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
+    {key: 'transfer', label: 'Transferencia / depósito', enabled: true, defaultMethod: true},
+    {key: 'terminal', label: 'Terminal', enabled: true, defaultMethod: true},
+    {key: 'cash', label: 'Efectivo', enabled: true, defaultMethod: true},
+];
+
+export const SCHOOL_PAYMENT_METHODS: Record<SchoolId, PaymentMethod[]> = {};
+export const paymentMethodsOf = (school: SchoolId): PaymentMethod[] =>
+    (SCHOOL_PAYMENT_METHODS[school] ?? (SCHOOL_PAYMENT_METHODS[school] = DEFAULT_PAYMENT_METHODS.map(method => ({...method}))))
+        .filter(method => method.enabled);
+
+export const paymentMethodLabel = (school: SchoolId, key: string): string =>
+    paymentMethodsOf(school).find(method => method.key === key)?.label
+    ?? ({transfer: 'Transferencia / depósito', terminal: 'Terminal', cash: 'Efectivo', card: 'Tarjeta', totalpass: 'TotalPass', wellhub: 'Wellhub'} as Record<string, string>)[key]
+    ?? key;
+
 /** The stress schools; the first has a very long name. */
 const STRESS_SCHOOLS: Record<string, { name: string; short: string }> = {
     bajio: {name: 'Academia Internacional de Artes Circenses y Danza Aérea Contemporánea del Bajío', short: 'Academia Internacional del Bajío'},
@@ -758,7 +781,7 @@ export interface Proof {
     student: string;
     school: SchoolId;
     covers: string;
-    method: 'cash' | 'transfer' | 'card' | 'totalpass' | 'wellhub';
+    method: string;
     amount: number;
     sent: string;
     sentAt: string;

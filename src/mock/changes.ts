@@ -30,6 +30,7 @@ import {
     type Session,
     type Slot,
     VACATION_DAYS,
+    SCHOOL_PAYMENT_METHODS,
 } from './data';
 
 /**
@@ -384,6 +385,11 @@ export const SEEN = new Set<string>();
 
 /** Registration fees the director has marked as paid. */
 export const FEES_DONE = new Set<string>();
+
+export function savePaymentMethods(methods: {key: string; label: string; enabled: boolean; defaultMethod?: boolean}[]) {
+    SCHOOL_PAYMENT_METHODS[currentSchool()] = methods;
+    if (LIVE.on) void setup.savePaymentMethods(methods);
+}
 
 // ---- Packages: the director creates and changes them; one nobody has can be deleted, one in use stops being offered ----
 

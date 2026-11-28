@@ -264,6 +264,20 @@ export async function editClassLive(classId: string, before: Fields, fields: Fie
 }
 
 export const setup = {
+    savePaymentMethods: (methods: {key: string; label: string; enabled: boolean; defaultMethod?: boolean}[]) => send(async () => {
+        const payload = methods.map((method, index) => ({
+            key: method.key,
+            label: method.label,
+            enabled: method.enabled,
+            sort_order: index + 1,
+        }));
+        const result = await supabase.rpc('set_school_payment_methods', {
+            requested_school: currentSchool(),
+            methods: payload,
+        });
+        if (!result.error) await loadLive().catch(() => undefined);
+        return result;
+    }),
     saveRoom: (id: string | undefined, fields: { name: string; classesAtOnce?: number; students?: number }) => send(() => {
         const row = {name: fields.name, classes_at_once: fields.classesAtOnce ?? null, max_students: fields.students ?? null};
         return id ? supabase.from('room').update(row).eq('id', id) : supabase.from('room').insert({...row, school_id: currentSchool()});

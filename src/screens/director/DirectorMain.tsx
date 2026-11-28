@@ -27,7 +27,9 @@ import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, DotLegend, ProofChip, SessionCard, SessionBody} from '../shared/pieces';
 import {SCHOOL_ROWS} from '../../mock/admin';
-import {platformBillingPaused} from '../../mock/admin';
+import {directorGrowthPaused, proofReviewPressure} from '../../mock/admin';
+import {SCHOOL_PAYMENT_METHODS, paymentMethodLabel, type PaymentMethod} from '../../mock/data';
+import {savePaymentMethods} from '../../mock/changes';
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
@@ -43,6 +45,7 @@ export function Dashboard() {
         : platformBilling?.billing === 'soon'
             ? t('billing.dueSoon', {when: platformBilling.due?.on ? dayMonth(platformBilling.due.on) : ''})
             : '';
+    const reviewPressure = proofReviewPressure(currentSchool());
     const today = sessionsOn(TODAY);
     // Selected at first: the session going on now, or the next one to start.
     const now = today.findIndex(session => session.end > NOW);
@@ -87,6 +90,14 @@ export function Dashboard() {
     const view = router.query.get('view') === 'summary' ? 'summary' : 'today';
     return (
         <Screen title={t('dash.title')} subtitle={[SCHOOLS[currentSchool()].name, dayLong(TODAY)]}>
+            {reviewPressure.paused && (
+                <div className="banner banner-error">
+                    <span className="strong">{t('review.pressureTitle')}</span>
+                    <span className="small">{t('review.pressureBody', {n: reviewPressure.pending})}</span>
+                    <button type="button" className="btn btn-secondary btn-sm self-start"
+                            onClick={() => router.navigate('/d/payments?tab=review')}>{t('review.pressureAction')}</button>
+                </div>
+            )}
             {billingDue && (
                 <div className={platformBilling?.billing === 'late' ? 'banner banner-error' : 'banner banner-warning'}>
                     <span className="strong">{platformBilling?.billing === 'late' ? t('billing.overdueTitle') : t('billing.dueSoonTitle')}</span>
@@ -131,6 +142,54 @@ export function Dashboard() {
     );
 }
 
+/** The school's accepted payment methods: three always offered, plus the options it takes. */
+export function PaymentMethods() {
+    const router = useRouter();
+    const toast = useToast();
+    const [methods, setMethods] = useState<PaymentMethod[]>(() => {
+        const saved = SCHOOL_PAYMENT_METHODS[currentSchool()];
+        if (saved) return saved.map(method => ({...method}));
+        return [
+            {key: 'transfer', label: 'Transferencia / depósito', enabled: true, defaultMethod: true},
+            {key: 'terminal', label: 'Terminal', enabled: true, defaultMethod: true},
+            {key: 'cash', label: 'Efectivo', enabled: true, defaultMethod: true},
+            {key: 'totalpass', label: 'TotalPass', enabled: false},
+            {key: 'wellhub', label: 'Wellhub', enabled: false},
+        ];
+    });
+    const [custom, setCustom] = useState('');
+    const ready = methods.length > 0;
+    return (
+        <Screen title={t('paymentMethods.title')} back="/d/setup" nav={false}
+                footer={<button type="button" className="btn btn-lg" disabled={!ready} onClick={() => {
+                    savePaymentMethods(methods);
+                    toast(t('paymentMethods.saved'));
+                    router.back('/d/setup');
+                }}>{t('form.saveChanges')}</button>}>
+            <p className="hint">{t('paymentMethods.intro')}</p>
+            {methods.map((method, index) => (
+                <Check key={method.key} id={`pm-${method.key}-${index}`} label={method.label}
+                       checked={method.enabled}
+                       disabled={method.defaultMethod}
+                       onChange={enabled => setMethods(list => list.map(item => item.key === method.key ? {...item, enabled} : item))}
+                       hint={method.defaultMethod ? t('paymentMethods.defaultHint') : undefined}/>
+            ))}
+            <h2 className="section-title">{t('paymentMethods.other')}</h2>
+            <TextField id="pm-custom" label={t('paymentMethods.customName')} value={custom}
+                       onChange={event => setCustom(event.target.value)} placeholder={t('paymentMethods.customPlaceholder')}/>
+            <button type="button" className="btn btn-secondary" disabled={custom.trim().length < 2}
+                    onClick={() => {
+                        const label = custom.trim();
+                        const key = `custom-${label.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || Date.now()}`;
+                        setMethods(list => [...list, {key, label, enabled: true}]);
+                        setCustom('');
+                    }}>
+                <Icon name="plus"/>{t('paymentMethods.add')}
+            </button>
+        </Screen>
+    );
+}
+
 /**
  * A new school's first steps, in the order they depend on each other: the terms (students can't be
  * registered without them), rooms and teachers (a class needs both), prices (a class's payment
@@ -144,6 +203,7 @@ export function Setup() {
         {title: t('setup.terms'), sub: t('setup.termsSub'), to: '/d/terms', done: !fresh},
         {title: t('setup.rooms'), sub: t('setup.roomsSub'), to: '/d/rooms', done: !fresh},
         {title: t('setup.teachers'), sub: t('setup.teachersSub'), to: '/d/teachers', done: !fresh},
+        {title: t('setup.paymentMethods'), sub: t('setup.paymentMethodsSub'), to: '/d/payment-methods', done: !fresh},
         {title: t('setup.prices'), sub: t('setup.pricesSub'), to: '/d/prices', done: !fresh},
         {title: t('setup.classes'), sub: t('setup.classesSub'), to: '/d/calendar?tab=plan', done: !fresh},
         {title: t('setup.students'), sub: t('setup.studentsSub'), to: '/d/register', done: !fresh},
@@ -187,13 +247,13 @@ export function Calendar() {
         <Screen title={t('cal.title')} subtitle={SCHOOLS[currentSchool()].name}
                 footer={tab === 'plan' ? (
                     <div className="btn-row">
-                        <button type="button" className="btn btn-secondary btn-lg" disabled={platformBillingPaused(currentSchool())}
-                                title={platformBillingPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
+                        <button type="button" className="btn btn-secondary btn-lg" disabled={directorGrowthPaused(currentSchool())}
+                                title={directorGrowthPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
                                 onClick={() => router.navigate('/d/activity/new?kind=free')}>
                             <Icon name="plus"/>{t('plan.addFreeShort')}
                         </button>
-                        <button type="button" className="btn btn-lg" disabled={platformBillingPaused(currentSchool())}
-                                title={platformBillingPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
+                        <button type="button" className="btn btn-lg" disabled={directorGrowthPaused(currentSchool())}
+                                title={directorGrowthPaused(currentSchool()) ? t('billing.growthPaused') : undefined}
                                 onClick={() => router.navigate('/d/activity/new')}>
                             <Icon name="plus"/>{t('plan.addShort')}
                         </button>
@@ -437,7 +497,7 @@ function PlanView() {
                                         {item.perVisit && <span className="chip">{t('classes.perVisit')}</span>}
                                     </span>
                                     <button type="button" className="btn btn-ghost btn-sm self-start"
-                                            disabled={platformBillingPaused(currentSchool())}
+                                            disabled={directorGrowthPaused(currentSchool())}
                                             onClick={() => router.navigate(`/d/activity/new?from=${item.id}`)}>
                                         <Icon name="copy" size={18}/>{t('plan.duplicate')}
                                     </button>
@@ -466,7 +526,7 @@ export function ActivityForm({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const copyOf = router.query.get('from');
     // A replacement for a class that ends: it starts the day after the old one's last session.
     const after = router.query.get('after');
@@ -814,8 +874,7 @@ export function DirectorPayments() {
     const feeDone = FEES_DONE.has('hector');
     const colibri = currentSchool() === 'colibri';
     return (
-        <Screen title={t('dpay.title')} subtitle={SCHOOLS[currentSchool()].name}
->
+        <Screen title={t('dpay.title')} subtitle={SCHOOLS[currentSchool()].name} fixedList={tab === 'due'}>
             <Segmented label={t('dpay.title')} value={tab}
                        onChange={value => router.replace(router.withQuery('tab', value === 'review' ? null : value))}
                        options={[{value: 'review', label: t('dpay.review', {n: pending.length})}, {
@@ -829,18 +888,23 @@ export function DirectorPayments() {
                         {pending.map(proof => (
                             <ListRow key={proof.id} left={<Avatar name={studentById(proof.student).name}/>}
                                      title={personName(studentById(proof.student).name)}
-                                     sub={`${coversText(proof.covers)} · ${t(`method.${proof.method}` as const)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
-                                     right={<span className="wrap">
-                                         {proof.sent <= addDays(TODAY, -1) && <span className="chip chip-rejected">{t('review.waitingOver24h')}</span>}
-                                         <ProofChip state="uploaded"/>
-                                     </span>}
+                                     sub={`${coversText(proof.covers)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
+                                     chips={proof.sent <= addDays(TODAY, -1)
+                                         ? <span className="chip chip-rejected">{t('review.waitingOver24h')}</span>
+                                         : undefined}
+                                     right={<ProofChip state="uploaded"/>}
                                      onClick={() => router.navigate(`/d/payments/review/${proof.id}`)}/>
                         ))}
                     </ul>
                     <p className="hint">{t('dpay.totalpassHint')}</p>
                 </>
             )}
-            {!colibri && tab !== 'review' && <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>}
+            {!colibri && tab === 'fees' && <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>}
+            {!colibri && tab === 'due' && (
+                <div className="list-fill">
+                    <SchoolDues tab={tab} redraw={() => redraw(n => n + 1)}/>
+                </div>
+            )}
             {tab === 'fees' && colibri && (
                 <ul className="list">
                     <ListRow left={<Avatar name="Héctor Navarro"/>} title="Héctor Navarro"
@@ -861,7 +925,7 @@ export function DirectorPayments() {
                 </ul>
             )}
             {tab === 'due' && colibri && (
-                <>
+                <div className="list-fill">
                     <h2 className="section-title">{t('dpay.dueOn', {when: dayMonth('2026-11-30')})}</h2>
                     <ul className="list">
                         {['camila', 'regina', 'mateo', 'valentina', 'jimena'].map(id => {
@@ -878,7 +942,7 @@ export function DirectorPayments() {
                     </ul>
                     <h2 className="section-title">{t('dpay.overdue')}</h2>
                     <Empty>{t('dpay.noOverdue')}</Empty>
-                </>
+                </div>
             )}
         </Screen>
     );
@@ -1007,7 +1071,7 @@ export function Review({id}: { id: string }) {
                 <dt>{t('review.covers')}</dt>
                 <dd>{coversText(proof.covers)}</dd>
                 <dt>{t('review.method')}</dt>
-                <dd>{t(`method.${proof.method}` as const)}</dd>
+                <dd>{paymentMethodLabel(proof.school, proof.method)}</dd>
                 <dt>{t('review.amount')}</dt>
                 <dd className="num">{money(proof.amount)}</dd>
                 <dt>{t('review.sent')}</dt>

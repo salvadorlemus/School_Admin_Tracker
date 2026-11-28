@@ -66,17 +66,21 @@ export function SessionBody({session, showDate, school, extra, hideClass}: {
     const replacement = session.replacementId ? sessionById(session.replacementId) : null;
     return (
         <>
-            <div className="row">
+            <div className="row session-card-head">
                 <span className="small num">{when}</span>
-                <span className="wrap">
+                <span className="wrap session-card-chips">
                     {school && <SchoolChip school={school}/>}
+                </span>
+            </div>
+            {!hideClass && <span className={cancelled || vacation ? 'big strike' : 'big'}>{item.name}</span>}
+            {(cancelled || vacation || session.substitute || session.replaces) && (
+                <span className="wrap session-status-chips">
                     {cancelled && <span className="chip chip-cancelled">{t('chip.cancelled')}</span>}
                     {vacation && <span className="chip chip-vacation">{t('chip.vacation')}</span>}
                     {session.substitute && <span className="chip chip-substitute">{t('chip.substitute')}</span>}
                     {session.replaces && <span className="chip">{t('chip.replacement')}</span>}
                 </span>
-            </div>
-            {!hideClass && <span className={cancelled || vacation ? 'big strike' : 'big'}>{item.name}</span>}
+            )}
             <span className="small">
                 {/* The Suplente chip says it's a substitute: the line just names who gives it. */}
                 {teacherName(session.substitute ?? teacherOf(session))}

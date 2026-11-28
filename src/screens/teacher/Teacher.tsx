@@ -19,7 +19,7 @@ import {
     weekdayShort
 } from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {AMBAR_STUDENTS, classById, CLASSES, isVacationDate, PACKAGES, PROOFS, roomName, SCHOOLS, schoolOfClass, schoolOfSession, sessionById, SESSIONS, STRESS, STUDENTS, studentById, teacherName, TEACHERS, sessionWindow, TODAY, TODAY_ROSTER, type Session, rosterOf, guestsOf, studentsOf, classStudents} from '../../mock/data';
+import {AMBAR_STUDENTS, classById, CLASSES, isVacationDate, PACKAGES, PROOFS, roomName, SCHOOLS, schoolOfClass, schoolOfSession, sessionById, SESSIONS, STRESS, STUDENTS, studentById, teacherName, TEACHERS, sessionWindow, TODAY, TODAY_ROSTER, paymentMethodLabel, type Session, rosterOf, guestsOf, studentsOf, classStudents} from '../../mock/data';
 import {teacherOf} from '../../mock/changes';
 import {Screen, roleOf, STAFF_ME} from '../../ui/Screen';
 import {Avatar, Check, Empty, ListRow, MenuText, SearchField, Segmented, SelectField, TextArea} from '../../ui/Fields';
@@ -490,7 +490,7 @@ export function TeacherPayments() {
                     {mine.map(proof => (
                         <ListRow key={proof.id} left={<Avatar name={studentById(proof.student).name}/>}
                                  title={personName(studentById(proof.student).name)}
-                                 sub={`${coversText(proof.covers)} · ${t(`method.${proof.method}` as const)}${proof.amount ? ` · ${money(proof.amount)}` : ''}`}
+                                 sub={`${coversText(proof.covers)} · ${paymentMethodLabel(school, proof.method)}${proof.amount ? ` · ${money(proof.amount)}` : ''}`}
                                  right={<ProofChip state={proof.state}/>} onClick={() => sheet.show(proof.id)}/>
                     ))}
                 </ul>
@@ -504,7 +504,7 @@ export function TeacherPayments() {
                             <dt>{t('review.covers')}</dt>
                             <dd>{coversText(open.covers)}</dd>
                             <dt>{t('review.method')}</dt>
-                            <dd>{t(`method.${open.method}` as const)}</dd>
+                            <dd>{paymentMethodLabel(school, open.method)}</dd>
                             <dt>{t('review.sent')}</dt>
                             <dd>{dayMonth(open.sent)} · {time(open.sentAt)}</dd>
                             <dt>{t('review.state')}</dt>

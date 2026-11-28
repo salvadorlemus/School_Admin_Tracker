@@ -6,7 +6,7 @@ import {useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayLong, dayMonth, dayShort, listOf, money, personName, time, timeRange} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {classById, classesOf, FAMILY, PRICES, PROOFS, SCHOOLS, schoolOfClass, sessionById, SESSIONS, SOFIA_SCHOOLS, studentById, TODAY, GUARDIAN_KIDS, type Proof, type SchoolId, ME, GUARDIAN_SCHOOLS} from '../../mock/data';
+import {classById, classesOf, FAMILY, PRICES, PROOFS, SCHOOLS, schoolOfClass, sessionById, SESSIONS, SOFIA_SCHOOLS, studentById, TODAY, GUARDIAN_KIDS, paymentMethodsOf, paymentMethodLabel, type Proof, type SchoolId, ME, GUARDIAN_SCHOOLS} from '../../mock/data';
 import {Screen, roleOf} from '../../ui/Screen';
 import {Carousel, Check, EmailField, MenuText, Option, PhoneField, SelectField, Skeleton, TextField, useBriefLoading, useQueryIndex} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -277,16 +277,6 @@ export interface Plan {
     ref?: { student: string; enrollmentId?: string; packageId?: string; month?: string; feeId?: string; sessionId?: string };
 }
 
-/** How each kind of payment can be made (rule 4): Wellhub and TotalPass pay classes and plans (a screenshot of the token), never the registration fee. */
-const METHODS: Record<PayKind, Proof['method'][]> = {
-    // A student who comes with Wellhub or TotalPass is enrolled too: their token's screenshot is the payment.
-    monthly: ['transfer', 'card', 'cash', 'totalpass', 'wellhub'],
-    package: ['transfer', 'card', 'cash', 'totalpass', 'wellhub'],
-    fee: ['transfer', 'card', 'cash'],
-    trial: ['totalpass', 'wellhub', 'cash'],
-    visit: ['totalpass', 'wellhub', 'cash'],
-};
-
 /**
  * What a student (or guardian) pays for: monthly plans, packages, trial classes and per-visit
  * sessions, and the registration fee while it's owed. Each one is a card on Payments and a choice on
@@ -436,7 +426,7 @@ export function Payments() {
                 <ul className="list">
                     {proofs.map(proof => (
                         <ListRow key={proof.id} title={coversText(proof.covers)}
-                                 sub={<>{t(`method.${proof.method}` as const)} · {money(proof.amount)} · {dayMonth(proof.sent)} {time(proof.sentAt)}
+                                 sub={<>{paymentMethodLabel(proof.school, proof.method)} · {money(proof.amount)} · {dayMonth(proof.sent)} {time(proof.sentAt)}
                                      {proof.reason && <><br/><span
                                          className="text-rejected">“{proof.reason}”</span></>}</>}
                                  right={<ProofChip state={proof.state}/>}/>
@@ -467,7 +457,7 @@ export function Upload() {
     const [sending, setSending] = useState(false);
     const input = useRef<HTMLInputElement>(null);
     const plan = choices.find(item => item.key === planKey) ?? choices[0];
-    const methods = METHODS[plan.kind];
+    const methods = paymentMethodsOf(plan.school);
     const ready = Boolean(file && method);
     return (
         <Screen title={t('upload.title')} back={`${base}/payments`} nav={false}
@@ -490,7 +480,7 @@ export function Upload() {
                     <span className="small muted">{t('upload.paying')}</span>
                     <span className="big">{plan.title}</span>
                     <span className="row-start small"><Icon name="school" size={16}/>{SCHOOLS[plan.school].name}</span>
-                    <span className="huge num">{method === 'totalpass' || method === 'wellhub' ? t('upload.passAmount', {pass: t(`method.${method}`)}) : money(plan.amount)}</span>
+                    <span className="huge num">{method === 'totalpass' || method === 'wellhub' ? t('upload.passAmount', {pass: paymentMethodLabel(plan.school, method)}) : money(plan.amount)}</span>
                     {plan.due && <span className="small muted">{plan.due}</span>}
                 </section>
             ) : (
@@ -499,7 +489,7 @@ export function Upload() {
                          onChange={value => {
                              setPlanKey(value);
                              const next = choices.find(item => item.key === value);
-                             if (next && !METHODS[next.kind].some(item => item === method)) setMethod('');
+                             if (next && !paymentMethodsOf(next.school).some(item => item.key === method)) setMethod('');
                          }}
                          options={choices.map(item => ({
                              value: item.key,
@@ -508,16 +498,16 @@ export function Upload() {
             <div className="row">
                 <span className="muted">{t('upload.amount')}</span>
                 <span
-                    className="big num">{method === 'totalpass' || method === 'wellhub' ? t('upload.passAmount', {pass: t(`method.${method}`)}) : money(plan.amount)}</span>
+                    className="big num">{method === 'totalpass' || method === 'wellhub' ? t('upload.passAmount', {pass: paymentMethodLabel(plan.school, method)}) : money(plan.amount)}</span>
             </div>
             </>
             )}
             <SelectField id="up-method" label={t('upload.method')} value={method} onChange={setMethod}
                          placeholder={t('common.pick')}
                          options={methods.map(value => ({
-                             value,
-                             label: t(`method.${value}` as const),
-                             hint: value === 'totalpass' ? t('upload.totalpassHint') : undefined,
+                             value: value.key,
+                             label: value.label,
+                             hint: value.key === 'totalpass' ? t('upload.totalpassHint') : undefined,
                          }))}/>
             <button type="button" className="proof-image proof-pick fill" onClick={() => input.current?.click()}>
                 {file ? <img src={file} alt={t('upload.preview')}/> : <><Icon name="camera"

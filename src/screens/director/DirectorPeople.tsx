@@ -6,7 +6,7 @@ import {useEffect, useRef, useState} from 'react';
 import {t} from '../../lib/texts';
 import {dayMonth, dayMonthYear, dayShort, money, personName, time, weekdayLetter, weekdayLong, weekdayShort} from '../../lib/format';
 import {useRouter} from '../../lib/router';
-import {classById, CLASSES, schoolOfClass, TODAY, PRICES, PROOFS, ROOMS, roomName, SCHOOLS, studentById, TEACHERS, teacherSchools, type Price, type Room, roomsHere, studentsHere, pricesHere, packageLabel, PACKAGES, teacherName} from '../../mock/data';
+import {classById, CLASSES, schoolOfClass, TODAY, PRICES, PROOFS, ROOMS, roomName, SCHOOLS, studentById, TEACHERS, teacherSchools, paymentMethodLabel, type Price, type Room, roomsHere, studentsHere, pricesHere, packageLabel, PACKAGES, teacherName} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Avatar, Check, DateField, EmailField, Empty, ListRow, MoneyField, NumberField, SearchField, Segmented, SelectField, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
@@ -14,7 +14,7 @@ import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DetailsCard, ProofChip, StudentCardView, TermsChip, classWhen} from '../shared/pieces';
 import {NavRow} from '../shared/Common';
 import {paymentState, payRule, type PayRule, periodsOf, teacherPay} from '../../mock/pay';
-import {platformBillingPaused} from '../../mock/admin';
+import {directorGrowthPaused} from '../../mock/admin';
 
 /** The last closed period: how many teachers are still to be paid, or flagged a payment. */
 const toPayLine = () => {
@@ -196,7 +196,7 @@ export function DirectorStudent({id}: { id: string }) {
                     <ul className="list">
                         {proofs.map(proof => (
                             <ListRow key={proof.id} title={coversText(proof.covers)}
-                                     sub={`${t(`method.${proof.method}` as const)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
+                                     sub={`${paymentMethodLabel(proof.school, proof.method)} · ${money(proof.amount)} · ${dayMonth(proof.sent)} ${time(proof.sentAt)}`}
                                      right={<ProofChip state={proof.state}/>}
                                      onClick={proof.state === 'uploaded' ? () => router.navigate(`/d/payments/review/${proof.id}`) : undefined}/>
                         ))}
@@ -261,7 +261,7 @@ export function DeleteStudent({id}: { id: string }) {
  */
 export function Register() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const adult = router.query.get('adult');
     const grown = adult ? studentById(adult) : null;
     const [who, setWho] = useState<string>(adult ? 'adult' : 'minor');
@@ -378,11 +378,12 @@ export function More() {
         <Screen title={t('more.title')} subtitle={SCHOOLS[currentSchool()].name}>
             <h2 className="section-title">{t('more.school')}</h2>
             <ul className="list">
-                <NavRow label={t('more.setup')} sub={t('setup.progress', {done: 6, of: 6})} to="/d/setup" icon="check"/>
+                <NavRow label={t('more.setup')} sub={t('setup.progress', {done: 7, of: 7})} to="/d/setup" icon="check"/>
                 <NavRow label={t('more.rooms')}
                         sub={t('more.roomsSub', {n: roomsHere().filter(r => !r.archived).length})} to="/d/rooms"
                         icon="room"/>
                 <NavRow label={t('more.teachers')} sub={t('more.teachersSub', {n: TEACHERS.filter(teacher => teacher.status === 'active' && teacherSchools(teacher).includes(currentSchool())).length})} to="/d/teachers" icon="people"/>
+                <NavRow label={t('paymentMethods.title')} sub={t('paymentMethods.moreSub')} to="/d/payment-methods" icon="pay"/>
                 <NavRow label={t('more.prices')} sub={t('more.pricesSub')} to="/d/prices" icon="pay"/>
                 <NavRow label={t('tpayRec.title')} sub={toPayLine()} to="/d/teacher-payments" icon="pay"/>
                 <NavRow label={t('more.payRule')} sub={schemeName(payRule(currentSchool()))} to="/d/teacher-pay" icon="chart"/>
@@ -401,7 +402,7 @@ export function More() {
 
 export function Rooms() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const [query, setQuery] = useState('');
     const ours = roomsHere();
     const many = ours.length > 10;
@@ -443,7 +444,7 @@ export function RoomScreen({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const room: Room | undefined = ROOMS.find(r => r.id === id);
     const ahead = room ? futureSessionsIn(room.id) : [];
     const holding = [...new Set(ahead.map(session => session.classId))].map(classId => ({
@@ -503,7 +504,7 @@ const classesLine = (names: string[]) => names.length > 2 ? `${names.slice(0, 2)
 
 export function Teachers() {
     const router = useRouter();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const toast = useToast();
     const invite = useSheetRoute('invite');
     const [name, setName] = useState('');
@@ -706,7 +707,7 @@ const PRICE_GROUPS: { kind: Price['kind']; label: Parameters<typeof t>[0] }[] = 
 export function Prices() {
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const sheet = useSheetRoute('price');
     const [amount, setAmount] = useState('');
     const [from, setFrom] = useState('2027-01-01');
@@ -793,7 +794,7 @@ export function PackageForm({id}: { id: string }) {
     const router = useRouter();
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const pack = PACKAGES.find(item => item.id === id);
     const price = PRICES.find(item => item.id === id);
     const classes = CLASSES.filter(item => item.kind === 'weekly' && schoolOfClass(item) === currentSchool() && !item.ending);
@@ -893,7 +894,7 @@ export function PackageForm({id}: { id: string }) {
 export function Terms() {
     const toast = useToast();
     const confirm = useConfirm();
-    const paused = platformBillingPaused(currentSchool());
+    const paused = directorGrowthPaused(currentSchool());
     const input = useRef<HTMLInputElement>(null);
     // Who hasn't accepted: a few at first, all of them (in a box that shows five at a time) on request.
     const fresh = termsState().uploaded === TODAY;

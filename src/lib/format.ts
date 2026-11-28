@@ -100,6 +100,13 @@ export function listOf(items: string[]): string {
     return new Intl.ListFormat(locale(), {type: 'conjunction'}).format(items);
 }
 
+/** Shorten a person-entered title for a fixed-height card or row, keeping it complete in details. */
+export function compactText(text: string, max = 34): string {
+    const value = text.trim();
+    if (value.length <= max) return value;
+    return `${value.slice(0, Math.max(1, max - 1)).trimEnd()}…`;
+}
+
 /** "Noviembre 2026" / "November 2026" */
 export function monthYear(iso: string): string {
     return capital(new Intl.DateTimeFormat(locale(), {month: 'long', year: 'numeric'}).format(toDate(iso)));

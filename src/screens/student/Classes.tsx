@@ -6,7 +6,7 @@ import {useState} from 'react';
 import {Icon} from '../../ui/Icon';
 import {useRouter} from '../../lib/router';
 import {t} from '../../lib/texts';
-import {addDays, dayLong, dayMonth, dayShort, money, monthYear, personName, time, timeRange, weekdayLetter, weekdayLong, weekdayOf, weekdayShort} from '../../lib/format';
+import {addDays, compactText, dayLong, dayMonth, dayShort, money, monthYear, personName, time, timeRange, weekdayLetter, weekdayLong, weekdayOf, weekdayShort} from '../../lib/format';
 import {classById, classesOf, CLASSES, ENROLLMENTS, isVacationDate, PACKAGES, PRICES, roomName, schoolOfClass, SCHOOLS, SESSIONS, studentById, teacherName, TODAY, TRIALS_TAKEN, type SchoolClass, SOFIA_SCHOOLS, ME, GUARDIAN_SCHOOLS, packageLabel} from '../../mock/data';
 import {Screen} from '../../ui/Screen';
 import {Empty, ListRow, MenuText, Segmented, SelectField} from '../../ui/Fields';
@@ -100,7 +100,7 @@ export function Classes() {
             {mine.length === 0 ? <Empty>{t('classes.noneYet')}</Empty> : (
                 <ul className="list">
                     {mine.map(enrollment => (
-                        <ListRow key={enrollment.id} title={title(enrollment)}
+                        <ListRow key={enrollment.id} oneLineTitle title={compactText(title(enrollment), 34)}
                                  sub={enrollment.packageId
                                      ? PACKAGES.find(pack => pack.id === enrollment.packageId)?.classes.map(id => classById(id).name).join(' · ')
                                      : `${slots(classById(enrollment.classId ?? ''))} · ${t(enrollment.how === 'monthly' ? 'enroll.monthly' : 'enroll.visit')}`}
@@ -142,7 +142,7 @@ export function Classes() {
                             const left = placesLeft(item);
                             const clash = clashOf(student, item);
                             return (
-                                <ListRow key={item.id} title={item.name} sub={`${slots(item)} · ${teacherName(item.teacher)}`}
+                                <ListRow key={item.id} oneLineTitle title={compactText(item.name, 28)} sub={`${slots(item)} · ${teacherName(item.teacher)}`}
                                          chips={<>
                                              <SchoolChip school={schoolOfClass(item)}/>
                                              {left === 0 ? <span className="chip chip-cancelled">{t('classes.full')}</span>
@@ -161,7 +161,7 @@ export function Classes() {
                 <ul className="list">
                     {PACKAGES.filter(pack => !pack.retired && memberOf.has(pack.school ?? 'colibri') && (school === 'all' || (pack.school ?? 'colibri') === school)).map(pack => (
                         <ListRow key={pack.id}
-                                 title={t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2')}
+                                 title={compactText(t(pack.id === 'pk3' ? 'payments.package3' : 'payments.package2'), 34)} oneLineTitle
                                 sub={t('detail.packageChoice', {amount: money(pack.price), n: pack.perWeek})}
                                 chips={<>
                                     <SchoolChip school={pack.school ?? 'colibri'}/>
@@ -178,7 +178,7 @@ export function Classes() {
             )}
             {join === 'free' && (school === 'all' || school === 'colibri') && (
                 <ul className="list">
-                    <ListRow title="Práctica libre en aparatos"
+                    <ListRow title={compactText('Práctica libre en aparatos', 34)} oneLineTitle
                              sub={`${dayShort('2026-11-27')} · ${timeRange('18:00', '20:00')} · Fernanda Gil`}
                              chips={<span className="chip">{t('classes.placesLeft', {n: 1})}</span>}
                              onClick={() => router.navigate(`${base}/classes/libre${guardian ? `?kid=${student}` : ''}`)}/>
@@ -223,7 +223,7 @@ function PackageWeek({pack}: { pack: typeof PACKAGES[number] }) {
                     {!day && <h3 className="section-title">{weekdayLong(weekday)}</h3>}
                     <ul className="list">
                         {schedule.filter(entry => entry.slot.weekday === weekday).map(({item, slot}) => (
-                            <ListRow key={`${item.id}-${slot.start}`} title={item.name}
+                            <ListRow key={`${item.id}-${slot.start}`} oneLineTitle title={compactText(item.name, 28)}
                                      sub={`${timeRange(slot.start, slot.end)} · ${teacherName(item.teacher)} · ${roomName(slot.room)}`}
                                      chips={<span className="chip chip-outline">{t('detail.dates', {
                                          from: dayMonth(item.from),
@@ -317,7 +317,7 @@ function ClassesCalendar({student, offered, school, onOpenClass, onJoin}: {
                                 const slot = item.slots.find(other => other.weekday === weekdayOf(day)) ?? item.slots[0];
                                 const clash = clashOf(student, item);
                                 return (
-                                    <ListRow key={item.id} title={item.name}
+                                    <ListRow key={item.id} oneLineTitle title={compactText(item.name, 28)}
                                              sub={`${timeRange(slot.start, slot.end)} · ${teacherName(item.teacher)} · ${roomName(slot.room)}`}
                                              chips={<>
                                                  <SchoolChip school={schoolOfClass(item)}/>
