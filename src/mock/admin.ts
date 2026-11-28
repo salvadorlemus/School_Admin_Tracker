@@ -194,3 +194,16 @@ export interface AdminLogRow {
 }
 
 export const ADMIN_LOG: AdminLogRow[] = [];
+
+/** Privacy-safe aggregate app events for the usage panel (prototype data). */
+export const APP_USAGE: {event: string; count: number}[] = [
+    {event: 'menu.payments', count: 184},
+    {event: 'screen_view', count: 146},
+    {event: 'menu.classes', count: 128},
+    {event: 'button.notices', count: 96},
+    {event: 'menu.students', count: 81},
+    {event: 'button.register_student', count: 64},
+    {event: 'payment.review_confirmed', count: 52},
+    {event: 'button.card', count: 47},
+    {event: 'payment.screenshot_upload', count: 38},
+];

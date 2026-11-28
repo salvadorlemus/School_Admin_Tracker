@@ -11,6 +11,7 @@ import {homePath, restoreSession} from './live/session';
 import {isPrototypePath, isPublicPath, onProductionHost} from './lib/hosts';
 import {onLiveError} from './live/actions';
 import {t} from './lib/texts';
+import {trackEvent} from './lib/analytics';
 import {useCurrentSchool} from './state/school';
 import type {ComponentType} from 'react';
 import {InsightScreen} from './screens/director/Insights';
@@ -63,7 +64,7 @@ import {
     Teachers,
     Terms,
 } from './screens/director/DirectorPeople';
-import {AdminAccount, AdminLog, AdminPaymentNew, AdminPayments, AdminSchool, AdminSchoolDelete, AdminSchoolEdit, SchoolCreated, SchoolNew, Schools} from './screens/admin/Admin';
+import {AdminAccount, AdminLog, AdminPaymentNew, AdminPayments, AdminUsage, AdminSchool, AdminSchoolDelete, AdminSchoolEdit, SchoolCreated, SchoolNew, Schools} from './screens/admin/Admin';
 
 type Params = Record<string, string>;
 type Route = [string, ComponentType<Params>];
@@ -162,6 +163,7 @@ const ROUTES: Route[] = [
     ['/a/schools/:id', ({id}) => <AdminSchool id={id}/>],
     ['/a/schools/:id/edit', ({id}) => <AdminSchoolEdit id={id}/>],
     ['/a/schools/:id/delete', ({id}) => <AdminSchoolDelete id={id}/>],
+    ['/a/usage', AdminUsage],
     ['/a/payments', AdminPayments],
     ['/a/payments/new', AdminPaymentNew],
     ['/a/log', AdminLog],
@@ -184,6 +186,10 @@ export default function App() {
     const version = useLiveVersion();
     const [ready, setReady] = useState(booted !== null && LIVE.on);
     const [problem, setProblem] = useState('');
+    useEffect(() => {
+        if (!ready) return;
+        trackEvent('screen_view', path, path.split('/')[1] || 'public');
+    }, [path, ready]);
     useEffect(() => {
         const stop = onLiveError(message => setProblem(message));
         return () => {

@@ -5,12 +5,12 @@ import {t} from '../../lib/texts';
 import {dayMonth, dayShort, decimal, money, monthInSentence, monthShort, monthYear, personName, time} from '../../lib/format';
 import {useRouter} from '../../lib/router';
 import {Screen} from '../../ui/Screen';
-import {DateField, EmailField, ListRow, MoneyField, PhotoPicker, SearchField, SelectField, TextArea, TextField} from '../../ui/Fields';
+import {DateField, EmailField, ListRow, MenuText, MoneyField, PhotoPicker, SearchField, SelectField, TextArea, TextField} from '../../ui/Fields';
 import {Icon} from '../../ui/Icon';
 import {Sheet, useConfirm, useSheetRoute, useToast} from '../../ui/Layers';
 import {DoneMessage, SchoolLogo} from '../shared/pieces';
 import {SCHOOL_LOGOS} from '../../mock/data';
-import {ADMIN_LOG, BILLING_PAYMENTS, detailsOf, SCHOOL_ROWS} from '../../mock/admin';
+import {ADMIN_LOG, APP_USAGE, BILLING_PAYMENTS, detailsOf, SCHOOL_ROWS} from '../../mock/admin';
 import {LanguageRow, PasswordRow, SignOutButton, ThemeRow, LegalRow} from '../shared/Common';
 
 /** The platform admin panel: schools, their billing, usage counts. Never a school's students or records. */
@@ -65,6 +65,88 @@ export function Schools() {
                     })}</span>}
                 </button>
             ))}
+        </Screen>
+    );
+}
+
+/** All-school usage overview, with a school picker for the same aggregate event list. */
+export function AdminUsage() {
+    const detail = useSheetRoute('usage');
+    const [school, setSchool] = useState('all');
+    const selectedEvent = detail.item;
+    const selectedRow = APP_USAGE.find(row => row.event === selectedEvent);
+    const selectedTitle = selectedRow
+        ? t(selectedRow.event === 'screen_view' ? 'admin.screenViews'
+            : selectedRow.event === 'menu.payments' ? 'admin.menuPayments'
+            : selectedRow.event === 'menu.classes' ? 'admin.menuClasses'
+            : selectedRow.event === 'button.notices' ? 'admin.openNotices'
+            : selectedRow.event === 'menu.students' ? 'admin.menuStudents'
+            : selectedRow.event === 'button.register_student' ? 'admin.registerStudent'
+            : selectedRow.event === 'payment.review_confirmed' ? 'admin.confirmPayment'
+            : selectedRow.event === 'button.card' ? 'admin.openCard'
+            : selectedRow.event === 'payment.screenshot_upload' ? 'admin.uploadScreenshot'
+            : 'admin.otherAction')
+        : '';
+    const schoolRows = school === 'all'
+        ? APP_USAGE
+        : APP_USAGE.map(row => ({...row, count: Math.max(1, Math.round(row.count * (SCHOOL_ROWS.find(item => item.id === school)?.students ?? 10) / 58))}));
+    const options = [
+        {value: 'all', label: t('admin.allSchools')},
+        ...SCHOOL_ROWS.map(item => ({value: item.id, label: item.name}))
+    ];
+    return (
+        <Screen title={t('admin.usage')} subtitle={t('admin.usagePeriod')}>
+            <div className="heading-pick">
+                {t('admin.schoolFilter')}
+                <MenuText id="au-school" label={t('admin.schoolFilter')} value={school}
+                          onChange={setSchool} options={options}/>
+            </div>
+            <div className="stats">
+                <div className="stat"><strong>{school === 'all' ? SCHOOL_ROWS.reduce((sum, item) => sum + item.checkins, 0) : SCHOOL_ROWS.find(item => item.id === school)?.checkins ?? 0}</strong>{t('admin.checkins')}</div>
+                <div className="stat"><strong>{school === 'all' ? SCHOOL_ROWS.reduce((sum, item) => sum + item.active, 0) : SCHOOL_ROWS.find(item => item.id === school)?.active ?? 0}</strong>{t('admin.activePeople')}</div>
+                <div className="stat"><strong>{school === 'all' ? SCHOOL_ROWS.length : 1}</strong>{t('admin.schoolsCount')}</div>
+            </div>
+            <h3 className="section-title">{t('admin.topActions')}</h3>
+            <ul className="list">
+                {schoolRows.map(row => (
+                    <ListRow key={row.event}
+                             title={t(row.event === 'screen_view' ? 'admin.screenViews'
+                                 : row.event === 'menu.payments' ? 'admin.menuPayments'
+                                 : row.event === 'menu.classes' ? 'admin.menuClasses'
+                                 : row.event === 'button.notices' ? 'admin.openNotices'
+                                 : row.event === 'menu.students' ? 'admin.menuStudents'
+                                 : row.event === 'button.register_student' ? 'admin.registerStudent'
+                                 : row.event === 'payment.review_confirmed' ? 'admin.confirmPayment'
+                                 : row.event === 'button.card' ? 'admin.openCard'
+                                 : row.event === 'payment.screenshot_upload' ? 'admin.uploadScreenshot'
+                                 : 'admin.otherAction')}
+                             right={<span className="big num">{row.count}</span>}
+                             onClick={() => detail.show(row.event)}/>
+                ))}
+            </ul>
+            <p className="hint">{t('admin.usagePrivacy')}</p>
+            <Sheet open={detail.open} onClose={detail.close} title={selectedTitle}
+                   subtitle={school === 'all' ? t('admin.allSchools') : SCHOOL_ROWS.find(item => item.id === school)?.name}>
+                {selectedRow && (
+                    <>
+                        <div className="card">
+                            <span className="small muted">{t('admin.usagePeriod')}</span>
+                            <span className="huge num">{school === 'all'
+                                ? selectedRow.count
+                                : Math.max(1, Math.round(selectedRow.count * (SCHOOL_ROWS.find(item => item.id === school)?.students ?? 10) / 58))}</span>
+                            <span className="small">{t('admin.totalUses')}</span>
+                        </div>
+                        <h3 className="section-title">{t('admin.bySchool')}</h3>
+                        <ul className="list">
+                            {SCHOOL_ROWS.map(item => (
+                                <ListRow key={item.id} left={<SchoolLogo school={item.id} size="sm"/>}
+                                         title={item.name}
+                                         right={<span className="big num">{Math.max(1, Math.round(selectedRow.count * item.students / 58))}</span>}/>
+                            ))}
+                        </ul>
+                    </>
+                )}
+            </Sheet>
         </Screen>
     );
 }

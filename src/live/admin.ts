@@ -1,6 +1,7 @@
 import {supabase} from '../lib/supabase';
 import {
     ADMIN_LOG,
+    APP_USAGE,
     BILLING_PAYMENTS,
     DETAILS,
     SCHOOL_ROWS,
@@ -34,13 +35,17 @@ function standing(fee: number, day: number, trialEnds: string, paid: Set<string>
 }
 
 export async function loadAdmin(): Promise<void> {
-    const [schools, billing, members, people, payments, log, usage, emails] = await Promise.all([
+    const [schools, billing, members, people, payments, log, usage, emails, appUsage] = await Promise.all([
         rows('school'), rows('school_billing'), rows('membership', 'school_id, person_id, role, status', q => q.eq('role', 'director')),
         rows('person', 'id, full_name, phone'), rows('billing_payment', '*', q => q.order('paid_on', {ascending: false})),
         rows('admin_log', '*', q => q.order('created_at', {ascending: false}).limit(200)),
         supabase.rpc('admin_usage').then(({data}) => (data ?? []) as Record<string, unknown>[]),
         supabase.rpc('admin_director_emails').then(({data}) => (data ?? []) as { school_id: string; person_id: string; email: string }[]),
+        supabase.rpc('app_usage_summary').then(({data}) => (data ?? []) as {event_name: string; event_count: number}[]),
     ]);
+    if (appUsage.length) {
+        APP_USAGE.splice(0, APP_USAGE.length, ...appUsage.map(row => ({event: str(row.event_name), count: num(row.event_count)})));
+    }
     const person = new Map(people.map(p => [str(p.id), p]));
     SCHOOL_ROWS.splice(0, SCHOOL_ROWS.length, ...schools.map((s): SchoolRow => {
         const id = str(s.id);

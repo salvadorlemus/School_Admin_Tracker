@@ -10,6 +10,7 @@ import {CardSheet} from '../screens/shared/CardSheet';
 import {PROOFS, REVIEWED, SCHOOLS, STAFF_ME, TEACHERS, teacherSchools, unreadNotices, isPass} from '../mock/data';
 import {directorGrowthPaused} from '../mock/admin';
 import {setCurrentSchool, useCurrentSchool} from '../state/school';
+import {trackEvent} from '../lib/analytics';
 
 export type Role = 's' | 'g' | 't' | 'd' | 'a';
 
@@ -48,6 +49,7 @@ const NAVS: Record<Role, NavItem[]> = {
     ],
     a: [
         {label: 'nav.schools', path: '/a/schools', icon: 'school'},
+        {label: 'nav.usage', path: '/a/usage', icon: 'chart'},
         {label: 'nav.payments', path: '/a/payments', icon: 'pay'},
         {label: 'nav.log', path: '/a/log', icon: 'log'},
         {label: 'nav.account', path: '/a/account', icon: 'user'},
@@ -157,21 +159,30 @@ export function Screen({title, subtitle, titleLine, back, onBack, nav = true, fo
                         <button type="button" className="icon-btn" aria-label={t('dstu.register')}
                                 disabled={directorGrowthPaused(school)}
                                 title={directorGrowthPaused(school) ? t('billing.growthPaused') : undefined}
-                                onClick={() => router.navigate('/d/register')}>
+                                onClick={() => {
+                                    trackEvent('button.register_student', router.path, role);
+                                    router.navigate('/d/register');
+                                }}>
                             <Icon name="userPlus"/>
                         </button>
                     )}
                     {showCard && (
                         <button type="button" className="icon-btn"
                                 aria-label={t(role === 'g' ? 'top.cardsGuardian' : role === 't' || role === 'd' ? 'staff.myCard' : 'top.card')}
-                                onClick={() => card.show()}>
+                                onClick={() => {
+                                    trackEvent('button.card', router.path, role);
+                                    card.show();
+                                }}>
                             <Icon name="card"/>
                         </button>
                     )}
                     {showNotices && (
                         <button type="button" className="icon-btn"
                                 aria-label={unread ? t('top.noticesUnread', {count: unread}) : t('top.notices')}
-                                onClick={() => notices.show()}>
+                                onClick={() => {
+                                    trackEvent('button.notices', router.path, role);
+                                    notices.show();
+                                }}>
                             <Icon name="bell"/>
                             {unread > 0 && <span className="badge" aria-hidden="true">{unread}</span>}
                         </button>
@@ -201,7 +212,11 @@ export function Screen({title, subtitle, titleLine, back, onBack, nav = true, fo
                             : item.badge;
                         return (
                             <button key={item.path} type="button" aria-current={current ? 'page' : undefined}
-                                    onClick={() => router.path !== item.path && router.navigate(item.path, {tab: true})}>
+                                    onClick={() => {
+                                        if (router.path === item.path) return;
+                                        trackEvent(`menu.${item.path.split('/').pop()}`, router.path, role);
+                                        router.navigate(item.path, {tab: true});
+                                    }}>
                                 <Icon name={item.icon}/>
                                 {badge && <span className="badge" aria-hidden="true">{badge}</span>}
                                 {t(item.label)}

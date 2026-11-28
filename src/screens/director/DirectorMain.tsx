@@ -30,6 +30,7 @@ import {SCHOOL_ROWS} from '../../mock/admin';
 import {directorGrowthPaused, proofReviewPressure} from '../../mock/admin';
 import {SCHOOL_PAYMENT_METHODS, paymentMethodLabel, type PaymentMethod} from '../../mock/data';
 import {savePaymentMethods} from '../../mock/changes';
+import {trackEvent} from '../../lib/analytics';
 import {SummaryView} from './Insights';
 import {paymentState, payRule, periodsOf, teacherPay} from '../../mock/pay';
 import {coversText, planText} from '../shared/labels';
@@ -1039,6 +1040,7 @@ export function Review({id}: { id: string }) {
     const done = (message: string, fromSheet = false) => {
         decideProof(proof.id, fromSheet ? 'rejected' : 'confirmed', reason.trim());
         REVIEWED.add(proof.id);
+        trackEvent(fromSheet ? 'payment.review_rejected' : 'payment.review_confirmed', router.path, 'd');
         toast(message);
         const next = queue.find(item => !REVIEWED.has(item.id));
         const url = next ? `/d/payments/review/${next.id}` : '/d/payments/review/done';

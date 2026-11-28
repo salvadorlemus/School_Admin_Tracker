@@ -17,6 +17,7 @@ import {ClassSheet} from './ClassSheet';
 import {LanguageRow, NavRow, PasswordRow, SignOutButton, ThemeRow, LegalRow} from '../shared/Common';
 import {coversText} from '../shared/labels';
 import {ListRow} from '../../ui/Fields';
+import {trackEvent} from '../../lib/analytics';
 
 /**
  * Student and guardian screens. The same screens serve both: /s/... is Sofía (an adult in two
@@ -472,6 +473,10 @@ export function Upload() {
                             return;
                         }
                     }
+                    trackEvent('payment.screenshot_upload', router.path, guardian ? 'g' : 's', {
+                        method,
+                        kind: plan.kind,
+                    });
                     toast(t('upload.sent'));
                     router.back(`${base}/payments`);
                 }}>{t(sending ? 'upload.sending' : 'upload.send')}</button>}>
